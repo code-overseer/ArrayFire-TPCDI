@@ -17,7 +17,6 @@
 #include <af/opencl.h>
 
 using namespace af;
-using namespace std;
 using namespace hmdf;
 char const* CSTMGMT = "/Users/bryanwong/Documents/MPSI/Data/Batch1/CustomerMgmt.xml";
 char const* HR = "/Users/bryanwong/Documents/MPSI/Data/Batch1/HR.csv";
@@ -25,7 +24,9 @@ typedef unsigned short ushort;
 int main(int argc, char *argv[])
 {
   auto o = CSVObject::parse(HR, false);
-  o.printRow(cout, 0);
-  
+  auto v = o.select(5, [](std::string a){return !a.compare("314");});
+  auto p = CSVObject(o, v);
+  o.trim(v);
+
 }
 

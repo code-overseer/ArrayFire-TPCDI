@@ -35,18 +35,20 @@ private:
   std::vector<std::vector<std::string>>* _data = new std::vector<std::vector<std::string>>();
 public:
   static CSVObject parse(char const* filename, bool header);
-  std::vector<ulong> select(int column, std::function<bool(std::string)> predicate);
+  std::vector<ulong> select(int column, std::function<bool(std::string)> predicate) const;
   CSVObject() {};
-  CSVObject(CSVObject& src, std::vector<ulong> selected);
+  CSVObject(CSVObject& src, std::vector<ulong>& selected);
   virtual ~CSVObject() {
     delete _data;
   }
   bool nameColumn(std::string name, ulong idx);
   bool nameColumn(std::string name, std::string old);
-  void printRow(std::ostream& str, ulong row);
-  void printColumn(std::ostream& str, ulong col);
-  std::string get(ulong row, ulong col);
-  
+  void printRow(std::ostream& str, ulong row) const;
+  void printColumn(std::ostream& str, ulong col) const;
+  void trim(std::vector<ulong>& selected);
+  std::string get(ulong row, ulong col) const;
+  ulong length() const;
+  ulong width() const;
 };
 
 #endif /* CSVObject_hpp */
