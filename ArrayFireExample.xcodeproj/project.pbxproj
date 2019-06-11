@@ -9,10 +9,11 @@
 /* Begin PBXBuildFile section */
 		5228EB6C22B011B70047E9A4 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5228EB6B22B011B70047E9A4 /* OpenCL.framework */; };
 		5228EB7222B019900047E9A4 /* CSVObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5228EB7022B019900047E9A4 /* CSVObject.cpp */; };
+		5228EB7522B04A560047E9A4 /* Utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5228EB7322B04A560047E9A4 /* Utils.cpp */; };
+		5228EB7822B04B460047E9A4 /* AFCSVParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5228EB7622B04B460047E9A4 /* AFCSVParser.cpp */; };
 		5252595522AFF00F00A24084 /* libDataFrame.1.0.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5252595422AFF00F00A24084 /* libDataFrame.1.0.0.dylib */; };
 		5264034022AEB2AB009E2E00 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5264033F22AEB2AB009E2E00 /* main.cpp */; };
 		5264035022AEB8EC009E2E00 /* libafopencl.3.6.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5264034722AEB394009E2E00 /* libafopencl.3.6.4.dylib */; };
-		5264035222AEBB24009E2E00 /* AFTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5264035122AEBB24009E2E00 /* AFTest.cpp */; };
 		5264035622AED247009E2E00 /* RapidxmlTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5264035422AED247009E2E00 /* RapidxmlTest.cpp */; };
 /* End PBXBuildFile section */
 
@@ -32,13 +33,15 @@
 		5228EB6B22B011B70047E9A4 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
 		5228EB7022B019900047E9A4 /* CSVObject.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CSVObject.cpp; sourceTree = "<group>"; };
 		5228EB7122B019900047E9A4 /* CSVObject.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = CSVObject.hpp; sourceTree = "<group>"; };
+		5228EB7322B04A560047E9A4 /* Utils.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Utils.cpp; sourceTree = "<group>"; };
+		5228EB7422B04A560047E9A4 /* Utils.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Utils.hpp; sourceTree = "<group>"; };
+		5228EB7622B04B460047E9A4 /* AFCSVParser.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AFCSVParser.cpp; sourceTree = "<group>"; };
+		5228EB7722B04B460047E9A4 /* AFCSVParser.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AFCSVParser.hpp; sourceTree = "<group>"; };
 		5252595422AFF00F00A24084 /* libDataFrame.1.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libDataFrame.1.0.0.dylib; path = ../../../../../usr/local/lib/libDataFrame.1.0.0.dylib; sourceTree = "<group>"; };
 		5264033C22AEB2AB009E2E00 /* ArrayFireExample */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ArrayFireExample; sourceTree = BUILT_PRODUCTS_DIR; };
 		5264033F22AEB2AB009E2E00 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		5264034722AEB394009E2E00 /* libafopencl.3.6.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libafopencl.3.6.4.dylib; path = ../../../../../opt/arrayfire/lib/libafopencl.3.6.4.dylib; sourceTree = "<group>"; };
 		5264034C22AEB642009E2E00 /* libafcpu.3.6.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libafcpu.3.6.4.dylib; path = ../../../../../opt/arrayfire/lib/libafcpu.3.6.4.dylib; sourceTree = "<group>"; };
-		5264035122AEBB24009E2E00 /* AFTest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AFTest.cpp; sourceTree = "<group>"; };
-		5264035322AEBBBF009E2E00 /* AFTest.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = AFTest.hpp; sourceTree = "<group>"; };
 		5264035422AED247009E2E00 /* RapidxmlTest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RapidxmlTest.cpp; sourceTree = "<group>"; };
 		5264035522AED247009E2E00 /* RapidxmlTest.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = RapidxmlTest.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -80,10 +83,12 @@
 				5264033F22AEB2AB009E2E00 /* main.cpp */,
 				5264035422AED247009E2E00 /* RapidxmlTest.cpp */,
 				5264035522AED247009E2E00 /* RapidxmlTest.hpp */,
-				5264035122AEBB24009E2E00 /* AFTest.cpp */,
-				5264035322AEBBBF009E2E00 /* AFTest.hpp */,
 				5228EB7022B019900047E9A4 /* CSVObject.cpp */,
 				5228EB7122B019900047E9A4 /* CSVObject.hpp */,
+				5228EB7322B04A560047E9A4 /* Utils.cpp */,
+				5228EB7422B04A560047E9A4 /* Utils.hpp */,
+				5228EB7622B04B460047E9A4 /* AFCSVParser.cpp */,
+				5228EB7722B04B460047E9A4 /* AFCSVParser.hpp */,
 			);
 			path = ArrayFireExample;
 			sourceTree = "<group>";
@@ -157,8 +162,9 @@
 			files = (
 				5264034022AEB2AB009E2E00 /* main.cpp in Sources */,
 				5228EB7222B019900047E9A4 /* CSVObject.cpp in Sources */,
+				5228EB7822B04B460047E9A4 /* AFCSVParser.cpp in Sources */,
 				5264035622AED247009E2E00 /* RapidxmlTest.cpp in Sources */,
-				5264035222AEBB24009E2E00 /* AFTest.cpp in Sources */,
+				5228EB7522B04A560047E9A4 /* Utils.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

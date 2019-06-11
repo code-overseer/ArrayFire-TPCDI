@@ -9,7 +9,6 @@
 #ifndef CSVObject_hpp
 #define CSVObject_hpp
 
-#include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -29,8 +28,8 @@ struct Slice {
 
 class CSVObject {
 private:
-  static std::vector<Slice> _findRowSlice(std::string const csv);
-  static std::vector<Slice> _findColSlice(std::string const csv, Slice const row);
+  static std::vector<Slice> _findRowSlice(std::string const &csv);
+  static std::vector<Slice> _findColSlice(std::string const &csv, Slice const row);
   std::unordered_map<std::string, ulong> _columnNames;
   std::vector<std::vector<std::string>>* _data = new std::vector<std::vector<std::string>>();
 public:

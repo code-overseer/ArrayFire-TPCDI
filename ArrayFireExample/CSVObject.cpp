@@ -7,6 +7,7 @@
 //
 
 #include "CSVObject.hpp"
+#include "Utils.hpp"
 
 using String = std::string;
 template<typename T>
@@ -14,19 +15,7 @@ using Vector = std::vector<T>;
 template<typename T>
 using Predicate = std::function<bool(T)>;
 
-std::string textToString(char const *filename) {
-  std::ifstream file(filename);
-  std::string data;
-  file.seekg(0, std::ios::end);
-  data.reserve(file.tellg());
-  file.seekg(0, std::ios::beg);
-  data.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-  file.close();
-  return data;
-}
-
 CSVObject CSVObject::parse(const char *filename, bool header) {
-  std::ifstream file(filename);
   String csv = textToString(filename);
   CSVObject output;
   auto data = output._data;
@@ -55,7 +44,7 @@ CSVObject::CSVObject(CSVObject& src, Vector<ulong>& selected) {
   }
 }
 
-Vector<Slice> SliceCSV(char c, String csv) {
+Vector<Slice> SliceCSV(char c, String const &csv) {
   ulong start = 0;
   ulong end = 0;
   std::vector<Slice> r;
@@ -68,11 +57,11 @@ Vector<Slice> SliceCSV(char c, String csv) {
   return r;
 }
 
-Vector<Slice> CSVObject::_findRowSlice(std::string const csv) {
+Vector<Slice> CSVObject::_findRowSlice(String const &csv) {
   return SliceCSV('\n', csv);
 }
 
-Vector<Slice> CSVObject::_findColSlice(std::string const csv, Slice const row) {
+Vector<Slice> CSVObject::_findColSlice(String const &csv, Slice const row) {
   return SliceCSV(',', csv.substr(row.start, row.length));
 }
 
