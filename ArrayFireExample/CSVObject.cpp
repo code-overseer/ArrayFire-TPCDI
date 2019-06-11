@@ -1,0 +1,110 @@
+//
+//  CSVObject.cpp
+//  ArrayFireExample
+//
+//  Created by Bryan Wong on 6/11/19.
+//  Copyright © 2019 Bryan Wong. All rights reserved.
+//
+
+#include "CSVObject.hpp"
+
+using string = std::string;
+template<typename T>
+using vector = std::vector<T>;
+template<typename T>
+using Predicate = std::function<bool(T)>;
+
+std::string textToString(char const* filename) {
+  std::ifstream file(filename);
+  std::string data;
+  file.seekg(0, std::ios::end);
+  data.reserve(file.tellg());
+  file.seekg(0, std::ios::beg);
+  data.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+  file.close();
+  return data;
+}
+
+CSVObject CSVObject::parse(const char *filename, bool header) {
+  std::ifstream file(filename);
+  string csv = textToString(filename);
+  CSVObject output;
+  auto data = output._data;
+  auto rows = _findRowSlice(csv);
+  
+  for (Slice r: rows) {
+    auto cols = _findColSlice(csv, r);
+    for (ulong c_idx = 0; c_idx < cols.size(); c_idx++) {
+      auto c = cols[c_idx];
+      if (c_idx == data->size()) data->push_back(vector<string>());
+      (*data)[c_idx].push_back(csv.substr(r.start, r.length).substr(c.start, c.length));
+    }
+  }
+  return output;
+}
+
+CSVObject::CSVObject(CSVObject& src, vector<ulong> selected) {
+  
+}
+
+vector<Slice> SliceCSV(char c, string csv) {
+  ulong start = 0;
+  ulong end = 0;
+  std::vector<Slice> r;
+  for (auto i = csv.begin(); i != csv.end(); i++, end++) {
+    if (c == *i) {
+      r.push_back(Slice(start, end));
+      start = end + 1;
+    }
+  }
+  return r;
+}
+
+vector<Slice> CSVObject::_findRowSlice(std::string const csv) {
+  return SliceCSV('\n', csv);
+}
+
+vector<Slice> CSVObject::_findColSlice(std::string const csv, Slice const row) {
+  return SliceCSV(',', csv.substr(row.start, row.length));
+}
+
+std::vector<ulong> CSVObject::select(int column, Predicate<string> func) {
+  std::vector<ulong> selected_rows;
+  for (ulong i = 0; i < _data->size(); i++) {
+    if (func((*_data)[i][column])) selected_rows.push_back(i);
+  }
+  std::sort(selected_rows.begin(), selected_rows.end());
+  return selected_rows;
+}
+
+void CSVObject::printRow(std::ostream& str, ulong row) {
+  int i = 0;
+  for (; i < _data->size() - 1; i++) {
+    str << (*_data)[i][row] << ',';
+  }
+  str<<(*_data)[i][row]<<std::endl;
+}
+
+void CSVObject::printColumn(std::ostream& str, ulong col) {
+  for (auto r: (*_data)[col]) {
+    str << r << '\n';
+  }
+  str<<std::endl;
+}
+
+string CSVObject::get(ulong row, ulong col) {
+  return (*_data)[row][col];
+}
+
+bool CSVObject::nameColumn(string name, ulong idx) {
+  return _columnNames.insert(std::make_pair(name, idx)).second;
+}
+
+bool CSVObject::nameColumn(string name, string old) {
+  if (!_columnNames.count(old)) return false;
+  auto idx = _columnNames[old];
+  auto result = _columnNames.insert(std::make_pair(name, idx)).second;
+  if (!result) return false;
+  _columnNames.erase(old);
+  return true;
+}
