@@ -14,26 +14,34 @@
 
 class AFCSVParser {
 private:
-  static af::array _findRowSlice(std::string const &csv);
-  static af::array _findColSlice(std::string const &csv, unsigned long start, unsigned long length);
   std::unordered_map<std::string, unsigned long> _columnNames;
-  std::vector<std::vector<std::string>>* _data = new std::vector<std::vector<std::string>>();
+  af::array _data;
+  af::array _indexer;
+  unsigned long _length;
+  unsigned long _width;
+  std::string _getString() const;
 public:
   static AFCSVParser parse(char const* filename, bool header);
-  af::array select(int column, std::function<bool(std::string)> predicate) const;
+  static af::array findChar(char c, af::array &csv);
   AFCSVParser() {};
-  AFCSVParser(AFCSVParser &src, af::array &selected);
-  virtual ~AFCSVParser() {
-    delete _data;
-  }
+  AFCSVParser(af::array &data, af::array &indexer) : _data(data), _indexer(indexer) {};
+  AFCSVParser(AFCSVParser &src, af::array &selected_rows);
   bool nameColumn(std::string name, unsigned long idx);
   bool nameColumn(std::string name, std::string old);
   void printRow(std::ostream& str, unsigned long row) const;
   void printColumn(std::ostream& str, unsigned long col) const;
-  void trim(af::array &selected);
-  std::string get(unsigned long row, unsigned long col) const;
-  unsigned long length() const;
-  unsigned long width() const;
+  /* trim columns */
+  void trim(af::array &selected_rows);
+  /* Returns specific field in csv */
+  std::string get(dim_t row, dim_t col) const;
+  /* Returns number of rows */
+  unsigned long length() const { return _length; }
+  /* Returns number of columns */
+  unsigned long width() const { return _width; }
+  /* Returns ASCII integer array */
+  af::array const* getData() const { return &_data; }
+  /* Returns position of newline and commas */
+  af::array const* getIndexer() const { return &_indexer; }
 };
 
 
