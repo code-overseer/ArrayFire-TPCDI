@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5228EB6C22B011B70047E9A4 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5228EB6B22B011B70047E9A4 /* OpenCL.framework */; };
 		5228EB7222B019900047E9A4 /* CSVObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5228EB7022B019900047E9A4 /* CSVObject.cpp */; };
 		5228EB7522B04A560047E9A4 /* Utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5228EB7322B04A560047E9A4 /* Utils.cpp */; };
 		5228EB7822B04B460047E9A4 /* AFCSVParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5228EB7622B04B460047E9A4 /* AFCSVParser.cpp */; };
@@ -51,7 +50,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				52B94DAA22B178C60010F443 /* libaf.3.6.4.dylib in Frameworks */,
-				5228EB6C22B011B70047E9A4 /* OpenCL.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

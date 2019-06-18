@@ -9,6 +9,7 @@
 #include "AFCSVParser.hpp"
 #include "Utils.hpp"
 #include <exception>
+#include <sstream>
 
 using String = std::string;
 template<typename T>
@@ -19,28 +20,32 @@ typedef unsigned long ulong;
 using namespace af;
 
 array AFCSVParser::findChar(char c, array &csv) {
-  auto r = constant((int)c, 1, csv.elements());
-  r = csv - r;
-  r = iszero(r);
-  return where(r);
+  return where(csv == (int)c);
 }
 
 AFCSVParser AFCSVParser::parse(const char *filename, bool header) {
   AFCSVParser output;
-  String txt = textToString(filename);
-  
-  output._data = array(1, txt.size() + 1, txt.c_str());
-  auto row_end = findChar('\n', output._data);
-  output._length = row_end.elements();
-  auto row_start = shift(row_end + constant(1, output._length, u32), 1);
-  row_start *= iszero(iszero(iota(output._length, 1, u32)));
-  auto col_end = findChar(',', output._data);
-  output._width = col_end.elements()/output._length;
-  col_end = moddims(col_end, output._width, output._length);
-  col_end = reorder(col_end, 1, 0);
-  output._indexer = join(1,row_start, col_end, row_end);
-  
+  {
+    String txt = textToString(filename);
+    output._data = array(txt.size() + 1, txt.c_str());
+    output._data.eval();
+  }
+  output._generateIndexer();
   return output;
+}
+
+void AFCSVParser::_generateIndexer() {
+  auto row_end = findChar('\n', _data);
+  _length = row_end.elements();
+  auto row_start = shift(row_end + constant(1, _length, u32), 1);
+  row_start *= iota(_length, 1, u32) != 0;
+  auto col_end = findChar(',', _data);
+  
+  _width = col_end.elements()/_length;
+  col_end = moddims(col_end, _width, _length);
+  col_end = reorder(col_end, 1, 0);
+  _indexer = join(1,row_start, col_end, row_end);
+  _indexer.eval();
 }
 
 String AFCSVParser::get(dim_t row, dim_t col) const {
@@ -59,7 +64,7 @@ void AFCSVParser::printRow(std::ostream& str, unsigned long row) const {
   ulong start;
   ulong length;
   auto dat = _getString();
-  for (int i = 0; i < _width; i++) {
+  for (unsigned int i = 0; i < _width; i++) {
     start = idx[i * _length + row] + !!i;
     length = idx[(i + 1) * _length + row] - start;
     str << dat.substr(start, length);
@@ -91,7 +96,43 @@ String AFCSVParser::_getString() const {
   return out;
 }
 
-void AFCSVParser::trim(array& selected_rows) {
-  _length = selected_rows.elements();
-  _indexer = _indexer(selected_rows,span);
+void AFCSVParser::select(unsigned int col, char const* match) {
+  unsigned int const len = (unsigned int)strlen(match);
+  unsigned int const cond = !!col;
+  
+  auto starts = _indexer.col(col) + cond;
+  auto i = _indexer.col(col + 1) - starts;
+  auto out = i == len;
+  out = where(out);
+  // out contains the row indices where the string length matches the target string
+  starts = starts(out);
+  // starts contains the data indices where the string length matches the target string
+  i = tile(range(dim4(1,len),1,u32), starts.dims());
+  // i contains the character index of the target string
+  
+  auto str = tile(array(1, len, match), starts.dims());
+  i = tile(starts, 1, len) + i;
+  i = moddims(_data(i), i.dims()) - str;
+  i = where(!anyTrue(i,1));
+  i = out(i);
+  
+  _length = i.elements();
+  _indexer = _indexer(i, span);
+  _indexer.eval();
+  
+  i = max(_indexer.col(end) - _indexer.col(0)).as(u32);
+  array c = _indexer.col(0);
+  auto l = i.scalar<unsigned int>() + 1;
+  sync();
+  auto add = range(dim4(_indexer.col(0).dims(0), l), 1, u32);
+  auto lims = tile(_indexer.col(end), 1 , l);
+  c = tile(c, 1, l) + add;
+  c(where(c > lims)) = 0;
+  c = flat(reorder(c,1,0));
+  c = c(where(c));
+  c.eval();
+  _data = join(0,_data(c),constant(0,1,_data.type()));
+  _data.eval();
+  
+  _generateIndexer();
 }
