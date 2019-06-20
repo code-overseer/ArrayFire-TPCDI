@@ -7,90 +7,75 @@
 //
 
 #include "Utils.hpp"
+#include <cstring>
 
 using namespace af;
 char const* HOME = getenv("HOME");
-char const* HR = "/Downloads/HRs/HR";
-char const* CPU = "/Downloads/Results/CPU_trim.csv";
-char const* OCL = "/Downloads/Results/OCL_trim.csv";
+char const* HR = "/Downloads/TPCData/HR";
+char const* DATE = "/Downloads/TPCData/DateFormat";
 
-std::string textToString(char const *filename) {
-    std::ifstream file(filename);
-    std::string data;
-    file.seekg(0, std::ios::end);
-    data.reserve(file.tellg());
-    file.seekg(0, std::ios::beg);
-    data.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-    file.close();
-    return data;
+int isExists(unsigned int const scale, int scales[], int length) {
+    for (int i = 0; i < length; i++) {
+        if (scales[i] == scale) return i;
+    }
+    return -1;
 }
 
-void experiment() {
-    std::stringstream opencl;
-    std::stringstream cpu;
+std::string ParseAndTrim(Backend backend, int const device, unsigned int const runs, unsigned int const scale) {
+    std::stringstream ss;
     auto path = std::string(HOME);
     int s[] = {3,5,10,20,40,80,160,320};
+    int n = isExists(scale, s, 8);
+    if (n < 0) throw std::invalid_argument("scale does not exist");
+
     char sf [4];
     char out[32];
-    for (int i = 0; i <= 5; i++) {
-        setBackend(AF_BACKEND_CPU);
-        setDevice(0);
-        for (int j = 0; j < 8; j++)
+    setBackend(backend);
+    setDevice(device);
+    ss << infoString();
+
+    bool b = scale == 0;
+    for (int i = b ? 0 : scale; (b ? i < 8 : i == scale); i++) {
+        for (int j = 0; j < runs; j++)
         {
             auto scale = s[j];
             sprintf(sf, "%d", scale);
             {
-                auto cpu_o = AFCSVParser::parse((path + HR + sf + ".csv").c_str(), false);
                 sync();
                 timer::start();
-                cpu_o.select(5, "314");
+                auto parser = AFParser::parse((path + HR + sf + ".csv").c_str(), ',');
+                parser.select(5, "314");
                 sync();
                 sprintf(out, "%d, %g\n", scale, timer::stop());
 
-                if (i) cpu << out;
-            }
-        }
-        setBackend(AF_BACKEND_OPENCL);
-        setDevice(0);
-        for (int j = 0; j < 8; j++) {
-            auto scale = s[j];
-            sprintf(sf, "%d", scale);
-            {
-                auto opencl_o = AFCSVParser::parse((path + HR + sf + ".csv").c_str(), false);
-                sync();
-                timer::start();
-                opencl_o.select(5, "314");
-                sync();
-                sprintf(out, "%d, %g\n", scale, timer::stop());
-
-                if (i) opencl << out;
+                if (i) ss << out;
             }
         }
 
     }
-    std::ofstream fileout(path + CPU);
-    fileout << cpu.str();
-    fileout.close();
-    fileout = std::ofstream(path + OCL);
-    fileout << opencl.str();
-    fileout.close();
-    std::cout << cpu.str()<<std::endl;
-    std::cout << opencl.str()<<std::endl;
+    return ss.str();
 }
 
-void single_run(Backend const backend) {
-    auto path = std::string(HOME) + HR;
-    setBackend(backend);
-    setDevice(0);
-    char sf [4];
-    auto scale = 5;
-    sprintf(sf, "%d", scale);
-    path = (path + sf + ".csv");
-    auto o = AFCSVParser::parse(path.c_str(), false);
-    sync();
-    timer::start();
-    o.select(5, "314");
-    sync();
-    printf("scale: %d, elapsed time: %g\n", scale, timer::stop());
-    o.printColumn(std::cout, 5);
+void load_DimDate(AFParser &dimDate) {
+    char path[128] = {'\0'};
+    setBackend(AF_BACKEND_CPU);
+    strcat(path, HOME);
+    strcat(path, DATE);
+    strcat(path, ".txt");
+    std::cout<<path<<std::endl;
+    dimDate = AFParser::parse(path, '|');
+    array tmp;
+    dimDate.asDate(1, tmp, DateFormat::YYYYMMDD, true);
+
+
+}
+
+void load_DimBroker() {
+    char path[128] = {'\0'};
+    strcat(path, HOME);
+    strcat(path, HR);
+    strcat(path, "3.csv");
+
+    auto parser = AFParser::parse(path, ',');
+
 }

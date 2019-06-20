@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(ArrayFireExample)
+project(ArrayFire-TPCDI)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -10,19 +10,15 @@ FIND_PACKAGE(ArrayFire REQUIRED)
 INCLUDE_DIRECTORIES(${ArrayFire_INCLUDE_DIRS})
 
 
-add_executable(ArrayFireExample
+add_executable(ArrayFire-TPCDI
         rapidxml/rapidxml.hpp
         rapidxml/rapidxml_iterators.hpp
         rapidxml/rapidxml_print.hpp
         rapidxml/rapidxml_utils.hpp
-        AFCSVParser.cpp
-        AFCSVParser.hpp
-        CSVObject.cpp
-        CSVObject.hpp
+        AFParser.cpp
+        AFParser.hpp
         main.cpp
-        RapidxmlTest.cpp
-        RapidxmlTest.hpp
         Utils.cpp
-        Utils.hpp)
+        Utils.hpp Enums.h)
 
-TARGET_LINK_LIBRARIES(ArrayFireExample ${ArrayFire_Unified_LIBRARIES} )
+TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${ArrayFire_Unified_LIBRARIES} )

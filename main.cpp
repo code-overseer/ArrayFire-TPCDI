@@ -6,9 +6,9 @@ using namespace af;
 
 int main(int argc, char *argv[])
 {
-  //experiment();
-
-  single_run(AF_BACKEND_CPU);
-  return 0;
+    AFParser tmp;
+    load_DimDate(tmp);
+//    ParseAndTrim(AF_BACKEND_CPU, 0, 1, 3);
+    return 0;
 }
 
