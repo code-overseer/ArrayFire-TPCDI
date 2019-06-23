@@ -12,7 +12,7 @@
 using namespace af;
 char const* HOME = getenv("HOME");
 char const* HR = "/Downloads/TPCData/HR";
-char const* DATE = "/Downloads/TPCData/DateFormat";
+char const* DATE = "/Downloads/TPCData/Date";
 
 int isExists(unsigned int const scale, int scales[], int length) {
     for (int i = 0; i < length; i++) {
@@ -43,8 +43,8 @@ std::string ParseAndTrim(Backend backend, int const device, unsigned int const r
             {
                 sync();
                 timer::start();
-                auto parser = AFParser::parse((path + HR + sf + ".csv").c_str(), ',');
-                parser.select(5, "314");
+                AFParser parser((path + HR + sf + ".csv").c_str(), ',');
+                parser.stringMatch(5, "314");
                 sync();
                 sprintf(out, "%d, %g\n", scale, timer::stop());
 
@@ -56,26 +56,46 @@ std::string ParseAndTrim(Backend backend, int const device, unsigned int const r
     return ss.str();
 }
 
-void load_DimDate(AFParser &dimDate) {
+AFParser load_DimDate() {
     char path[128] = {'\0'};
     setBackend(AF_BACKEND_CPU);
     strcat(path, HOME);
     strcat(path, DATE);
     strcat(path, ".txt");
-    std::cout<<path<<std::endl;
-    dimDate = AFParser::parse(path, '|');
-    array tmp;
-    dimDate.asDate(1, tmp, DateFormat::YYYYMMDD, true);
-
-
+    auto dimDate = AFParser(path, '|');
+    dimDate.asDate(1,YYYYMMDD,true);
+//    dimDate.asNum(0, false, true);
+    return dimDate;
 }
-
-void load_DimBroker() {
+//TODO test performance between GC and nonGC for GPU
+AFParser load_DimBroker() {
     char path[128] = {'\0'};
     strcat(path, HOME);
     strcat(path, HR);
     strcat(path, "3.csv");
+    auto dimBroker = AFParser(path, ',');
+    dimBroker.stringMatch(5, "314");
+//    dimBroker.printColumn(std::cout,5);
+    sync();
+    return dimBroker;
+}
 
-    auto parser = AFParser::parse(path, ',');
+AFParser test_SignedInt() {
+    char path[128] = {'\0'};
+    strcat(path, HOME);
+    strcat(path, "/Downloads/TPCData/TestInt.csv");
+    auto testInt = AFParser(path, ',');
+    testInt.asSigned32(0);
+    sync();
+    return testInt;
+}
 
+AFParser test_Float() {
+    char path[128] = {'\0'};
+    strcat(path, HOME);
+    strcat(path, "/Downloads/TPCData/TestFloat.csv");
+    auto testInt = AFParser(path, ',');
+    testInt.asFloat(0);
+    sync();
+    return testInt;
 }

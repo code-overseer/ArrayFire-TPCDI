@@ -21,5 +21,8 @@
 
 std::string ParseAndTrim(af::Backend backend, const int device = 0,
         const unsigned int runs = 1, const unsigned int scale = 0);
-void load_DimDate(AFParser &dimDate);
+AFParser load_DimDate();
+AFParser load_DimBroker();
+AFParser test_SignedInt();
+AFParser test_Float();
 #endif /* Utils_hpp */

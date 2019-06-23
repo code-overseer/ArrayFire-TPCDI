@@ -19,6 +19,6 @@ add_executable(ArrayFire-TPCDI
         AFParser.hpp
         main.cpp
         Utils.cpp
-        Utils.hpp Enums.h)
+        Utils.hpp Enums.h BatchFunctions.cpp BatchFunctions.h)
 
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${ArrayFire_Unified_LIBRARIES} )

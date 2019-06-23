@@ -6,9 +6,14 @@ using namespace af;
 
 int main(int argc, char *argv[])
 {
-    AFParser tmp;
-    load_DimDate(tmp);
-//    ParseAndTrim(AF_BACKEND_CPU, 0, 1, 3);
+//    AFParser tmp;
+//    auto t = load_DimDate();
+//    auto db = load_DimBroker();
+
+//    auto t = test_Float();
+test_SignedInt();
+
+
     return 0;
 }
 
