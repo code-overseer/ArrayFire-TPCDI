@@ -58,13 +58,11 @@ std::string ParseAndTrim(Backend backend, int const device, unsigned int const r
 
 AFParser load_DimDate() {
     char path[128] = {'\0'};
-    setBackend(AF_BACKEND_CPU);
     strcat(path, HOME);
     strcat(path, DATE);
     strcat(path, ".txt");
     auto dimDate = AFParser(path, '|');
     dimDate.asDate(1,YYYYMMDD,true);
-//    dimDate.asNum(0, false, true);
     return dimDate;
 }
 //TODO test performance between GC and nonGC for GPU
@@ -75,7 +73,36 @@ AFParser load_DimBroker() {
     strcat(path, "3.csv");
     auto dimBroker = AFParser(path, ',');
     dimBroker.stringMatch(5, "314");
-//    dimBroker.printColumn(std::cout,5);
+    {
+        auto SK_BrokerID = range(dim4(dimBroker.length(),1),0,u32);
+        SK_BrokerID = AFParser::serializeUnsignedInt(SK_BrokerID);
+        dimBroker.insertInto(0, SK_BrokerID);
+    }
+    {
+        array IsCurrent(1,5, "True\n");
+        IsCurrent = tile(IsCurrent, dimBroker.length()).as(u8);
+        dimBroker.insertAsLast(IsCurrent);
+    }
+    {
+        auto BatchID = constant(1, dimBroker.length(), u8);
+        BatchID = AFParser::serializeUnsignedInt(BatchID);
+        dimBroker.insertAsLast(BatchID);
+    }
+    {
+        array Date;
+        {
+            auto dates = load_DimDate();
+            Date = dates.asDate(1, YYYYMMDD, true);
+            Date = sort(Date, 0);
+        }
+        Date = AFParser::serializeDate(Date(0));
+        Date = tile(Date, dimBroker.length()).as(u8);
+        dimBroker.insertAsLast(Date);
+        Date = AFParser::serializeDate(AFParser::endDate());
+        Date = tile(Date, dimBroker.length()).as(u8);
+        dimBroker.insertAsLast(Date);
+    }
+    dimBroker.printData();
     sync();
     return dimBroker;
 }

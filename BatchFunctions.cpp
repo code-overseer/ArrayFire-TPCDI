@@ -33,3 +33,7 @@ af::array BatchFunctions::batchSub(af::array const &lhs, af::array const &rhs) {
 af::array BatchFunctions::batchDiv(af::array const &lhs, af::array const &rhs) {
     return lhs / rhs;
 }
+
+af::array BatchFunctions::batchMod(af::array const &lhs, af::array const &rhs) {
+    return lhs % rhs;
+}

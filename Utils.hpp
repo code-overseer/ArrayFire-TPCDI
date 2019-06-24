@@ -25,4 +25,6 @@ AFParser load_DimDate();
 AFParser load_DimBroker();
 AFParser test_SignedInt();
 AFParser test_Float();
+template<typename T>
+void print(T i) {std::cout << i << std::endl;}
 #endif /* Utils_hpp */

@@ -26,13 +26,17 @@ private:
     std::string _getString() const;
     void _generateIndexer();
     af::array _generateReversedCharacterIndices(int column) const;
+    af::array _prepareColumnForInsert(af::array input, bool toComma = true) const;
 public:
     explicit AFParser(char const *filename, char delimiter);
     AFParser() = default;
     virtual ~AFParser();
     static af::array findChar(char c, af::array const &txt);
     static af::array dateGenerator(uint16_t d = 0, uint16_t m = 0, uint16_t y = 0);
+    static af::array endDate();
+    static af::array serializeDate(af::array const &date);
     static std::string loadFile(char const *filename);
+    static af::array serializeUnsignedInt(af::array &integer);
     af::array asDate(int column, DateFormat inputFormat, bool isDelimited) const;
     af::array asDate(std::string column, DateFormat inputFormat, bool isDelimited);
     af::array asUnsigned32(int column);
@@ -41,11 +45,15 @@ public:
     af::array asSigned32(std::string column);
     af::array asFloat(int column);
     af::array asFloat(std::string column);
+    void insertInto(int column, af::array& serializedInput);
+    void insertAsFirst(af::array& serializedInput);
+    void insertAsLast(af::array& input);
 
     void nameColumn(std::string name, unsigned long idx);
     void nameColumn(std::string name, std::string old);
     void printRow(std::ostream& str, unsigned long row) const;
     void printColumn(std::ostream& str, unsigned long col) const;
+    void printData();
 
     void stringMatch(unsigned int col, char const *match);
     /* Returns specific field in csv */
