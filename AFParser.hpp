@@ -21,7 +21,10 @@ private:
     char _delimiter;
     unsigned long _length;
     unsigned long _width;
+    /* Excluding commas */
     uint32_t* _maxColumnWidths;
+    /* Excluding comma after the column */
+    uint32_t* _cumulativeMaxColumnWidths;
     uint32_t _maxRowWidth;
     std::string _getString() const;
     void _generateIndexer();
@@ -48,6 +51,7 @@ public:
     void insertInto(int column, af::array& serializedInput);
     void insertAsFirst(af::array& serializedInput);
     void insertAsLast(af::array& input);
+    void removeColumn(int column);
 
     void nameColumn(std::string name, unsigned long idx);
     void nameColumn(std::string name, std::string old);
@@ -55,13 +59,20 @@ public:
     void printColumn(std::ostream& str, unsigned long col) const;
     void printData();
 
-    void stringMatch(unsigned int col, char const *match);
-    /* Returns specific field in csv */
-    std::string get(dim_t row, dim_t col) const;
+    af::array stringMatch(unsigned int col, char const *match);
+
     /* Returns number of rows */
     unsigned long length() const { return _length; }
     /* Returns number of columns */
     unsigned long width() const { return _width; }
+
+    af::array _getLeftOf(int column) const;
+
+    af::array _getRightOf(int column) const;
+
+    void keepRows(af::array rows);
+
+    void removeRows(af::array rows);
 };
 
 

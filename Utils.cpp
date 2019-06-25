@@ -61,22 +61,31 @@ AFParser load_DimDate() {
     strcat(path, HOME);
     strcat(path, DATE);
     strcat(path, ".txt");
+    setBackend(AF_BACKEND_CPU);
     auto dimDate = AFParser(path, '|');
     dimDate.asDate(1,YYYYMMDD,true);
     return dimDate;
 }
-//TODO test performance between GC and nonGC for GPU
+
 AFParser load_DimBroker() {
     char path[128] = {'\0'};
+    setBackend(AF_BACKEND_CPU);
     strcat(path, HOME);
     strcat(path, HR);
     strcat(path, "3.csv");
     auto dimBroker = AFParser(path, ',');
-    dimBroker.stringMatch(5, "314");
+
+    {
+        auto rows = dimBroker.stringMatch(5, "314");
+        dimBroker.keepRows(rows);
+    }
+    dimBroker.removeColumn(5);
+
+
     {
         auto SK_BrokerID = range(dim4(dimBroker.length(),1),0,u32);
         SK_BrokerID = AFParser::serializeUnsignedInt(SK_BrokerID);
-        dimBroker.insertInto(0, SK_BrokerID);
+        dimBroker.insertAsFirst(SK_BrokerID);
     }
     {
         array IsCurrent(1,5, "True\n");
@@ -96,13 +105,12 @@ AFParser load_DimBroker() {
             Date = sort(Date, 0);
         }
         Date = AFParser::serializeDate(Date(0));
-        Date = tile(Date, dimBroker.length()).as(u8);
+        Date = tile(Date, dimBroker.length());
         dimBroker.insertAsLast(Date);
         Date = AFParser::serializeDate(AFParser::endDate());
-        Date = tile(Date, dimBroker.length()).as(u8);
+        Date = tile(Date, dimBroker.length());
         dimBroker.insertAsLast(Date);
     }
-    dimBroker.printData();
     sync();
     return dimBroker;
 }

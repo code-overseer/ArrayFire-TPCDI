@@ -27,6 +27,7 @@ AFParser::AFParser(char const *filename, char delimiter) {
     _width = 0;
     _maxRowWidth = 0;
     _maxColumnWidths = nullptr;
+    _cumulativeMaxColumnWidths = nullptr;
     _delimiter = delimiter;
 
     {
@@ -42,6 +43,7 @@ AFParser::AFParser(char const *filename, char delimiter) {
 
 AFParser::~AFParser() {
     if (_maxColumnWidths) af::freeHost(_maxColumnWidths);
+    if (_cumulativeMaxColumnWidths) af::freeHost(_cumulativeMaxColumnWidths);
 }
 
 array AFParser::findChar(char c, array const &txt) {
@@ -60,7 +62,6 @@ std::string AFParser::loadFile(char const *filename) {
 }
 
 void AFParser::_generateIndexer() {
-
     _data = join(0, _data, constant(0,1, u8));
     _data.eval();
     _indexer = findChar('\n', _data);
@@ -79,12 +80,14 @@ void AFParser::_generateIndexer() {
         _indexer = join(1, row_start, _indexer);
     }
     _indexer.eval();
+    if (_maxColumnWidths) af::freeHost(_maxColumnWidths);
+    if (_cumulativeMaxColumnWidths) af::freeHost(_cumulativeMaxColumnWidths);
     auto tmp = max(diff1(_indexer,1),0);
-    tmp -= join(1, constant(0, 1, u32), constant(1, dim4(1, tmp.dims(1) - 1), u32));
+    tmp -= range(tmp.dims(), 1, u8).as(b8);
     _maxColumnWidths = tmp.host<uint32_t>();
-    auto i = max(_indexer.col(end) - _indexer.col(0)).host<uint32_t>();
-    _maxRowWidth = *i;
-    freeHost(i);
+    tmp = accum(tmp, 1) + range(tmp.dims(), 1, u32);
+    _cumulativeMaxColumnWidths = tmp.host<uint32_t>();
+    _maxRowWidth = tmp.col(end).scalar<uint32_t>();
 }
 
 array AFParser::dateGenerator(uint16_t d, uint16_t m, uint16_t y) {
@@ -106,12 +109,14 @@ array AFParser::serializeDate(af::array const &date) {
     tmp = (tmp % 10).as(u8);
     tmp += '0';
     auto out = join(1, tmp.cols(0,3), delim, tmp.cols(4,5), delim);
-    return join(1, out, tmp.cols(6,7), constant('\n', out.dims(0), u8));
+    out = join(1, out, tmp.cols(6,7), constant('\n', out.dims(0), u8));
+    out.eval();
+    return out;
 }
 
 /* This creates a copy of the column, TODO need to deal with missing values */
 array AFParser::asDate(int const column, DateFormat inputFormat, bool isDelimited) const {
-    int8_t const i = column != 0;
+    int8_t const offset = column != 0;
     int8_t const len = isDelimited ? 10 : 8;
     std::pair<int8_t, int8_t> year;
     std::pair<int8_t, int8_t> month;
@@ -141,9 +146,10 @@ array AFParser::asDate(int const column, DateFormat inputFormat, bool isDelimite
         default:
             throw std::invalid_argument("No such format!");
     }
+
     array out;
     {
-        auto tmp = _indexer.col(column) + i;
+        auto tmp = _indexer.col(column) + offset;
         out = batchFunc(range(dim4(1, len), 1, u32), tmp, batchAdd);
     }
     out = moddims(_data(out), out.dims()) - '0';
@@ -222,7 +228,6 @@ array AFParser::asSigned32(int const column) {
         tmp = _data(tmp);
         tmp = (tmp - '0').as(u32);
         tmp.eval();
-        out = out;
         out(cond) = tmp;
         cond = where(out == '-' - '0');
         // cache negative rows
@@ -301,16 +306,6 @@ array AFParser::asFloat(std::string const column){
     return asFloat(_columnNames[column]);
 }
 
-std::string AFParser::get(dim_t row, dim_t col) const {
-    auto idx = _indexer.host<unsigned int>();
-    if (row > _length) throw std::invalid_argument("row index exceeds length");
-    if (col > _width) throw std::invalid_argument("col index exceeds width");
-    auto start = idx[col * _length + row] + !!col;
-    auto length = idx[(col + 1) * _length + row] - start;
-    freeHost(idx);
-    return _getString().substr(start, length);
-}
-
 void AFParser::printRow(std::ostream& str, unsigned long row) const {
     auto idx = _indexer.host<unsigned int>();
     if (row > _length) throw std::invalid_argument("row index exceeds length");
@@ -326,6 +321,7 @@ void AFParser::printRow(std::ostream& str, unsigned long row) const {
     str << std::endl;
     freeHost(idx);
 }
+
 void AFParser::printColumn(std::ostream& str, unsigned long col) const {
     auto idx = _indexer.host<unsigned int>();
     if (col > _width) throw std::invalid_argument("col index exceeds width");
@@ -371,41 +367,11 @@ af::array AFParser::serializeUnsignedInt(af::array &integer) {
 }
 
 void AFParser::insertAsFirst(af::array &serializedInput) {
-    serializedInput = _prepareColumnForInsert(serializedInput);
-    auto right = range(dim4(1, _maxRowWidth + 1), 1, u32);
-    right = batchFunc(right, _indexer.col(0), batchAdd);
-    {
-        auto rightDim = right.dims();
-        auto rightPad = where(batchFunc(right,_indexer.col(end),batchGreater));
-        _data = moddims(_data(right), rightDim);
-        _data(rightPad) = 0;
-    }
-    auto tmp = join(1, serializedInput, _data.as(u8));
-    _data = flat(reorder(tmp, 1, 0));
-    _data = _data(where(_data != 0));
-    _data.eval();
-    _generateIndexer();
-    return;
+    insertInto(0, serializedInput);
 }
 
 void AFParser::insertAsLast(af::array &input) {
-    input = _prepareColumnForInsert(input, false);
-    auto left = range(dim4(1, _maxRowWidth + 1), 1, u32);
-    left = batchFunc(left, _indexer.col(0), batchAdd);
-    {
-        auto leftDim = left.dims();
-        auto leftPad = where(batchFunc(left,_indexer.col(end),batchGreater));
-        _data = moddims(_data(left), leftDim);
-        _data(leftPad) = 0;
-        _data(findChar('\n', _data)) = ',';
-    }
-
-    auto tmp = join(1, _data.as(u8), input.as(u8));
-    _data = flat(reorder(tmp, 1, 0));
-    _data = _data(where(_data != 0));
-    _data.eval();
-    _generateIndexer();
-    return;
+    insertInto(_width, input);
 }
 
 array AFParser::_prepareColumnForInsert(af::array input, bool toComma) const {
@@ -423,48 +389,72 @@ array AFParser::_prepareColumnForInsert(af::array input, bool toComma) const {
     return input;
 }
 
-
 void AFParser::insertInto(int column, af::array &serializedInput) {
     if (column < 0) throw std::invalid_argument("Indices must be > 0");
     if (column > _width) throw std::invalid_argument("Indices must be < number of columns");
 
-    if (column == 0) {
-        insertAsFirst(serializedInput);
-        return;
-    }
-    if (column == _width) {
-        insertAsLast(serializedInput);
-        return;
-    }
-
-    serializedInput = _prepareColumnForInsert(serializedInput);
-    auto lhs = _maxColumnWidths[column - 1] + 1;
-    auto left = range(dim4(1, lhs), 1, u32);
-
-    left = batchFunc(left, _indexer.col(0), batchAdd);
+    serializedInput = _prepareColumnForInsert(serializedInput, column != _width);
+    auto left = _getLeftOf(column);
+    auto right = _getRightOf(column);
     {
-        auto leftDim = left.dims();
-        auto leftPad = where(batchFunc(left,_indexer.col(column),batchGreater));
-        left = moddims(_data(left), leftDim);
-        left(leftPad) = 0;
-    }
-    uint32_t rhs = _maxRowWidth - lhs + 1;
-    auto right = range(dim4(1, rhs), 1, u32);
-    right = batchFunc(right, _indexer.col(column) + 1, batchAdd);
-    {
-        auto rightDim = right.dims();
-        auto rightPad = where(batchFunc(right,_indexer.col(end),batchGreater));
-        right = moddims(_data(right), rightDim);
-        right(rightPad) = 0;
-    }
-    {
-        auto tmp = join(1, left, serializedInput, right);
+        auto tmp = join(1, left, serializedInput);
+        tmp = join(1, tmp, right);
+        tmp.eval();
         _data = flat(reorder(tmp, 1, 0));
         _data = _data(where(_data != 0));
         _data.eval();
         _generateIndexer();
     }
 
+}
+
+void AFParser::removeColumn(int column) {
+    if (column < 0) throw std::invalid_argument("Indices must be > 0");
+    if (column > _width) throw std::invalid_argument("Indices must be < number of columns");
+    array left = _getLeftOf(column);
+    array right = _getRightOf(column + 1);
+    {
+        auto tmp = join(1, left, right);
+        _data = flat(reorder(tmp, 1, 0));
+        _data = _data(where(_data != 0));
+        _data.eval();
+        _generateIndexer();
+    }
+}
+
+array AFParser::_getRightOf(int column) const {
+    if (column >= _width) return array(_indexer.dims(0), 0, u8);
+    auto const i = (uint32_t) (column != 0);
+    auto const j = ((column == 0) ? -1 : _cumulativeMaxColumnWidths[column - 1]);
+
+    auto rhs = _maxRowWidth - j;
+    auto right = range(dim4(1, rhs), 1, u32);
+    right = batchFunc(right, _indexer.col(column) + i, batchAdd);
+    {
+        auto rightDim = right.dims();
+        auto rightPad = where(batchFunc(right, _indexer.col(end), batchGreater));
+        right = moddims(_data(right), rightDim);
+        right(rightPad) = 0;
+        right.eval();
+    }
+    return right;
+}
+
+array AFParser::_getLeftOf(int column) const {
+    if (column <= 0) return array(_indexer.dims(0), 0, u8);
+    auto const i = column == _width;
+    auto lhs = _cumulativeMaxColumnWidths[column - 1] + 1;
+    auto left = range(dim4(1, lhs), 1, u32);
+    left = batchFunc(left, _indexer.col(0), batchAdd);
+    {
+        auto leftDim = left.dims();
+        auto leftPad = where(batchFunc(left, _indexer.col(!i * column + i * end), batchGreater));
+        left = moddims(_data(left), leftDim);
+        left(leftPad) = 0;
+        left(findChar('\n', left)) = ',';
+        left.eval();
+    }
+    return left;
 }
 
 std::string AFParser::_getString() const {
@@ -474,39 +464,42 @@ std::string AFParser::_getString() const {
     return out;
 }
 
-/* This function WILL change the original text array */
-void AFParser::stringMatch(unsigned int col, char const *match) {
+/* Returns rows that match */
+array AFParser::stringMatch(unsigned int col, char const *match) {
     auto const len = (unsigned int)strlen(match);
     unsigned int const offset = col != 0;
 
+    auto starts = _indexer.col(col) + offset;
+    auto i = _indexer.col(col + 1) - starts;
+    auto out = i == len; // Tests whether length matches the desired string length
+    out = where(out); // Gets row indices where length matches
+    out.eval();
+    starts = starts(out); // get the character array indices
+    starts.eval();
+    i = batchFunc(starts, range(dim4(1, len), 1, u32), batchAdd);
+
+    i = allTrue(batchFunc(moddims(_data(i), i.dims()), array(1, len, match), batchEqual), 1);
+    i = where(i); // get row indices where the string matches
+    i = out(i);
+    i.eval();
+    return i;
+}
+
+void AFParser::keepRows(af::array rows) {
     {
-        auto starts = _indexer.col(col) + offset;
-        auto i = _indexer.col(col + 1) - starts;
-        auto out = i == len; // Tests whether length matches the desired string length
-        out = where(out); // Gets row indices where length matches
-        out.eval();
-        starts = starts(out); // get the character array indices
-        starts.eval();
-
-        i = batchFunc(starts, range(dim4(1, len), 1, u32), batchAdd);
-        i = allTrue(batchFunc(moddims(_data(i), i.dims()), array(1, len, match), batchEqual), 1);
-        i = where(i); // get row indices where the string matches
-        i = out(i);
-        i.eval();
-        _length = i.elements();
-        _indexer = _indexer(i, span);
+        auto tmp = batchFunc(range(dim4(1, _maxRowWidth), 1, u32), _indexer(rows, 0), batchAdd);
+        tmp(where(batchFunc(tmp, _indexer(rows, end), batchGreater))) = UINT32_MAX;
+        tmp = flat(reorder(tmp, 1, 0));
+        tmp = tmp(where(tmp != UINT32_MAX));
+        tmp.eval();
+        _data = _data(tmp);
+        _data.eval();
     }
-
-    auto tmp = batchFunc(range(dim4(1, _maxRowWidth), 1, u32), _indexer.col(0), batchAdd);
-    tmp(where(batchFunc(tmp, _indexer.col(end), batchGreater))) = UINT32_MAX;
-    tmp = flat(reorder(tmp,1,0));
-    tmp = tmp(where(tmp != UINT32_MAX));
-    tmp.eval();
-    _data = join(0,_data(tmp),constant(0,1,_data.type()));
-    _data.eval();
-
     _generateIndexer();
-    sync();
+}
+
+void AFParser::removeRows(af::array rows) {
+
 }
 
 void AFParser::nameColumn(std::string const name, unsigned long const idx) {
