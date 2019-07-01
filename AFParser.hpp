@@ -11,68 +11,59 @@
 
 #include <arrayfire.h>
 #include <unordered_map>
+#include <iostream>
 #include "Enums.h"
+
+/* For debug */
+template<typename T>
+void print(T i) {std::cout << i << std::endl;}
 
 class AFParser {
 private:
-    std::unordered_map<std::string, unsigned long> _columnNames;
     af::array _data;
     af::array _indexer;
-    char _delimiter;
     unsigned long _length;
     unsigned long _width;
     /* Excluding commas */
     uint32_t* _maxColumnWidths;
     /* Excluding comma after the column */
     uint32_t* _cumulativeMaxColumnWidths;
-    uint32_t _maxRowWidth;
-    std::string _getString() const;
-    void _generateIndexer();
+
+    void _generateIndexer(char delimiter);
     af::array _generateReversedCharacterIndices(int column) const;
-    af::array _prepareColumnForInsert(af::array input, bool toComma = true) const;
+    void _makeUniform(int column, af::array &output, af::array &negatives, af::array &points) const;
 public:
     explicit AFParser(char const *filename, char delimiter);
+    explicit AFParser(std::string const &text, char delimiter);
     AFParser() = default;
     virtual ~AFParser();
-    static af::array findChar(char c, af::array const &txt);
-    static af::array dateGenerator(uint16_t d = 0, uint16_t m = 0, uint16_t y = 0);
-    static af::array endDate();
-    static af::array serializeDate(af::array const &date);
     static std::string loadFile(char const *filename);
-    static af::array serializeUnsignedInt(af::array &integer);
-    af::array asDate(int column, DateFormat inputFormat, bool isDelimited) const;
-    af::array asDate(std::string column, DateFormat inputFormat, bool isDelimited);
-    af::array asUnsigned32(int column);
-    af::array asUnsigned32(std::string column);
-    af::array asSigned32(int column);
-    af::array asSigned32(std::string column);
-    af::array asFloat(int column);
-    af::array asFloat(std::string column);
-    void insertInto(int column, af::array& serializedInput);
-    void insertAsFirst(af::array& serializedInput);
-    void insertAsLast(af::array& input);
-    void removeColumn(int column);
 
-    void nameColumn(std::string name, unsigned long idx);
-    void nameColumn(std::string name, std::string old);
-    void printRow(std::ostream& str, unsigned long row) const;
-    void printColumn(std::ostream& str, unsigned long col) const;
-    void printData();
 
-    af::array stringMatch(unsigned int col, char const *match);
+    void printData() const;
 
     /* Returns number of rows */
     unsigned long length() const { return _length; }
     /* Returns number of columns */
     unsigned long width() const { return _width; }
 
-    af::array _getLeftOf(int column) const;
+    af::array asDate(int column, DateFormat inputFormat, bool isDelimited) const;
 
-    af::array _getRightOf(int column) const;
+    af::array asUint(int column) const ;
 
-    void keepRows(af::array rows);
+    af::array asInt(int column) const ;
 
-    void removeRows(af::array rows);
+    af::array asFloat(int column) const ;
+
+    af::array asUlong(int column) const;
+
+    af::array asLong(int column) const;
+
+    af::array asDouble(int column) const;
+
+    af::array asString(int column) const;
+
+    af::array stringToBoolean(int column) const;
 };
 
 
