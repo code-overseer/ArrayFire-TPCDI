@@ -5,6 +5,7 @@
 #include "AFDataFrame.h"
 #include "BatchFunctions.h"
 #include "Tests.h"
+#include <thread>
 using namespace BatchFunctions;
 using namespace af;
 /* For debug */
@@ -54,7 +55,7 @@ std::vector<array> &AFDataFrame::data() {
     return _columns;
 }
 
-void AFDataFrame::_select() {
+void AFDataFrame::_flush() {
     for (auto i = _columns.begin(); i != _columns.end(); i++) {
         *i = (*i)(_rowIndexes, span);
         i->eval();
@@ -78,7 +79,7 @@ void AFDataFrame::stringLengthMatch(int column, size_t length) {
     data = data.cols(0, length);
     _rowIndexes = where(data.col(end) == 0 && data.col(end - 1));
     _rowIndexes.eval();
-    _select();
+    _flush();
 }
 
 void AFDataFrame::stringMatch(int column, char const* str) {
@@ -88,7 +89,7 @@ void AFDataFrame::stringMatch(int column, char const* str) {
     auto match = array(dim4(1, length + 1), str); // include \0
     _rowIndexes = where(allTrue(batchFunc(_columns[column], match, batchEqual), 1));
     _rowIndexes.eval();
-    _select();
+    _flush();
 }
 
 array AFDataFrame::dateKeyGen(int index) {
@@ -105,7 +106,7 @@ void AFDataFrame::dateSort(int index, bool ascending) {
     array out;
     array idx;
     sort(out, _rowIndexes, keys, 0, ascending);
-    _select();
+    _flush();
 }
 
 af::array AFDataFrame::endDate() {
@@ -113,5 +114,26 @@ af::array AFDataFrame::endDate() {
     return join(1, constant(9999, 1, u16), constant(12, 1, u16), constant(31, 1, u16));
 }
 
+void AFDataFrame::concatenate(AFDataFrame frame) {
+    if (_dataTypes.size() != frame._dataTypes.size()) throw std::runtime_error("Number of attributes do not match");
+    for (int i = 0; i < _dataTypes.size(); i++) {
+        if (frame._dataTypes[i] != _dataTypes[i])
+            throw std::runtime_error("Attribute types do not match");
+    }
 
+    for (int i = 0; i < _columns.size(); ++i) {
+        if (_dataTypes[i] == STRING) {
+            auto delta = _columns[i].dims(1) - frame._columns[i].dims(1);
+            if (delta > 0) {
+                auto back = constant(0, frame._columns[i].dims(0), delta, u8);
+                frame._columns[i] = join(1, frame._columns[i], back);
+            } else if (delta < 0) {
+                delta = -delta;
+                auto back = constant(0, _columns[i].dims(0), delta, u8);
+                _columns[i] = join(1, _columns[i], back);
+            }
+        }
+        _columns[i] = join(0, _columns[i], frame._columns[i]);
+    }
+}
 

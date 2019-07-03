@@ -12,15 +12,16 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
-
+#include "AFParser.hpp"
 
 void
-fillBlanks(int count, char const *fieldName, std::unordered_map<char const *, int> &tracker, std::string &data);
+fillBlanks(int &count, std::string fieldName, std::unordered_map<std::string, int> &tracker, std::string &data,
+           bool isAtt = false);
 
-void depthFirstAppend(std::string &data, rapidxml::xml_node<> *node, std::unordered_map<char const *, int> &tracker,
-                      rapidxml::xml_node<> *const root);
+void depthFirstAppend(std::string &data, rapidxml::xml_node<> *node, std::unordered_map<std::string, int> &tracker,
+        std::string branch, rapidxml::xml_node<> *root);
 
-void learnFieldNames(rapidxml::xml_node<> *node, std::unordered_map<char const *, int> &tracker,
-                     rapidxml::xml_node<> *const root);
+void learnFieldNames(rapidxml::xml_node<> *node, std::unordered_map<std::string, int> &tracker, std::string branch,
+                     rapidxml::xml_node<> *root);
 
 #endif //ARRAYFIRE_TPCDI_XMLFLATTENER_H

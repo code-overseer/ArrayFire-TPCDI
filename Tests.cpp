@@ -2,65 +2,79 @@
 #include "AFDataFrame.h"
 
 void test_SignedInt(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asInt(0);
     af_print(result)
     af::sync();
 }
 
 void test_UnsignedInt(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asUint(0);
     af_print(result)
     af::sync();
 }
 
+void test_UChar(char const *filepath) {
+    auto test = AFParser(filepath, ',', false);
+    auto result = test.asUchar(0);
+    af_print(result)
+    af::sync();
+}
+
 void test_Float(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asFloat(0);
     af_print(result)
     af::sync();
 }
 
 void test_Double(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asDouble(0);
     af_print(result)
     af::sync();
 }
 
 void test_UnsignedLong(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asUlong(0);
     af_print(result)
     af::sync();
 }
 
 void test_SignedLong(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asLong(0);
     af_print(result)
     af::sync();
 }
 
 void test_String(char const *filepath) {
-    auto test = AFParser(filepath, ',');
+    auto test = AFParser(filepath, ',', false);
     auto result = test.asString(0);
     af_print(result)
     af::sync();
 }
 
 void test_stringToBool(char const *filepath) {
-    auto test = AFParser(filepath, '|');
+    auto test = AFParser(filepath, '|', false);
     auto result = test.stringToBoolean(17);
     af_print(result)
     af::sync();
 }
 
 void test_Date(char const *filepath) {
-    auto test = AFParser(filepath, '|');
-    auto result = test.asDate(1, YYYYMMDD, true);
-//    af_print(result)
+    auto test = AFParser(filepath, ',', false);
+    auto result = test.asDate(0, YYYYMMDD, true);
+    af_print(result)
+    af::sync();
+}
+
+void test_Time(char const *filepath) {
+    auto test = AFParser(filepath, '|', false);
+    auto result = test.asTime(1);
+    af_print(result)
     af::sync();
 }
 

@@ -28,12 +28,14 @@ private:
     uint32_t* _maxColumnWidths;
     /* Excluding comma after the column */
     uint32_t* _cumulativeMaxColumnWidths;
+    char const* _filename;
 
-    void _generateIndexer(char delimiter);
+    void _generateIndexer(char const delimiter, bool hasHeader);
     af::array _generateReversedCharacterIndices(int column) const;
     void _makeUniform(int column, af::array &output, af::array &negatives, af::array &points) const;
+    af::array _numParse(int column, af::dtype type) const;
 public:
-    explicit AFParser(char const *filename, char delimiter);
+    explicit AFParser(char const *filename, char delimiter, bool hasHeader = false);
     explicit AFParser(std::string const &text, char delimiter);
     AFParser() = default;
     virtual ~AFParser();
@@ -49,6 +51,10 @@ public:
 
     af::array asDate(int column, DateFormat inputFormat, bool isDelimited) const;
 
+    af::array asUchar(int column) const;
+    af::array asUshort(int column) const;
+    af::array asShort(int column) const;
+
     af::array asUint(int column) const ;
 
     af::array asInt(int column) const ;
@@ -62,6 +68,8 @@ public:
     af::array asDouble(int column) const;
 
     af::array asString(int column) const;
+
+    af::array asTime(int column) const;
 
     af::array stringToBoolean(int column) const;
 };

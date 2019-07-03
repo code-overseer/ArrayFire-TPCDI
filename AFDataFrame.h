@@ -12,7 +12,7 @@
 
 class AFDataFrame {
 public:
-    enum DataType { INT, LONG, UINT, ULONG, FLOAT, DOUBLE, STRING, BOOL, DATE };
+    enum DataType { INT, SHORT, LONG, UINT, UCHAR, USHORT, ULONG, FLOAT, DOUBLE, STRING, BOOL, DATE, TIME };
     void add(af::array column, DataType type);
     void insert(af::array column, DataType type, int index);
     void remove(int index);
@@ -20,6 +20,7 @@ public:
     void dateSort(int index, bool ascending = true);
     void stringLengthMatch(int column, size_t len);
     void stringMatch(int column, char const* str);
+    void concatenate(AFDataFrame frame);
     static void printStr(af::array &str);
     static af::array endDate();
     virtual ~AFDataFrame();
@@ -30,7 +31,7 @@ private:
     unsigned long _length = 0;
     af::array _rowIndexes;
     std::unordered_map<std::string, unsigned int> _columnNames;
-    void _select();
+    void _flush();
     af::array _generateStringIndex(int column);
 };
 

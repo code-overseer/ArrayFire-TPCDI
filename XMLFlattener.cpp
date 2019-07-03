@@ -5,13 +5,15 @@
 #include "XMLFlattener.h"
 
 using namespace rapidxml;
+typedef std::unordered_map<std::string, int> SIMap;
 
 void
-fillBlanks(int count, char const *fieldName, std::unordered_map<char const *, int> &tracker, std::string &data) {
+fillBlanks(int &count, std::string fieldName, SIMap &tracker, std::string &data, bool isAtt) {
     if (!tracker.count(fieldName)) {
-        char buffer[32];
-        sprintf(buffer, "Could not find field [%s]", fieldName);
-        throw std::runtime_error(buffer);
+        char msg[32];
+        char const* type = (isAtt) ? "attribute" : "element";
+        sprintf(msg, "Could not find %s [%s]", type, fieldName.c_str());
+        throw std::runtime_error(msg);
     }
     for (int i = count; i < tracker.at(fieldName); ++i) {
         data += "|";
@@ -19,24 +21,28 @@ fillBlanks(int count, char const *fieldName, std::unordered_map<char const *, in
     }
 }
 
-void depthFirstAppend(std::string &data, xml_node<> *node, std::unordered_map<char const *, int> &tracker,
-                      xml_node<> *const root) {
+void depthFirstAppend(std::string &data, xml_node<> *node, SIMap &tracker, std::string branch, xml_node<> *const root) {
     static int count = 0;
-    if (node == root) count = 0;
+    if (node == root) {
+        count = 0;
+        branch = "";
+    }
+
     auto att = node->first_attribute();
-    // if count != tracker int, loop for tracker int to add number of '|', increasing count along the way
+    branch += node->name();
     while (att) {
-        fillBlanks(count, att->name(), tracker, data);
+        auto name = branch + att->name();
+        fillBlanks(count, name, tracker, data, true);
         data += att->value();
         data += '|';
         ++count;
         att = att->next_attribute();
     }
     auto child = node->first_node();
-    // if count != tracker int, loop for tracker int to add number of '|', increasing count along the way
+
     if (!child) {
-        auto name = (!strcmp(node->name(),"\0")) ? node->parent()->name() : node->name();
-        fillBlanks(count, name, tracker, data);
+        if (!strcmp(node->value(),"\0")) return;
+        fillBlanks(count, branch, tracker, data);
         data += node->value();
         data += '|';
         ++count;
@@ -44,38 +50,42 @@ void depthFirstAppend(std::string &data, xml_node<> *node, std::unordered_map<ch
     }
 
     while (child) {
-        depthFirstAppend(data, child, tracker, root);
+        depthFirstAppend(data, child, tracker, branch, root);
         child = child->next_sibling();
     }
 
     if (node == root) {
-        fillBlanks(count, "End", tracker, data);
+        fillBlanks(count, std::string("End"), tracker, data);
         data.back() = '\n';
     }
 }
 
-void learnFieldNames(xml_node<> *node, std::unordered_map<char const *, int> &tracker, xml_node<> *const root) {
+void learnFieldNames(xml_node<> *node, SIMap &tracker, std::string branch, xml_node<> *const root) {
     static int count = 0;
-    if (node == root) count = 0;
-    auto att = node->first_attribute();
+    if (node == root) {
+        count = 0;
+        branch = "";
+    }
 
+    auto att = node->first_attribute();
+    branch += node->name();
     while (att) {
-        tracker.insert(std::make_pair(att->name(), count));
+        auto name = branch + att->name();
+        tracker.insert(std::make_pair(name, count));
         ++count;
         att = att->next_attribute();
     }
     auto child = node->first_node();
 
     if (!child) {
-        auto name = (!strcmp(node->name(),"\0")) ? node->parent()->name() : node->name();
-        tracker.insert(std::make_pair(name, count));
+        tracker.insert(std::make_pair(branch, count));
         ++count;
         return;
     }
 
     while (child) {
-        learnFieldNames(child, tracker, root);
+        learnFieldNames(child, tracker, branch, root);
         child = child->next_sibling();
     }
-    if (node == root) tracker.insert(std::make_pair("End", count));
+    if (node == root) tracker.insert(std::make_pair(std::string("End"), count));
 }
