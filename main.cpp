@@ -20,33 +20,23 @@ char const* UINT = "/Downloads/TPCData/TestUint.csv";
 char const* UCHAR = "/Downloads/TPCData/TestUchar.csv";
 char const* INT = "/Downloads/TPCData/TestInt.csv";
 char const* FLOAT = "/Downloads/TPCData/TestFloat.csv";
+char const* DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
 
 int main(int argc, char *argv[])
 {
-//    std::string data;
-//    xml_document<> doc;
-//    {
-//        std::ifstream file("/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/CustomerMgmt.xml");
-//        std::vector<char> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-//        data.reserve(buffer.size());
-//        file.close();
-//        buffer.push_back('\0');
-//        // Parse the buffer using the xml file parsing library into doc
-//        doc.parse<0>(&buffer[0]);
-//    }
-//    xml_node<>* root = doc.first_node();
-//    std::unordered_map<std::string, int> fieldTracker;
-//    auto node = root->first_node();
-//    std::string branch;
-//    learnFieldNames(node, fieldTracker, branch, node);
-//
-//    while (node) {
-//        depthFirstAppend(data, node, fieldTracker, branch, node);
-//        node = node->next_sibling();
-//    }
-//
-//    print(data);
-    auto a = loadAudit("/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/");
+    setBackend(AF_BACKEND_CPU);
+//    auto f = loadStagingWatches(DIRECTORY);
+//    af_print(f.data()[2].rows(0,20))
+    int a1[] = {1 , 3, 4, 5, 2, 3, 1, 3, 4};
+    int k[] = {1,2,3,4,5};
+    auto a = array(9, a1);
+    auto b = array(5, k);
+    af_print(a)
+    af_print(b)
+    auto c = batchFunc(b, reorder(a,1,0),BatchFunctions::batchEqual);
+    af_print(c)
+    auto d = where(c) % b.dims(0);
+    af_print(b(d))
 
     return 0;
 }

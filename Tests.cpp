@@ -38,14 +38,14 @@ void test_Double(char const *filepath) {
 
 void test_UnsignedLong(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asUlong(0);
+    auto result = test.asU64(0);
     af_print(result)
     af::sync();
 }
 
 void test_SignedLong(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asLong(0);
+    auto result = test.asS64(0);
     af_print(result)
     af::sync();
 }
@@ -66,7 +66,7 @@ void test_stringToBool(char const *filepath) {
 
 void test_Date(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asDate(0, YYYYMMDD, true);
+    auto result = test.asDate(0, YYYYMMDD);
     af_print(result)
     af::sync();
 }
@@ -82,20 +82,24 @@ void test_StringMatch(char const *filepath) {
     AFDataFrame frame;
     {
         auto parser = std::make_unique<AFParser>(filepath, ',');
-        frame.add(parser->asUint(0), AFDataFrame::UINT);
-        frame.add(parser->asUint(1), AFDataFrame::UINT);
-        frame.add(parser->asString(2), AFDataFrame::STRING);
-        frame.add(parser->asString(3), AFDataFrame::STRING);
-        frame.add(parser->asString(4), AFDataFrame::STRING);
-        frame.add(parser->asString(5), AFDataFrame::STRING);
-        frame.add(parser->asString(6), AFDataFrame::STRING);
-        frame.add(parser->asString(7), AFDataFrame::STRING);
+        auto lval = parser->asUint(0);
+        frame.add(lval, AFDataFrame::UINT);
+        lval = parser->asUint(1);
+        frame.add(lval, AFDataFrame::UINT);
+        for (int i = 2; i <= 7; ++i) {
+            lval = parser->asString(i);
+            frame.add(lval, AFDataFrame::STRING);
+        }
     }
 
     frame.stringMatch(5, "314");
     frame.remove(5);
-    frame.insert(af::range(af::dim4(frame.data()[0].dims(0)), 0, u64), AFDataFrame::ULONG, 0);
-    frame.add(af::constant(1, af::dim4(frame.data()[0].dims(0)), b8), AFDataFrame::BOOL);
-    frame.add(af::constant(19500101, af::dim4(frame.data()[0].dims(0)), u32), AFDataFrame::DATE);
-    frame.add(af::constant(99991231, af::dim4(frame.data()[0].dims(0)), u32), AFDataFrame::DATE);
+    auto lval = af::range(af::dim4(frame.data()[0].dims(0)), 0, u64);
+    frame.insert(lval, AFDataFrame::U64, 0);
+    lval = af::constant(1, af::dim4(frame.data()[0].dims(0)), b8);
+    frame.add(lval, AFDataFrame::BOOL);
+    lval = af::constant(19500101, af::dim4(frame.data()[0].dims(0)), u32);
+    frame.add(lval, AFDataFrame::DATE);
+    lval = af::constant(99991231, af::dim4(frame.data()[0].dims(0)), u32);
+    frame.add(lval, AFDataFrame::DATE);
 }

@@ -29,7 +29,7 @@ add_executable(ArrayFire-TPCDI
         TPC_DI.cpp
         TPC_DI.h
         XMLFlattener.cpp
-        XMLFlattener.h)
+        XMLFlattener.h FinwireParser.cpp FinwireParser.h)
 
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${ArrayFire_Unified_LIBRARIES} )
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${Boost_LIBRARIES} )

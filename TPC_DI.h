@@ -1,3 +1,7 @@
+#include <utility>
+
+#include <utility>
+
 //
 // Created by Bryan Wong on 2019-06-28.
 //
@@ -7,22 +11,40 @@
 #include "AFDataFrame.h"
 #include "AFParser.hpp"
 
-AFDataFrame loadDimDate(char const* filepath);
+typedef std::shared_ptr<AFDataFrame> AFDF_ptr;
+struct Finwire {
+public:
+    AFDF_ptr company;
+    AFDF_ptr financial;
+    AFDF_ptr security;
+    Finwire(AFDF_ptr cmp, AFDF_ptr fin, AFDF_ptr sec);
+    Finwire(Finwire&& other);
+};
 
-AFDataFrame loadDimTime(char const* filepath);
+AFDataFrame loadDimDate(char const* directory);
 
-AFDataFrame loadIndustry(char const* filepath);
+AFDataFrame loadDimTime(char const* directory);
 
-AFDataFrame loadStatusType(char const* filepath);
+AFDataFrame loadIndustry(char const* directory);
 
-AFDataFrame loadTaxRate(char const* filepath);
+AFDataFrame loadStatusType(char const* directory);
 
-AFDataFrame loadTradeType(char const* filepath);
+AFDataFrame loadTaxRate(char const* directory);
 
-AFDataFrame loadAudit(char const* folderpath);
+AFDataFrame loadTradeType(char const* directory);
 
-AFDataFrame loadDimBroker(char const* filepath, AFDataFrame& dimDate);
+AFDataFrame loadAudit(char const* directory);
 
-AFDataFrame loadDimCustomer(char const* filepath);
+Finwire loadStagingFinwire(char const *directory);
+
+AFDataFrame loadStagingProspect(char const *directory);
+
+AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate);
+
+AFDataFrame loadStagingCashBalances(char const* directory);
+
+AFDataFrame loadStagingWatches(char const* directory);
+
+AFDataFrame loadDimCustomer(char const* directory);
 
 #endif //ARRAYFIRE_TPCDI_TPC_DI_H

@@ -1,13 +1,5 @@
-//
-//  AFParser.hpp
-//  ArrayFireExample
-//
-//  Created by Bryan Wong on 6/11/19.
-//  Copyright © 2019 Bryan Wong. All rights reserved.
-//
-
-#ifndef AFCSVParser_hpp
-#define AFCSVParser_hpp
+#ifndef AFParser_hpp
+#define AFParser_hpp
 
 #include <arrayfire.h>
 #include <unordered_map>
@@ -30,10 +22,13 @@ private:
     uint32_t* _cumulativeMaxColumnWidths;
     char const* _filename;
 
-    void _generateIndexer(char const delimiter, bool hasHeader);
+    void _generateIndexer(char delimiter, bool hasHeader);
     af::array _generateReversedCharacterIndices(int column) const;
     void _makeUniform(int column, af::array &output, af::array &negatives, af::array &points) const;
     af::array _numParse(int column, af::dtype type) const;
+    static std::pair<int8_t,int8_t> _dateDelimIndices(DateFormat format);
+    static void _dateKeyToDate(af::array &out, DateFormat format);
+
 public:
     explicit AFParser(char const *filename, char delimiter, bool hasHeader = false);
     explicit AFParser(std::string const &text, char delimiter);
@@ -49,7 +44,8 @@ public:
     /* Returns number of columns */
     unsigned long width() const { return _width; }
 
-    af::array asDate(int column, DateFormat inputFormat, bool isDelimited) const;
+    af::array asDate(int column, DateFormat inputFormat) const;
+    af::array asDateTime(int column, DateFormat format) const;
 
     af::array asUchar(int column) const;
     af::array asUshort(int column) const;
@@ -61,9 +57,9 @@ public:
 
     af::array asFloat(int column) const ;
 
-    af::array asUlong(int column) const;
+    af::array asU64(int column) const;
 
-    af::array asLong(int column) const;
+    af::array asS64(int column) const;
 
     af::array asDouble(int column) const;
 
@@ -75,4 +71,4 @@ public:
 };
 
 
-#endif /* AFCSVParser_hpp */
+#endif /* AFParser_hpp */

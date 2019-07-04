@@ -43,10 +43,8 @@ AFParser::AFParser(std::string const &text, char delimiter) {
     _width = 0;
     _maxColumnWidths = nullptr;
     _cumulativeMaxColumnWidths = nullptr;
-    {
-        _data = array(text.size() + 1, text.c_str()).as(u8);
-        _data = _data(where(_data != '\r'));
-    }
+    _data = array(text.size() + 1, text.c_str()).as(u8);
+    _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(delimiter, false);
     sync();
@@ -116,11 +114,7 @@ af::array AFParser::asTime(int column) const {
     nulls = where(nulls != len);
     nulls.eval();
 
-    array out;
-    {
-        auto tmp = _indexer.col(column) + i;
-        out = batchFunc(range(dim4(1, len), 1, u32), tmp, batchAdd);
-    }
+    array out = batchFunc(range(dim4(1, len), 1, u32), _indexer.col(column) + i, batchAdd);
     out = moddims(_data(out), out.dims()) - '0';
     out(nulls,span) = 0;
     out(span,seq(2, 5, 3)) = 255;
@@ -133,63 +127,98 @@ af::array AFParser::asTime(int column) const {
     return out;
 }
 
-/* This creates a copy of the column, TODO need to deal with missing values */
-array AFParser::asDate(int column, DateFormat inputFormat, bool isDelimited) const {
+array AFParser::asDateTime(int const column, DateFormat const inputFormat) const {
     if (!_length) return array(0, 3, u16);
     int8_t const i = column != 0;
-    int8_t const len = isDelimited ? 10 : 8;
+    int8_t const dlen = 10;
+    int8_t const tlen = 8;
+    int8_t const len = 19;
+    auto const idx = _indexer.col(column) + i;
+
+    auto nulls = _indexer.col(column + 1) - idx;
+    nulls = where(nulls != len);
+    nulls.eval();
+
+    auto date = batchFunc(range(dim4(1, dlen), 1, u32), idx, batchAdd);
+
+    date = moddims(_data(date), date.dims()) - '0';
+    date(nulls,span) = 0;
+
+    auto delims = _dateDelimIndices(inputFormat);
+    date(span,seq(delims.first, delims.second, delims.second - delims.first)) = 255;
+    date = moddims(date(where(date >= 0 && date <= 9)), dim4(date.dims(0),8));
+    date = batchFunc(date, flip(pow(10,range(dim4(1,8), 1, u32)),1), batchMul);
+    date = sum(date, 1);
+    _dateKeyToDate(date, inputFormat);
+
+    auto time = batchFunc(range(dim4(1, tlen), 1, u32) + dlen + 1, idx, batchAdd);
+    time = moddims(_data(time), time.dims()) - '0';
+    time(nulls,span) = 0;
+
+    time(span,seq(2, 5, 3)) = 255;
+    time = moddims(time(where(time >= 0 && time <= 9)), dim4(time.dims(0),6));
+    time = batchFunc(time, flip(pow(10,range(dim4(1,6), 1, u32)),1), batchMul);
+    time = sum(time, 1);
+    time = join(1, time / 10000, time % 10000 / 100, time % 100).as(u16);
+    time.eval();
+
+    return join(1, date, time);
+}
+
+std::pair<int8_t, int8_t> AFParser::_dateDelimIndices(DateFormat const format) {
+    if (format == YYYYDDMM || format == YYYYMMDD)
+        return std::pair<int8_t, int8_t>(4, 7);
+
+    return std::pair<int8_t, int8_t>(2, 5);
+}
+
+void AFParser::_dateKeyToDate(af::array &out, DateFormat const format) {
+    switch (format) {
+        case YYYYMMDD:
+            out = join(1, out / 10000, out % 10000 / 100, out % 100).as(u16);
+            return;
+        case YYYYDDMM:
+            out = join(1, out / 10000, out % 100, out % 10000 / 100).as(u16);
+            return;
+        case MMDDYYYY:
+            out = join(1, out % 10000, out / 1000000, out % 10000 % 100).as(u16);
+            return;
+        case DDMMYYYY:
+            out = join(1, out % 10000, out % 10000 % 100, out / 1000000).as(u16);
+            return;
+        default:
+            throw std::runtime_error("No such date format");
+    }
+}
+
+/* This creates a copy of the column, TODO need to deal with missing values */
+array AFParser::asDate(int column, DateFormat inputFormat) const {
+    if (!_length) return array(0, 3, u16);
+    int8_t const i = column != 0;
+    int8_t const len = 10;
 
     auto nulls = _indexer.col(column + 1) - _indexer.col(column) - i;
     nulls = where(nulls != len);
     nulls.eval();
 
-    std::pair<int8_t, int8_t> year;
-    std::pair<int8_t, int8_t> month;
-    std::pair<int8_t, int8_t> day;
-
-    switch (inputFormat) {
-        case YYYYDDMM:
-            year = std::pair<int8_t, int8_t>(0, 3);
-            day = isDelimited ? std::pair<int8_t, int8_t>(5, 6) : std::pair<int8_t, int8_t>(4, 5);
-            month = isDelimited ? std::pair<int8_t, int8_t>(8, 9) : std::pair<int8_t, int8_t>(7, 8);
-            break;
-        case YYYYMMDD:
-            year = std::pair<int8_t, int8_t>(0, 3);
-            month = isDelimited ? std::pair<int8_t, int8_t>(5, 6) : std::pair<int8_t, int8_t>(4, 5);
-            day = isDelimited ? std::pair<int8_t, int8_t>(8, 9) : std::pair<int8_t, int8_t>(7, 8);
-            break;
-        case DDMMYYYY:
-            year = isDelimited ? std::pair<int8_t, int8_t>(6, 9) : std::pair<int8_t, int8_t>(5, 8);
-            day = std::pair<int8_t, int8_t>(0, 1);
-            month = isDelimited ? std::pair<int8_t, int8_t>(3, 4) : std::pair<int8_t, int8_t>(2, 3);
-            break;
-        case MMDDYYYY:
-            year = isDelimited ? std::pair<int8_t, int8_t>(6, 9) : std::pair<int8_t, int8_t>(5, 8);
-            day = isDelimited ? std::pair<int8_t, int8_t>(3, 4) : std::pair<int8_t, int8_t>(2, 3);
-            month = std::pair<int8_t, int8_t>(0, 1);
-            break;
-        default:
-            throw std::invalid_argument("No such format!");
-    }
-
-    array out;
-    {
-        auto tmp = _indexer.col(column) + i;
-        out = batchFunc(range(dim4(1, len), 1, u32), tmp, batchAdd);
-    }
-
+    array out = batchFunc(range(dim4(1, len), 1, u32), _indexer.col(column) + i, batchAdd);
     out = moddims(_data(out), out.dims()) - '0';
     out(nulls,span) = 0;
-    if (isDelimited) out(span,seq(4, 7, 3)) = 255;
+
+    auto delims = _dateDelimIndices(inputFormat);
+    out(span,seq(delims.first, delims.second, delims.second - delims.first)) = 255;
     out = moddims(out(where(out >= 0 && out <= 9)), dim4(out.dims(0),8));
-    // matmul requires converting to f64 due to precision problems
     out = batchFunc(out, flip(pow(10,range(dim4(1,8), 1, u32)),1), batchMul);
     out = sum(out, 1);
-    out = join(1, out / 10000, out % 10000 / 100, out % 100).as(u16);
+
+    _dateKeyToDate(out, inputFormat);
+
     out.eval();
 
     return out;
 }
+
+
 
 /* generate chracter indices of a column invalid indices replaced with UINT32_MAX */
 array AFParser::_generateReversedCharacterIndices(int const column) const {
@@ -272,13 +301,13 @@ void AFParser::_makeUniform(int column, array &output, array &negatives, array &
     output = reorder(output,1,0);
 }
 
-array AFParser::asUlong(int const column) const {
+array AFParser::asU64(int const column) const {
     auto out = _numParse(column, u64);
     out.eval();
     return out;
 }
 
-array AFParser::asLong(int const column) const {
+array AFParser::asS64(int const column) const {
     auto out = _numParse(column, s64);
     out.eval();
     return out;
@@ -291,10 +320,11 @@ array AFParser::asDouble(int const column) const {
 }
 
 array AFParser::asString(int column) const {
-    if (!_length) return constant(0, 1, u8);
+    if (!_length) return array(0, u8);
     unsigned int const i = column != 0;
     auto out = _indexer.col(column) + i;
     auto const maximum = _maxColumnWidths[column];
+    if (!maximum) return constant(0, _length, u8);
 
     out = batchFunc(out, range(dim4(1, maximum + 1), 1, u32), batchAdd);
     out(where(batchFunc(out, _indexer.col(column + 1), batchGE))) = UINT32_MAX;
@@ -354,3 +384,6 @@ af::array AFParser::_numParse(int column, af::dtype type) const {
     if (!negatives.isempty()) out(negatives) *= -1;
     return out;
 }
+
+
+
