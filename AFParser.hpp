@@ -36,7 +36,6 @@ public:
     virtual ~AFParser();
     static std::string loadFile(char const *filename);
 
-
     void printData() const;
 
     /* Returns number of rows */

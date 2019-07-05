@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 //    af_print(d)
 //    af_print(b(d, span))
 //    af_print(a)
-    test_String(FLOAT);
+    auto g = loadStagingFinwire(DIRECTORY);
 
     return 0;
 }

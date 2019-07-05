@@ -21,7 +21,7 @@ public:
     void stringLengthMatch(int column, size_t len);
     void stringMatch(int column, char const* str);
     void concatenate(AFDataFrame &frame);
-    static void printStr(af::array &str);
+    static void printStr(af::array str);
     static af::array endDate();
     virtual ~AFDataFrame() = default;
     bool isEmpty();
@@ -35,7 +35,6 @@ private:
     af::array _rowIndexes;
     std::unordered_map<std::string, unsigned int> _columnNames;
     void _flush();
-    af::array _generateStringIndex(int column);
 };
 
 
