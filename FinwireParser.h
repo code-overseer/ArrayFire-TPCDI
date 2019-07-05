@@ -14,7 +14,7 @@ public:
     std::function<std::string(char const*)> loadFile = AFParser::loadFile;
     explicit FinwireParser(char const* filename);
     enum RecordType { FIN = 0, CMP = 1, SEC = 2 };
-    std::shared_ptr<AFDataFrame> extractData(const RecordType type) const;
+    std::shared_ptr<AFDataFrame> extractData(RecordType type) const;
 private:
     char const _search[3][4] = {"FIN", "CMP", "SEC"};
     int const _widths[3] = {17, 16, 12};
