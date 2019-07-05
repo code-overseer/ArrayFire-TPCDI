@@ -28,7 +28,7 @@ private:
     af::array _numParse(int column, af::dtype type) const;
     static std::pair<int8_t,int8_t> _dateDelimIndices(DateFormat format);
     static void _dateKeyToDate(af::array &out, DateFormat format);
-
+    static void _colToRow(af::array& arr);
 public:
     explicit AFParser(char const *filename, char delimiter, bool hasHeader = false);
     explicit AFParser(std::string const &text, char delimiter);

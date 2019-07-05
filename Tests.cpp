@@ -53,7 +53,7 @@ void test_SignedLong(char const *filepath) {
 void test_String(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.asString(0);
-    af_print(result)
+    af_print(result.cols(0,21))
     af::sync();
 }
 
