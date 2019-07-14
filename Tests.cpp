@@ -1,5 +1,6 @@
 #include "Tests.h"
 #include "AFDataFrame.h"
+#include "FinwireParser.h"
 
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
@@ -53,7 +54,8 @@ void test_SignedLong(char const *filepath) {
 void test_String(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.asString(0);
-    af_print(result.cols(0,21))
+//    af_print(result)
+    FinwireParser::stringToNum(result, s32);
     af::sync();
 }
 
@@ -66,7 +68,7 @@ void test_stringToBool(char const *filepath) {
 
 void test_Date(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asDate(0, YYYYMMDD);
+    auto result = test.asDate(0, YYYYMMDD, false);
     af_print(result)
     af::sync();
 }
@@ -83,23 +85,23 @@ void test_StringMatch(char const *filepath) {
     {
         auto parser = std::make_unique<AFParser>(filepath, ',');
         auto lval = parser->asUint(0);
-        frame.add(lval, AFDataFrame::UINT);
+        frame.add(lval, UINT);
         lval = parser->asUint(1);
-        frame.add(lval, AFDataFrame::UINT);
+        frame.add(lval, UINT);
         for (int i = 2; i <= 7; ++i) {
             lval = parser->asString(i);
-            frame.add(lval, AFDataFrame::STRING);
+            frame.add(lval, STRING);
         }
     }
 
-    frame.stringMatch(5, "314");
+    frame.stringMatchSelect(5, "314");
     frame.remove(5);
     auto lval = af::range(af::dim4(frame.data()[0].dims(0)), 0, u64);
-    frame.insert(lval, AFDataFrame::U64, 0);
+    frame.insert(lval, U64, 0);
     lval = af::constant(1, af::dim4(frame.data()[0].dims(0)), b8);
-    frame.add(lval, AFDataFrame::BOOL);
+    frame.add(lval, BOOL);
     lval = af::constant(19500101, af::dim4(frame.data()[0].dims(0)), u32);
-    frame.add(lval, AFDataFrame::DATE);
+    frame.add(lval, DATE);
     lval = af::constant(99991231, af::dim4(frame.data()[0].dims(0)), u32);
-    frame.add(lval, AFDataFrame::DATE);
+    frame.add(lval, DATE);
 }

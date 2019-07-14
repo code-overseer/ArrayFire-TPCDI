@@ -17,8 +17,9 @@ public:
     AFDF_ptr company;
     AFDF_ptr financial;
     AFDF_ptr security;
-    Finwire(AFDF_ptr cmp, AFDF_ptr fin, AFDF_ptr sec);
-    Finwire(Finwire&& other);
+    Finwire(AFDF_ptr cmp, AFDF_ptr fin, AFDF_ptr sec) : company(std::move(cmp)),
+    financial(std::move(fin)), security(std::move(sec)) {}
+    Finwire(Finwire &&other) noexcept;
 };
 
 AFDataFrame loadDimDate(char const* directory);
@@ -41,10 +42,18 @@ AFDataFrame loadStagingProspect(char const *directory);
 
 AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate);
 
+AFDataFrame loadStagingCustomer(char const* directory);
+
 AFDataFrame loadStagingCashBalances(char const* directory);
 
 AFDataFrame loadStagingWatches(char const* directory);
 
 AFDataFrame loadDimCustomer(char const* directory);
+
+AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate);
+
+AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany);
+
+AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType);
 
 #endif //ARRAYFIRE_TPCDI_TPC_DI_H

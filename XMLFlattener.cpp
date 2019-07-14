@@ -89,3 +89,32 @@ void learnFieldNames(xml_node<> *node, SIMap &tracker, std::string branch, xml_n
     }
     if (node == root) tracker.insert(std::make_pair(std::string("End"), count));
 }
+
+std::string flattenCustomerMgmt(char const *directory) {
+    char file[128];
+    strcpy(file, directory);
+    strcat(file, "CustomerMgmt.xml");
+    std::string data;
+    xml_document<> doc;
+    {
+        std::ifstream inFile(file);
+        std::vector<char> buffer((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
+        data.reserve(buffer.size());
+        inFile.close();
+        buffer.push_back('\0');
+        // Parse the buffer using the xml file parsing library into doc
+        doc.parse<0>(&buffer[0]);
+    }
+    xml_node<>* root = doc.first_node();
+    std::unordered_map<std::string, int> fieldTracker;
+    auto node = root->first_node();
+    std::string branch;
+    learnFieldNames(node, fieldTracker, branch, node);
+
+    while (node) {
+        depthFirstAppend(data, node, fieldTracker, branch, node);
+        node = node->next_sibling();
+    }
+
+    return data;
+}

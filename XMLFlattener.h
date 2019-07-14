@@ -24,4 +24,6 @@ void depthFirstAppend(std::string &data, rapidxml::xml_node<> *node, std::unorde
 void learnFieldNames(rapidxml::xml_node<> *node, std::unordered_map<std::string, int> &tracker, std::string branch,
                      rapidxml::xml_node<> *root);
 
+std::string flattenCustomerMgmt(char const *directory);
+
 #endif //ARRAYFIRE_TPCDI_XMLFLATTENER_H

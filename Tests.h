@@ -20,5 +20,6 @@ void test_Date(char const *filepath);
 void test_Time(char const *filepath);
 void test_stringToBool(char const *filepath);
 void test_UChar(char const *filepath);
+void test_StringHash(char const *filepath);
 
 #endif //ARRAYFIRE_TPCDI_TESTS_H

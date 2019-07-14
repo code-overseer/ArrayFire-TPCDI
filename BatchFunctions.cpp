@@ -4,36 +4,60 @@
 
 #include "BatchFunctions.h"
 
-af::array BatchFunctions::batchEqual(af::array const &lhs, af::array const &rhs) {
-    return lhs == rhs;
+af::array BatchFunctions::batchEqual(af::array const &rhs, af::array const &lhs) {
+    return rhs == lhs;
 }
 
-af::array BatchFunctions::batchLess(af::array const &lhs, af::array const &rhs) {
-    return lhs < rhs;
+af::array BatchFunctions::batchNotEqual(af::array const &rhs, af::array const &lhs) {
+    return rhs != lhs;
 }
-af::array BatchFunctions::batchGreater(af::array const &lhs, af::array const &rhs) {
-    return lhs > rhs;
+
+af::array BatchFunctions::batchLess(af::array const &rhs, af::array const &lhs) {
+    return rhs < lhs;
 }
-af::array BatchFunctions::batchGE(af::array const &lhs, af::array const &rhs) {
-    return lhs >= rhs;
+af::array BatchFunctions::batchGreater(af::array const &rhs, af::array const &lhs) {
+    return rhs > lhs;
 }
-af::array BatchFunctions::batchLE(af::array const &lhs, af::array const &rhs) {
-    return lhs <= rhs;
+af::array BatchFunctions::batchGE(af::array const &rhs, af::array const &lhs) {
+    return rhs >= lhs;
 }
-af::array BatchFunctions::batchAdd(af::array const &lhs, af::array const &rhs) {
-    return lhs + rhs;
+af::array BatchFunctions::batchLE(af::array const &rhs, af::array const &lhs) {
+    return rhs <= lhs;
 }
-af::array BatchFunctions::batchMul(af::array const &lhs, af::array const &rhs) {
-    return lhs * rhs;
+af::array BatchFunctions::batchAdd(af::array const &rhs, af::array const &lhs) {
+    return rhs + lhs;
+}
+af::array BatchFunctions::batchMult(af::array const &rhs, af::array const &lhs) {
+    return rhs * lhs;
 }
 af::array BatchFunctions::batchSub(af::array const &lhs, af::array const &rhs) {
     return lhs - rhs;
 }
 
-af::array BatchFunctions::batchDiv(af::array const &lhs, af::array const &rhs) {
-    return lhs / rhs;
+af::array BatchFunctions::bacthDiv(af::array const &rhs, af::array const &lhs) {
+    return rhs / lhs;
 }
 
-af::array BatchFunctions::batchMod(af::array const &lhs, af::array const &rhs) {
-    return lhs % rhs;
+af::array BatchFunctions::batchMod(af::array const &rhs, af::array const &lhs) {
+    return rhs % lhs;
+}
+
+af::array BatchFunctions::bitShiftLeft(af::array const &lhs, af::array const &rhs) {
+    return lhs << rhs;
+}
+
+af::array BatchFunctions::bitShiftRight(af::array const &lhs, af::array const &rhs) {
+    return lhs >> rhs;
+}
+
+af::array BatchFunctions::exOr(af::array const &lhs, af::array const &rhs) {
+    return lhs ^ rhs;
+}
+
+af::array BatchFunctions::bitAnd(af::array const &lhs, af::array const &rhs) {
+    return lhs & rhs;
+}
+
+af::array BatchFunctions::bitOr(af::array const &lhs, af::array const &rhs) {
+    return lhs | rhs;
 }
