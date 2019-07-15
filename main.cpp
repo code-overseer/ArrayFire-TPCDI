@@ -26,7 +26,6 @@ namespace DIR {
 
 int main(int argc, char *argv[])
 {
-
     setBackend(AF_BACKEND_CPU);
     auto f = loadStagingFinwire(DIR::DIRECTORY);
     auto i = loadIndustry(DIR::DIRECTORY);

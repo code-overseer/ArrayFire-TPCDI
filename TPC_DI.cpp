@@ -400,41 +400,13 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     nameDimCompany(dimCompany);
     dimCompany.data("CompanyID") = FinwireParser::stringToNum(dimCompany.data("CompanyID"), u64);
     dimCompany.types("CompanyID") = U64;
-
     AFDataFrame s1;
     {
         std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
         s1 = dimCompany.project(order, 3, "S1");
-    }
-    {
-        auto const& l = s1.data("CompanyID");
-        auto idx = range(dim4(1, l.dims(1)), 1, u64);
-        array sorting;
-        sort(sorting,idx,l, 1); // first column
-        s1.select(idx);
-        auto date = AFDataFrame::dateOrTimeHash(s1.data("EffectiveDate"));
-        {
-            auto eq = sum(batchFunc(l, setUnique(l, true), BatchFunctions::batchEqual),1);
-            eq = moddims(eq, dim4(eq.dims(1), eq.dims(0)));
-            eq = join(1, constant(0,dim4(1),u32), eq);
-            eq = accum(eq, 1);
-            idx = join(0, eq.cols(0, end - 1), eq.cols(1, end) - 1);
-        }
-
-        auto h = max(diff1(idx,0)).scalar<uint32_t>() + 1;
-        auto tmp2 = batchFunc(idx(0,span), range(dim4(h, idx.dims(1)), 0, u32), BatchFunctions::batchAdd);
-        auto tmp3 = tmp2;
-        tmp3(where(batchFunc(tmp3,idx(1,span), BatchFunctions::batchGreater))) = UINT32_MAX;
-        {
-            auto tmp4 = where(tmp3!=UINT32_MAX);
-            array tmp5 = tmp3(tmp4);
-            tmp3(tmp4) = reorder(date(tmp5),1,0);
-        }
-        sort(tmp3,idx,tmp3, 0);
-        idx += range(idx.dims(), 1, u32) * idx.dims(0);
-        idx = idx(where(tmp3!=UINT32_MAX));
-        idx = tmp2(idx);
-        s1.select(idx);
+        order[0] = order[1];
+        order[1] = order[2];
+        s1.sortBy(order, 2);
     }
 
     s1.add(range(dim4(1, length), 1, u64), U64);
@@ -452,7 +424,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     order[0] = "SK_CompanyID";
     order[1] = "EffectiveDate";
     s1 = s1.project(order, 2, "candidate");
-    auto out = AFDataFrame::innerJoin(dimCompany.data("SK_CompanyID"), s1.data("SK_CompanyID"));
+    auto out = AFDataFrame::crossCompare(dimCompany.data("SK_CompanyID"), s1.data("SK_CompanyID"));
     dimCompany.data("IsCurrent")(out.first) = 0;
     dimCompany.data("EndDate")(span, out.first) = s1.data("EffectiveDate");
 
@@ -503,7 +475,6 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     };
 
     financial = financial.project(order, 14, "Financial");
-    print(financial.data().size());
 
     // Renames columns
     nameFinancial(financial);
@@ -532,30 +503,47 @@ void nameDimSecurity(AFDataFrame &dimSecurity) {
 
 AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType) {
     AFDataFrame security;
+
     {
         std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
+
         auto tmp = dimCompany.project(columns, 4, "DC");
-        security = s_Security.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
+        auto security1 = s_Security;
+        security1.name(s_Security.name());
+        security1.select(where(security1.data("CO_NAME_OR_CIK")(0,span) == '0'));
+        security1.data("CO_NAME_OR_CIK") = FinwireParser::stringToNum(security1.data("CO_NAME_OR_CIK"), u64);
+        security1.types("CO_NAME_OR_CIK") = U64;
+        security = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
+        security.remove("CO_NAME_OR_CIK");
+
         columns[1] = "Name";
         tmp = dimCompany.project(columns, 4, "DC");
-        security.concatenate(s_Security.equiJoin(tmp, "CO_NAME_OR_CIK", "Name"));
+        security1 = s_Security;
+        security1.name(s_Security.name());
+        security1.select(where(security1.data("CO_NAME_OR_CIK")(0,span) != '0'));
+        security1 = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
+        security1.remove("CO_NAME_OR_CIK");
+        security.concatenate(security1);
         columns[0] = "ST_ID";
         tmp = StatusType.project(columns, 1, "ST");
         security = security.equiJoin(tmp, "STATUS", "ST_ID");
     }
 
+
     auto cond1 = AFDataFrame::dateOrTimeHash(security.data("DC.EffectiveDate"))
                  <= AFDataFrame::dateOrTimeHash(security.data("PTS").rows(0,2));
     auto cond2 = AFDataFrame::dateOrTimeHash(security.data("DC.EndDate"))
                  > AFDataFrame::dateOrTimeHash(security.data("PTS").rows(0,2));
+
     security.select(where(cond1 && cond2));
 
-    std::string order[11] = {
-            "SYMBOL","ISSUE_TYPE", "STATUS","NAME","EX_ID", "DC.SK_CompanyID",
-            "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "PTS"
-    };
-
-    security = security.project(order, 11, "DimSecurity");
+    {
+        std::string order[11] = {
+                "SYMBOL","ISSUE_TYPE", "STATUS","NAME","EX_ID", "DC.SK_CompanyID",
+                "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "PTS"
+        };
+        security = security.project(order, 11, "DimSecurity");
+    }
 
     security.data("PTS") = security.data("PTS")(range(dim4(3), 0, u32), span);
     security.types("PTS") = DATE;
@@ -571,7 +559,33 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     security.nameColumn("EndDate", security.data().size() - 1);
 
     nameDimSecurity(security);
-    //TODO do scd
+
+    AFDataFrame s1;
+    {
+        std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
+        s1 = security.project(order, 3, "S1");
+        order[0] = "Symbol";
+        order[1] = "EffectiveDate";
+        s1.sortBy(order, 2);
+        af::sync();
+    }
+
+    s1.add(range(dim4(1, length), 1, u64), U64);
+    s1.nameColumn("RN", s1.data().size() - 1);
+    std::string order[2] = {"RN", "Symbol"};
+    {
+        auto s2 = s1.project(order, 2, "S2");
+        s2.data("RN") = s2.data("RN") - 1;
+        s1 = s1.equiJoin(s2, "RN", "RN");
+        s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
+    }
+    order[0] = "SK_SecurityID";
+    order[1] = "EffectiveDate";
+    s1 = s1.project(order, 2, "candidate");
+    auto out = AFDataFrame::crossCompare(security.data("SK_SecurityID"), s1.data("SK_SecurityID"));
+    security.data("IsCurrent")(out.first) = 0;
+    security.data("EndDate")(span, out.first) = s1.data("EffectiveDate");
+
     return security;
 }
 

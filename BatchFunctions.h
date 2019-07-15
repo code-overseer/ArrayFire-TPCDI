@@ -15,7 +15,7 @@ namespace BatchFunctions {
     af::array batchLE(af::array const &rhs, af::array const &lhs);
     af::array batchAdd(af::array const &rhs, af::array const &lhs);
     af::array batchMult(af::array const &rhs, af::array const &lhs);
-    af::array bacthDiv(af::array const &rhs, af::array const &lhs);
+    af::array batchDiv(af::array const &rhs, af::array const &lhs);
     af::array batchMod(af::array const &rhs, af::array const &lhs);
     af::array batchSub(af::array const &lhs, af::array const &rhs);
     af::array bitShiftLeft(af::array const &lhs, af::array const &rhs);
