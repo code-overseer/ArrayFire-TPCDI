@@ -19,11 +19,11 @@ public:
     AFDataFrame() : _length(0) {};
     AFDataFrame(AFDataFrame&& other) noexcept;
     AFDataFrame(AFDataFrame const &other);
-    virtual ~AFDataFrame() = default;
-    void add(af::array &column, DataType type);
-    void add(af::array &&column, DataType type);
-    void insert(af::array &column, DataType type, int index);
-    void insert(af::array &&column, DataType type, int index);
+    virtual ~AFDataFrame();
+    void add(af::array &column, DataType type, const char *name = nullptr);
+    void add(af::array &&column, DataType type, const char *name = nullptr);
+    void insert(af::array &column, DataType type, int index, const char *name = nullptr);
+    void insert(af::array &&column, DataType type, int index, const char *name = nullptr);
     void remove(int index);
     void remove(std::string const &name) { remove(_nameToIdx[name]); }
     af::array dateOrTimeHash(int index) const ;
@@ -34,11 +34,9 @@ public:
     af::array hashColumn(std::string const &name, bool sortable = false) const { return hashColumn(_nameToIdx.at(name), sortable); }
     void dateSort(int index, bool ascending = true);
     void dateSort(std::string const &name, bool ascending = true) { return dateSort(_nameToIdx[name], ascending); }
-    void stringLengthMatchSelect(int column, size_t length);
-    void stringLengthMatch(std::string const &name, size_t len) { return stringLengthMatchSelect(_nameToIdx[name], len); }
-    void stringMatchSelect(int column, char const *str);
-    void stringMatch(std::string const &name, char const* str) { return stringMatchSelect(_nameToIdx[name], str); }
-    void select(af::array const &index) { _rowIndexes = index; _flush();};
+    af::array stringMatchIdx(int column, char const *str) const;
+    af::array stringMatchIdx(std::string const &name, char const *str) const{ return stringMatchIdx(_nameToIdx.at(name), str); }
+    AFDataFrame select(af::array const &index) const;
     AFDataFrame project(int const *columns, int size, std::string const &name) const;
     AFDataFrame project(std::string const *names, int size, std::string const &name) const;
     void concatenate(AFDataFrame &frame);
@@ -72,12 +70,14 @@ public:
     }
     std::string name(const std::string& str);
     std::string name() const;
+    void flushToHost();
+    void clear();
     void nameColumn(const std::string& name, int column);
     void nameColumn(const std::string& name, const std::string &old);
     static af::array dateOrTimeHash(const af::array &date);
     static af::array datetimeHash(const af::array &datetime);
     static af::array hashColumn(af::array const &column, DataType type, bool sortable = false);
-    static void printStr(af::array str);
+    static void printStr(af::array str_array);
     static af::array endDate();
     static af::array stringToDate(af::array &datestr, DateFormat inputFormat, bool isDelimited);
     static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs,
@@ -86,9 +86,10 @@ public:
     static af::array polyHash(af::array const &column);
     static af::array flipdims(af::array const &arr) { return moddims(arr, af::dim4(arr.dims(1), arr.dims(0))); }
 private:
-    static af::array _subSort(af::array const &elements, af::array const &bucket, bool const isAscending);
+    static af::array _subSort(af::array const &elements, af::array const &bucket, bool isAscending);
     af::array project(int column) const;
     std::vector<af::array> _deviceData;
+    std::vector<void*> _hostData;
     std::vector<DataType> _dataTypes;
     std::string _tableName;
     unsigned long _length;

@@ -94,7 +94,8 @@ void test_StringMatch(char const *filepath) {
         }
     }
 
-    frame.stringMatchSelect(5, "314");
+    auto idx = frame.stringMatchIdx(5, "314");
+    frame = frame.select(idx);
     frame.remove(5);
     auto lval = af::range(af::dim4(frame.data()[0].dims(0)), 0, u64);
     frame.insert(lval, U64, 0);

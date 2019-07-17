@@ -10,12 +10,12 @@
 using namespace BatchFunctions;
 using namespace af;
 /* For debug */
-void AFDataFrame::printStr(array str) {
-    str.row(end) = '\n';
-    str = str(where(str));
-    str = join(0, flat(str), af::constant(0, 1, u8));
-    str.eval();
-    auto d = str.host<uint8_t>();
+void AFDataFrame::printStr(array str_array) {
+    str_array.row(end) = '\n';
+    str_array = str_array(where(str_array));
+    str_array = join(0, flat(str_array), af::constant(0, 1, u8));
+    str_array.eval();
+    auto d = str_array.host<uint8_t>();
     print((char*)d);
     af::freeHost(d);
 }
@@ -75,11 +75,11 @@ AFDataFrame& AFDataFrame::operator=(AFDataFrame const &other) noexcept {
     return *this;
 }
 
-void AFDataFrame::add(array &column, DataType type) {
-    add(std::move(column), type);
+void AFDataFrame::add(array &column, DataType type, const char *name) {
+    add(std::move(column), type, name);
 }
 
-void AFDataFrame::add(array &&column, DataType type) {
+void AFDataFrame::add(array &&column, DataType type, const char *name) {
     _deviceData.emplace_back(column);
     _dataTypes.emplace_back(type);
 
@@ -87,13 +87,15 @@ void AFDataFrame::add(array &&column, DataType type) {
         _length = _deviceData[0].dims(1);
         _rowIndexes = range(dim4(1, _length), 1, u32);
     }
+
+    if (name) nameColumn(name, _deviceData.size() - 1);
 }
 
-void AFDataFrame::insert(array &column, DataType type, int index) {
-    insert(std::move(column), type, index);
+void AFDataFrame::insert(array &column, DataType type, int index, const char *name) {
+    insert(std::move(column), type, index, name);
 }
 
-void AFDataFrame::insert(array &&column, DataType type, int index) {
+void AFDataFrame::insert(array &&column, DataType type, int index, const char *name) {
     _idxToName.erase(index);
     for (auto &i : _nameToIdx) {
         if (i.second >= index) {
@@ -104,6 +106,7 @@ void AFDataFrame::insert(array &&column, DataType type, int index) {
     }
     _deviceData.insert(_deviceData.begin() + index, column);
     _dataTypes.insert(_dataTypes.begin() + index, type);
+    if (name) nameColumn(name, index);
 }
 
 void AFDataFrame::remove(int index) {
@@ -134,23 +137,14 @@ void AFDataFrame::_flush() {
     }
 }
 
-void AFDataFrame::stringLengthMatchSelect(int column, size_t length) {
+af::array AFDataFrame::stringMatchIdx(int column, char const *str) const {
     if (_dataTypes[column] != STRING) throw std::runtime_error("Invalid column type");
-    af::array& data = _deviceData[column];
-    data = data.rows(0, length);
-    _rowIndexes = where(data.row(end) == 0 && data.row(end - 1));
-    _rowIndexes.eval();
-    _flush();
-}
-
-void AFDataFrame::stringMatchSelect(int column, char const *str) {
-    if (_dataTypes[column] != STRING) throw std::runtime_error("Invalid column type");
-    auto length = strlen(str);
-    stringLengthMatchSelect(column, length);
-    auto match = array(dim4(length + 1, 1), str); // include \0
-    _rowIndexes = where(allTrue(batchFunc(_deviceData[column], match, batchEqual), 0));
-    _rowIndexes.eval();
-    _flush();
+    auto length = strlen(str) + 1;
+    af::array data = _deviceData[column].rows(0, length - 1);
+    auto match = array(dim4(length, 1), str); // include \0
+    auto idx = where(allTrue(batchFunc(data, match, batchEqual), 0));
+    idx.eval();
+    return idx;
 }
 
 array AFDataFrame::dateOrTimeHash(int index) const {
@@ -203,6 +197,13 @@ AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const
     return output;
 }
 
+AFDataFrame AFDataFrame::select(af::array const &index) const {
+    AFDataFrame out(*this);
+    out._rowIndexes = index;
+    out._flush();
+    return out;
+}
+
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
     for (int i = 0; i < size; i++) {
@@ -221,6 +222,7 @@ void AFDataFrame::concatenate(AFDataFrame &&frame) {
     for (int i = 0; i < _deviceData.size(); ++i) {
         af::array left;
         af::array right;
+
         if (_dataTypes[i] == STRING) {
             auto delta = _deviceData[i].dims(0) - frame._deviceData[i].dims(0);
             if (delta > 0) {
@@ -493,6 +495,39 @@ array AFDataFrame::stringToDate(af::array &datestr, DateFormat inputFormat, bool
     out.eval();
 
     return out;
+}
+
+void AFDataFrame::flushToHost() {
+
+    if (_deviceData.empty()) return;
+    for (auto const &a : _deviceData) {
+        auto tmp = malloc(a.bytes());
+        a.host(tmp);
+        _hostData.emplace_back(tmp);
+    }
+    _deviceData.clear();
+    _rowIndexes = array();
+}
+
+AFDataFrame::~AFDataFrame() {
+    if (_hostData.empty()) return;
+    auto i = (uint64_t*) _hostData[0];
+    for (auto &dat : _hostData) freeHost(dat);
+    _dataTypes.clear();
+}
+
+void AFDataFrame::clear() {
+    _deviceData.clear();
+    if (!_deviceData.empty()) _rowIndexes = array(0, u32);
+    _tableName.clear();
+    _idxToName.clear();
+    _nameToIdx.clear();
+    if (!_hostData.empty()) {
+        for (auto &dat : _hostData) freeHost(dat);
+    }
+    _hostData.clear();
+    _dataTypes.clear();
+    _length = 0;
 }
 
 

@@ -26,13 +26,45 @@ namespace DIR {
 
 int main(int argc, char *argv[])
 {
-    setBackend(AF_BACKEND_CPU);
-    auto f = loadStagingFinwire(DIR::DIRECTORY);
-    auto i = loadIndustry(DIR::DIRECTORY);
-    auto s = loadStatusType(DIR::DIRECTORY);
-    auto date = loadDimDate(DIR::DIRECTORY);
-    auto d = loadDimCompany(*f.company, i, s, date);
-    auto sec = loadDimSecurity(*f.security, d, s);
+    auto path = argc > 1 ? argv[1] : DIR::DIRECTORY;
+    timer::start();
+    auto batchDate = loadBatchDate(path);
+    auto dimDate = loadDimDate(path);
+    auto dimTime = loadDimTime(path);
+    dimTime.flushToHost();
+    auto industry = loadIndustry(path);
+    auto statusType = loadStatusType(path);
+    auto taxRate = loadTaxRate(path);
+    taxRate.flushToHost();
+    auto tradeType = loadTradeType(path);
+    tradeType.flushToHost();
+    auto audit = loadAudit(path);
+    audit.flushToHost();
 
+    auto finwire = loadStagingFinwire(path);
+    auto s_prospect = loadStagingProspect(path);
+    auto s_customer = loadStagingCustomer(path);
+    auto s_cash = loadStagingCashBalances(path);
+    auto s_watches = loadStagingWatches(path);
+
+    auto dimCompany = loadDimCompany(*finwire.company, industry, statusType, dimDate);
+    industry.flushToHost();
+    auto financial = loadFinancial(*finwire.financial, dimCompany);
+    financial.flushToHost();
+    auto dimSecurity = loadDimSecurity(*finwire.security, dimCompany, statusType);
+    dimSecurity.flushToHost();
+    dimCompany.flushToHost();
+    statusType.flushToHost();
+    finwire.security.reset();
+    finwire.company.reset();
+    finwire.financial.reset();
+    auto prospect = loadProspect(s_prospect, batchDate);
+    prospect.flushToHost();
+    batchDate.flushToHost();
+    s_prospect.clear();
+    auto dimBroker = loadDimBroker(path, dimDate);
+    dimBroker.flushToHost();
+    dimDate.flushToHost();
+    printf("%f", timer::stop());
     return 0;
 }

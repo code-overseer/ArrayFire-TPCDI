@@ -11,13 +11,36 @@ namespace fs = boost::filesystem;
 namespace xml = rapidxml;
 using namespace af;
 
-Finwire::Finwire(Finwire&& other) noexcept : company(nullptr), financial(nullptr), security(nullptr) {
-    company = std::move(other.company);
-    financial = std::move(other.financial);
-    security = std::move(other.security);
+Finwire::Finwire(Finwire&& other) noexcept : company(std::move(other.company)),
+financial(std::move(other.financial)), security(std::move(other.security)) {
     other.company = nullptr;
     other.financial = nullptr;
     other.security = nullptr;
+}
+
+Customer::Customer(Customer &&other) noexcept :
+        newCust(std::move(other.newCust)), addAcct(std::move(other.addAcct)), updAcct(std::move(other.updAcct)),
+        closeAcct(std::move(other.closeAcct)), updCust(std::move(other.updCust)), inact(std::move(other.inact)) {
+    other.newCust = nullptr;
+    other.addAcct = nullptr;
+    other.updAcct = nullptr;
+    other.closeAcct = nullptr;
+    other.updCust = nullptr;
+    other.inact = nullptr;
+}
+
+AFDataFrame loadBatchDate(char const* directory) {
+    char file[128];
+    strcpy(file, directory);
+    strcat(file, "BatchDate.txt");
+    AFDataFrame frame;
+    AFParser parser(file, '|', false);
+
+    frame.add(constant(1, 1, u32), UINT);
+
+    frame.add(parser.asDate(0, YYYYMMDD, true), DATE);
+
+    return frame;
 }
 
 /* Independent Static Tables */
@@ -29,7 +52,7 @@ AFDataFrame loadDimDate(char const *directory) {
     AFParser parser(file, '|', false);
 
     frame.add(parser.asU64(0), U64);
-    frame.add(parser.asDate(1, YYYYMMDD, false), DATE);
+    frame.add(parser.asDate(1, YYYYMMDD, true), DATE);
     for (int i = 2;  i < 17; i += 2) {
         frame.add(parser.asString(i), STRING);
         frame.add(parser.asUint(i + 1), UINT);
@@ -95,9 +118,10 @@ AFDataFrame loadTaxRate(char const* directory) {
     AFDataFrame frame;
     AFParser parser(file, '|', false);
 
-    for (int i = 0;  i < 2; ++i) frame.add(parser.asString(i), STRING);
-
-    frame.add(parser.asFloat(2), FLOAT);
+    frame.name("TaxRate");
+    frame.add(parser.asString(0), STRING, "TX_ID");
+    frame.add(parser.asString(1), STRING, "TX_NAME");
+    frame.add(parser.asFloat(2), FLOAT, "TX_RATE");
     return frame;
 }
 
@@ -131,18 +155,18 @@ AFDataFrame loadAudit(char const* directory) {
         AFParser parser(path.c_str(), ',', true);
         if (frame.isEmpty()) {
             frame.add(parser.asString(0), STRING);
-            frame.add(parser.asUchar(1), UINT);
-            frame.add(parser.asDate(2, YYYYMMDD, false), DATE);
+            frame.add(parser.asUint(1), UINT);
+            frame.add(parser.asDate(2, YYYYMMDD, true), DATE);
             frame.add(parser.asString(3), STRING);
-            frame.add(parser.asInt(4), LONG);
+            frame.add(parser.asInt(4), INT);
             frame.add(parser.asFloat(5), DOUBLE);
         } else {
             AFDataFrame tmp;
             tmp.add(parser.asString(0), STRING);
-            tmp.add(parser.asUchar(1), UINT);
-            tmp.add(parser.asDate(2, YYYYMMDD, false), DATE);
+            tmp.add(parser.asUint(1), UINT);
+            tmp.add(parser.asDate(2, YYYYMMDD, true), DATE);
             tmp.add(parser.asString(3), STRING);
-            tmp.add(parser.asInt(4), LONG);
+            tmp.add(parser.asInt(4), INT);
             tmp.add(parser.asFloat(5), DOUBLE);
             frame.concatenate(tmp);
         }
@@ -268,17 +292,21 @@ AFDataFrame loadStagingProspect(char const *directory) {
 }
 
 AFDataFrame loadStagingCustomer(char const* directory) {
+
     std::string data = flattenCustomerMgmt(directory);
-    AFDataFrame frame;
     AFParser parser(data, '|', false);
-    for (int i = 0; i < 2; ++i) frame.add(parser.asString(i), STRING);
+    AFDataFrame frame;
+    frame.add(parser.asString(0), STRING);
+
+    frame.add(parser.asDateTime(1, YYYYMMDD), DATETIME);
 
     frame.add(parser.asU64(2), U64);
 
     for (int i = 3; i < 5; ++i) frame.add(parser.asString(i), STRING);
 
     frame.add(parser.asUchar(5), UCHAR);
-    frame.add(parser.asDate(6, YYYYMMDD, false), DATE);
+
+    frame.add(parser.asDate(6, YYYYMMDD, true), DATE);
 
     for (int i = 7; i < 32; ++i) frame.add(parser.asString(i), STRING);
 
@@ -296,15 +324,17 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     strcat(file, "HR.csv");
     AFDataFrame frame;
     {
-        AFParser parser(directory, ',');
+        AFParser parser(file, ',');
         frame.add(parser.asUint(0), UINT);
         frame.add(parser.asUint(1), UINT);
         for (int i = 2;  i <= 7; ++i) {
             frame.add(parser.asString(i), STRING);
         }
+        auto idx = frame.stringMatchIdx(5, "314");
+        frame = frame.select(idx);
+        frame.remove(5);
     }
-    frame.stringMatchSelect(5, "314");
-    frame.remove(5);
+
     auto length = frame.data()[0].dims(1);
     frame.insert(range(dim4(1, length), 1, u64), U64, 0);
     frame.add(constant(1, dim4(1, length), b8), BOOL);
@@ -381,21 +411,16 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.nameColumn("EffectiveDate", "PTS");
 
     auto length = dimCompany.data(0).dims(1);
-    dimCompany.insert(range(dim4(1, length), 1, u64), U64, 0);
-    dimCompany.nameColumn("SK_CompanyID", 0);
-    dimCompany.insert(constant(1, dim4(1, length), b8), BOOL, dimCompany.data().size() - 1);
-    dimCompany.nameColumn("IsCurrent", dimCompany.data().size() - 2);
-    dimCompany.insert(constant(1, dim4(1, length), u32), UINT, dimCompany.data().size() - 1);
-    dimCompany.nameColumn("BatchID", dimCompany.data().size() - 2);
-    dimCompany.add(tile(AFDataFrame::endDate(), dim4(1, length)), DATE);
-    dimCompany.nameColumn("EndDate", dimCompany.data().size() - 1);
+    dimCompany.insert(range(dim4(1, length), 1, u64), U64, 0, "SK_CompanyID");
+    dimCompany.insert(constant(1, dim4(1, length), b8), BOOL, dimCompany.data().size() - 1, "IsCurrent");
+    dimCompany.insert(constant(1, dim4(1, length), u32), UINT, dimCompany.data().size() - 1, "BatchID");
+    dimCompany.add(tile(AFDataFrame::endDate(), dim4(1, length)), DATE, "EndDate");
     {
         auto lowGrade = dimCompany.data(5).row(0) != 'A';
         array col = dimCompany.data(5).rows(0,2);
         lowGrade = lowGrade && anyTrue(batchFunc(col, array(3,1,"BBB").as(u8), BatchFunctions::batchNotEqual), 0);
         lowGrade.eval();
-        dimCompany.insert(lowGrade, BOOL, 6);
-        dimCompany.nameColumn("isLowGrade", 6);
+        dimCompany.insert(lowGrade, BOOL, 6, "isLowGrade");
     }
     nameDimCompany(dimCompany);
     dimCompany.data("CompanyID") = FinwireParser::stringToNum(dimCompany.data("CompanyID"), u64);
@@ -416,11 +441,10 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
         auto s2 = s1.project(order,2,"S2");
         s2.data("RN") = s2.data("RN") - 1;
         s1 = s1.equiJoin(s2, "RN", "RN");
-    }
-    {
         auto idx = where(s1.data("CompanyID") == s1.data("S2.CompanyID"));
-        s1.select(idx);
+        s1 = s1.select(idx);
     }
+
     order[0] = "SK_CompanyID";
     order[1] = "EffectiveDate";
     s1 = s1.project(order, 2, "candidate");
@@ -456,21 +480,29 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     AFDataFrame financial;
     {
         std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
-        auto tmp = dimCompany.project(columns, 4, "DimCompany");
-        financial = s_Financial.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
+        auto tmp = dimCompany.project(columns, 4, "DC");
+        auto fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) == '0'));
+        fin1.data("CO_NAME_OR_CIK") = FinwireParser::stringToNum(fin1.data("CO_NAME_OR_CIK"), u64);
+        fin1.types("CO_NAME_OR_CIK") = U64;
+        financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
+        financial.remove("CO_NAME_OR_CIK");
+
         columns[1] = "Name";
-        tmp = dimCompany.project(columns, 4, "DimCompany");
-        financial.concatenate(s_Financial.equiJoin(tmp, "CO_NAME_OR_CIK", "Name"));
+        tmp = dimCompany.project(columns, 4, "DC");
+        fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) != '0'));
+        fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
+        fin1.remove("CO_NAME_OR_CIK");
+        financial.concatenate(fin1);
     }
 
-    auto cond1 = AFDataFrame::dateOrTimeHash(financial.data("DimCompany.EffectiveDate"))
+    auto cond1 = AFDataFrame::dateOrTimeHash(financial.data("DC.EffectiveDate"))
                  <= AFDataFrame::dateOrTimeHash(financial.data("PTS").rows(0,2));
-    auto cond2 = AFDataFrame::dateOrTimeHash(financial.data("DimCompany.EndDate"))
+    auto cond2 = AFDataFrame::dateOrTimeHash(financial.data("DC.EndDate"))
                  > AFDataFrame::dateOrTimeHash(financial.data("PTS").rows(0,2));
-    financial.select(where(cond1 && cond2));
+    financial = financial.select(where(cond1 && cond2));
 
     std::string order[14] = {
-            "DimCompany.SK_CompanyID", "YEAR", "QUARTER", "QTR_START_DATE","REVENUE", "EARNINGS",
+            "DC.SK_CompanyID", "YEAR", "QUARTER", "QTR_START_DATE","REVENUE", "EARNINGS",
             "EPS", "DILUTED_EPS","MARGIN","INVENTORY","ASSETS","LIABILITIES","SH_OUT", "DILUTED_SH_OUT"
     };
 
@@ -508,9 +540,8 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
 
         auto tmp = dimCompany.project(columns, 4, "DC");
-        auto security1 = s_Security;
+        auto security1 = s_Security.select(where(s_Security.data("CO_NAME_OR_CIK")(0,span) == '0'));
         security1.name(s_Security.name());
-        security1.select(where(security1.data("CO_NAME_OR_CIK")(0,span) == '0'));
         security1.data("CO_NAME_OR_CIK") = FinwireParser::stringToNum(security1.data("CO_NAME_OR_CIK"), u64);
         security1.types("CO_NAME_OR_CIK") = U64;
         security = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
@@ -518,9 +549,8 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
 
         columns[1] = "Name";
         tmp = dimCompany.project(columns, 4, "DC");
-        security1 = s_Security;
+        security1 = s_Security.select(where(s_Security.data("CO_NAME_OR_CIK")(0,span) != '0'));
         security1.name(s_Security.name());
-        security1.select(where(security1.data("CO_NAME_OR_CIK")(0,span) != '0'));
         security1 = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
         security1.remove("CO_NAME_OR_CIK");
         security.concatenate(security1);
@@ -529,13 +559,12 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         security = security.equiJoin(tmp, "STATUS", "ST_ID");
     }
 
-
     auto cond1 = AFDataFrame::dateOrTimeHash(security.data("DC.EffectiveDate"))
                  <= AFDataFrame::dateOrTimeHash(security.data("PTS").rows(0,2));
     auto cond2 = AFDataFrame::dateOrTimeHash(security.data("DC.EndDate"))
                  > AFDataFrame::dateOrTimeHash(security.data("PTS").rows(0,2));
 
-    security.select(where(cond1 && cond2));
+    security = security.select(where(cond1 && cond2));
 
     {
         std::string order[11] = {
@@ -549,14 +578,10 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     security.types("PTS") = DATE;
     security.nameColumn("EffectiveDate", "PTS");
     auto length = security.data(0).dims(1);
-    security.insert(range(dim4(1, length), 1, u64), U64, 0);
-    security.nameColumn("SK_SecurityID", 0);
-    security.insert(constant(1, dim4(1, length), b8), BOOL, security.data().size() - 1);
-    security.nameColumn("IsCurrent", security.data().size() - 2);
-    security.insert(constant(1, dim4(1, length), u32), UINT, security.data().size() - 1);
-    security.nameColumn("BatchID", security.data().size() - 2);
-    security.add(tile(AFDataFrame::endDate(), dim4(1, length)), DATE);
-    security.nameColumn("EndDate", security.data().size() - 1);
+    security.insert(range(dim4(1, length), 1, u64), U64, 0, "SK_SecurityID");
+    security.insert(constant(1, dim4(1, length), b8), BOOL, security.data().size() - 1, "IsCurrent");
+    security.insert(constant(1, dim4(1, length), u32), UINT, security.data().size() - 1, "BatchID");
+    security.add(tile(AFDataFrame::endDate(), dim4(1, length)), DATE, "EndDate");
 
     nameDimSecurity(security);
 
@@ -570,14 +595,13 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         af::sync();
     }
 
-    s1.add(range(dim4(1, length), 1, u64), U64);
-    s1.nameColumn("RN", s1.data().size() - 1);
+    s1.add(range(dim4(1, length), 1, u64), U64, "RN");
     std::string order[2] = {"RN", "Symbol"};
     {
         auto s2 = s1.project(order, 2, "S2");
         s2.data("RN") = s2.data("RN") - 1;
         s1 = s1.equiJoin(s2, "RN", "RN");
-        s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
+        s1 = s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
     }
     order[0] = "SK_SecurityID";
     order[1] = "EffectiveDate";
@@ -589,3 +613,243 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     return security;
 }
 
+array marketingNameplate(array const &networth, array const &income, array const &cards, array const &children,
+                         array const &age, array const &credit, array const &cars) {
+    auto out = constant(0, 56, networth.dims(1), u8);
+    array val(12, 6, "+HighValue\0\0+Expenses\0\0\0+Boomer\0\0\0\0\0+MoneyAlert\0+Spender\0\0\0\0+Inherited\0\0");
+    val = val.as(u8);
+    auto idx = constant(0, 6, networth.dims(1), b8);
+    idx(0, where(networth > 1000000 || income > 200000)) = 1;
+    idx(1, where(cards > 5 || children > 3)) = 1;
+    idx(2, where(age > 45)) = 1;
+    idx(3, where(credit < 600 || income < 5000 || networth < 100000)) = 1;
+    idx(4, where(cars > 3 || cards > 7)) = 1;
+    idx(5, where(age > 25 || networth > 1000000)) = 1;
+    auto j = where(idx.row(0));
+
+    out(seq(0,9,1), j) = tile(val(seq(0,9,1), 0), dim4(1, j.dims(0)));
+    j = where(idx.row(1));
+    out(seq(10,18,1), j) = tile(val(seq(0,8,1), 1), dim4(1, j.dims(0)));
+    j = where(idx.row(2));
+    out(seq(19,25,1), j) = tile(val(seq(0,6,1), 2), dim4(1, j.dims(0)));
+    j = where(idx.row(3));
+    out(seq(26,36,1), j) = tile(val(seq(0,10,1), 3), dim4(1, j.dims(0)));
+    j = where(idx.row(4));
+    out(seq(37,44,1), j) = tile(val(seq(0,7,1), 4), dim4(1, j.dims(0)));
+    j = where(idx.row(5));
+    out(seq(45,54,1), j) = tile(val(seq(0,9,1), 5), dim4(1, j.dims(0)));
+    out(55, span) = '\n';
+    out = out(where(out)).as(u32);
+    idx = AFDataFrame::flipdims(where(out == '\n'));
+    out(idx) = 0;
+    auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
+    idx = join(0, tmp, idx);
+    auto h = max(diff1(idx, 0)).scalar<uint32_t>() + 1;
+    tmp = batchFunc(idx.row(0), range(dim4(h), 0, u32), BatchFunctions::batchAdd);
+    tmp(where(batchFunc(tmp, idx.row(1), BatchFunctions::batchGreater))) = UINT32_MAX;
+    idx = where(tmp != UINT32_MAX);
+    tmp(idx) = out;
+    out = tmp;
+    out(where(out == UINT32_MAX)) = 0;
+    out = moddims(out, dim4(h, out.elements() / h)).as(u8);
+    out.eval();
+
+    return out;
+}
+
+void nameStagingProspect(AFDataFrame &s_prospect) {
+    s_prospect.name("StaginProspect");
+    s_prospect.nameColumn("AgencyID", 0);
+    s_prospect.nameColumn("LastName", 1);
+    s_prospect.nameColumn("FirstName", 2);
+    s_prospect.nameColumn("MiddleInitial", 3);
+    s_prospect.nameColumn("Gender", 4);
+    s_prospect.nameColumn("AddressLine1", 5);
+    s_prospect.nameColumn("AddressLine2", 6);
+    s_prospect.nameColumn("PostalCode", 7);
+    s_prospect.nameColumn("City", 8);
+    s_prospect.nameColumn("State", 9);
+    s_prospect.nameColumn("Country", 10);
+    s_prospect.nameColumn("Phone", 11);
+    s_prospect.nameColumn("Income", 12);
+    s_prospect.nameColumn("NumberCars", 13);
+    s_prospect.nameColumn("NumberChildren", 14);
+    s_prospect.nameColumn("MaritalStatus", 15);
+    s_prospect.nameColumn("Age", 16);
+    s_prospect.nameColumn("CreditRating", 17);
+    s_prospect.nameColumn("OwnOrRentFlag", 18);
+    s_prospect.nameColumn("Employer", 19);
+    s_prospect.nameColumn("NumberCreditCards", 20);
+    s_prospect.nameColumn("NetWorth", 21);
+}
+
+AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate) {
+    nameStagingProspect(s_Prospect);
+    AFDataFrame prospect(std::move(s_Prospect));
+
+    auto dim = prospect.data("Age").dims();
+    auto batchID = 1;
+    prospect.name("Prospect");
+
+    auto tmp = tile(batchDate.data(1)(span, where(batchDate.data(0) == batchID)),dim);
+    prospect.insert(AFDataFrame::dateOrTimeHash(tmp), UINT, 1, "SK_RecordDateID");
+    prospect.insert(array(prospect.data("SK_RecordDateID")), UINT, 2, "SK_UpdateDateID");
+    prospect.insert(constant(1, dim, u32), UINT, 3, "BatchID");
+    prospect.insert(constant(0, dim, u8), BOOL, 4, "IsCustomer");
+    tmp = marketingNameplate(prospect.data("NetWorth"), prospect.data("Income"), prospect.data("NumberCreditCards"),
+                             prospect.data("NumberChildren"), prospect.data("Age"), prospect.data("CreditRating"),
+                             prospect.data("NumberCars"));
+    prospect.add(tmp, STRING, "MarketingNameplate");
+
+    return prospect;
+}
+
+AFDataFrame loadStagingTrade(char const* directory) {
+    char file[128];
+    strcpy(file, directory);
+    strcat(file, "Trade.txt");
+    AFDataFrame frame;
+    AFParser parser(file, '|', false);
+    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asDateTime(1, YYYYMMDD), DATETIME);
+    frame.add(parser.asString(2), STRING);
+    frame.add(parser.asString(3), STRING);
+    frame.add(parser.stringToBoolean(4), BOOL);
+    frame.add(parser.asString(5), STRING);
+    frame.add(parser.asUint(6), UINT);
+    frame.add(parser.asDouble(7), DOUBLE);
+    frame.add(parser.asUint(8), UINT);
+    frame.add(parser.asU64(9), U64);
+    frame.add(parser.asDouble(10), DOUBLE);
+    frame.add(parser.asDouble(11), DOUBLE);
+    frame.add(parser.asDouble(12), DOUBLE);
+    frame.add(parser.asDouble(13), DOUBLE);
+    return frame;
+}
+
+AFDataFrame loadStagingTradeHistory(char const* directory) {
+    char file[128];
+    strcpy(file, directory);
+    strcat(file, "TradeHistory.txt");
+    AFDataFrame frame;
+    AFParser parser(file, '|', false);
+    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asDateTime(1, YYYYMMDD), DATE);
+    frame.add(parser.asString(2), STRING);
+    return frame;
+}
+
+Customer splitCustomer(AFDataFrame &&s_Customer) {
+    auto idx = s_Customer.stringMatchIdx(0, "NEW");
+    AFDF_ptr newC = std::make_shared<AFDataFrame>(s_Customer.select(idx));
+    idx = s_Customer.stringMatchIdx(0, "ADDACCT");
+    AFDF_ptr add = std::make_shared<AFDataFrame>(s_Customer.select(idx));
+    idx = s_Customer.stringMatchIdx(0, "UPDACCT");
+    AFDF_ptr uAcc = std::make_shared<AFDataFrame>(s_Customer.select(idx));
+    idx = s_Customer.stringMatchIdx(0, "CLOSEACCT");
+    AFDF_ptr cAcc = std::make_shared<AFDataFrame>(s_Customer.select(idx));
+    idx = s_Customer.stringMatchIdx(0, "UPDCUST");
+    AFDF_ptr uCus = std::make_shared<AFDataFrame>(s_Customer.select(idx));
+    idx = s_Customer.stringMatchIdx(0, "INACT");
+    AFDF_ptr inAc = std::make_shared<AFDataFrame>(s_Customer.select(idx));
+
+    return Customer(newC, add, uAcc, cAcc, uCus, inAc);
+}
+
+af::array phoneNumberProcessing(af::array &ctry, af::array &area, af::array &local, af::array &ext) {
+    auto const cond1 = where(ctry.row(0) && area.row(0) && local.row(0));
+    auto const cond2 = where(ctry.row(0) == 0 &&  area.row(0) && local.row(0));
+    auto const cond3 = where(area.row(0) == 0 && local.row(0));
+    auto const extNotNull = where(ext.row(0));
+    auto const c = ctry.dims(0);
+    auto const a = area.dims(0);
+    auto const l = local.dims(0);
+    auto const e = ext.dims(0);
+
+    auto out = constant(0, dim4(c + a + l + e + 4, ctry.dims(1)), u8);
+
+    out(0, cond1) = '+';
+
+    auto idx = range(dim4(c), 0, u32) + 1;
+    idx = batchFunc(idx, AFDataFrame::flipdims(cond1) * out.dims(0) , BatchFunctions::batchAdd);
+    out(idx) = flat(ctry(span, cond1));
+    auto j = join(0, cond1, cond2);
+    out(c + 1, j) = '(';
+    idx = range(dim4(a), 0, u32) + c + 2;
+    idx = batchFunc(idx, AFDataFrame::flipdims(j) * out.dims(0) , BatchFunctions::batchAdd);
+    out(idx) = flat(area(span, j));
+    out(2 + c + a, j) = ')';
+
+    j = join(0, j, cond3);
+    idx = range(dim4(l), 0, u32) + c + a + 3;
+    idx = batchFunc(idx, AFDataFrame::flipdims(j) * out.dims(0) , BatchFunctions::batchAdd);
+    out(idx) = flat(local(span, j));
+
+    j = join(0, j, extNotNull);
+    idx = range(dim4(e), 0, u32) + c + a + l + 3;
+    idx = batchFunc(idx, AFDataFrame::flipdims(j) * out.dims(0) , BatchFunctions::batchAdd);
+    out(idx) = flat(ext(span, j));
+
+    out(3 + c + a + l + e, span) = '\n';
+
+    out = out(where(out)).as(u32);
+    idx = AFDataFrame::flipdims(where(out == '\n'));
+    out(idx) = 0;
+    auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
+    idx = join(0, tmp, idx);
+    auto h = max(diff1(idx, 0)).scalar<uint32_t>() + 1;
+    tmp = batchFunc(idx.row(0), range(dim4(h), 0, u32), BatchFunctions::batchAdd);
+    tmp(where(batchFunc(tmp, idx.row(1), BatchFunctions::batchGreater))) = UINT32_MAX;
+    idx = where(tmp != UINT32_MAX);
+    tmp(idx) = out;
+    out = tmp;
+    out(where(out == UINT32_MAX)) = 0;
+    out = moddims(out, dim4(h, out.elements() / h)).as(u8);
+    out.eval();
+
+    return out;
+}
+
+AFDataFrame loadDimCustomer(Customer &s_Customer, AFDataFrame &taxRate, AFDataFrame &prospect) {
+
+
+    std::pair<int, char const*> input[] = {
+            {2, "CustomerID"}, {3, "TaxID"}, {7, "LastName"}, {8, "FirstName"}, {9, "MiddleInitial"},
+            {4, "Gender"}, {5, "Tier"}, {6, "DOB"}, {10, "AddressLine1"}, {11, "AddressLine2"},
+            {12, "PostalCode"}, {13, "City"}, {14, "StateProvince"}, {15, "Country"}, {16, "Email1"},
+            {17, "Email2"}
+    };
+    auto &frame = *s_Customer.newCust;
+    auto dim = frame.data(2).dims();
+    AFDataFrame dimCustomer;
+    dimCustomer.name("DimCustomer");
+    for (auto const &i: input) dimCustomer.add(frame.data(i.first), frame.types(i.first), i.second);
+
+    dimCustomer.insert(tile(array(dim4(7), "ACTIVE"), dim), STRING, 2, "Status");
+    dimCustomer.insert(phoneNumberProcessing(frame.data(18), frame.data(19), frame.data(20), frame.data(21)),
+                    STRING, 15, "Phone1");
+    dimCustomer.insert(phoneNumberProcessing(frame.data(22), frame.data(23), frame.data(24), frame.data(25)),
+                    STRING, 16, "Phone2");
+    dimCustomer.insert(phoneNumberProcessing(frame.data(26), frame.data(27), frame.data(28), frame.data(29)),
+                    STRING, 17, "Phone3");
+    {
+        AFDataFrame tmp;
+        tmp.name("NationalTax");
+        tmp.add(frame.data(31), STRING, "ID");
+        tmp = tmp.equiJoin(taxRate, "ID", "TX_ID");
+        dimCustomer.add(tmp.data("TaxRate.TX_NAME"), STRING, "NationalTaxRateDesc");
+        dimCustomer.add(tmp.data("TaxRate.TX_RATE"), FLOAT, "NationalTaxRate");
+    }
+    {
+        AFDataFrame tmp;
+        tmp.name("LocalTax");
+        tmp.add(frame.data(30), STRING, "ID");
+        tmp = tmp.equiJoin(taxRate, "ID", "TX_ID");
+        dimCustomer.add(tmp.data("TaxRate.TX_NAME"), STRING, "LocalTaxRateDesc");
+        dimCustomer.add(tmp.data("TaxRate.TX_RATE"), FLOAT, "LocalTaxRate");
+    }
+
+
+
+    return dimCustomer;
+}

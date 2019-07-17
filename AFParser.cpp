@@ -9,6 +9,7 @@
 #include "AFParser.hpp"
 #include <fstream>
 #include "BatchFunctions.h"
+#include "AFDataFrame.h"
 #include <exception>
 #include <sstream>
 #include <utility>
@@ -61,7 +62,6 @@ std::string AFParser::loadFile(char const *filename) {
 }
 
 void AFParser::_colToRow(af::array& arr) {
-    if (!arr.isvector()) throw std::invalid_argument("Vector expected");
     arr = moddims(arr, dim4(1, arr.elements()));
 }
 
@@ -79,13 +79,13 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
 
     if (!_indexer.isempty()) {
         auto row_start = constant(0, 1, u32);
-        row_start = join(1, row_start, _indexer.row(end).cols(0, end - 1) + 1);
+        if (_length > 1) row_start = join(1, row_start, _indexer.row(end).cols(0, end - 1) + 1);
         row_start.eval();
         _indexer = join(0, row_start, _indexer);
     }
 
     if (hasHeader) {
-        _indexer = _indexer.isempty() ? array(0, 1, u32) : _indexer.rows(1, end);
+        _indexer = _indexer.dims(1) <= 1 ? array(1, 0, u32) : _indexer.cols(1, end);
         _indexer.eval();
         --_length;
     }
@@ -126,7 +126,7 @@ af::array AFParser::asTime(int column) const {
 }
 
 array AFParser::asDateTime(int const column, DateFormat const inputFormat) const {
-    if (!_length) return array(3, 0, u16);
+    if (!_length) return array(6, 0, u16);
     int8_t const i = column != 0;
     int8_t const dlen = 10;
     int8_t const tlen = 8;
@@ -195,7 +195,7 @@ void AFParser::dateKeyToDate(af::array &out, DateFormat format) {
 array AFParser::asDate(int column, DateFormat inputFormat, bool isDelimited) const {
     if (!_length) return array(3, 0, u16);
     int8_t const i = column != 0;
-    int8_t const len = 10;
+    int8_t const len = isDelimited ? 10 : 8;
 
     auto idx = _indexer.row(column) + i;
 
@@ -204,12 +204,13 @@ array AFParser::asDate(int column, DateFormat inputFormat, bool isDelimited) con
     nulls.eval();
 
     array out = batchFunc(range(dim4(len, 1), 0, u32), idx, batchAdd);
+
     out = moddims(_data(out), out.dims()) - '0';
     out(span, nulls) = 0;
 
     if (isDelimited) {
         auto delims = dateDelimIndices(inputFormat);
-        out(seq(delims.first, delims.second, delims.second - delims.first), span) = 255;
+        out(seq(delims.first, delims.second, delims.second - delims.first), span) = UINT8_MAX;
     }
 
     out = moddims(out(where(out >= 0 && out <= 9)), dim4(8, out.dims(1)));
@@ -256,25 +257,21 @@ array AFParser::asShort(int column) const {
     out.eval();
     return out;
 }
-
 array AFParser::asUint(int const column) const {
     auto out = _numParse(column, u32);
     out.eval();
     return out;
 }
-
 array AFParser::asInt(int const column) const {
     auto out = _numParse(column, s32);
     out.eval();
     return out;
 }
-
 array AFParser::asFloat(int const column) const {
     auto out = _numParse(column, f32);
     out.eval();
     return out;
 }
-
 array AFParser::asU64(int const column) const {
     auto out = _numParse(column, u64);
     out.eval();
@@ -362,7 +359,7 @@ af::array AFParser::stringToBoolean(int column) const {
     unsigned int const i = column != 0;
     auto out = _indexer.row(column) + i;
     out = _data(out);
-    out(where(out == 'T' || out == 't')) = 1;
+    out(where(out == 'T' || out == 't' || out == '1')) = 1;
     out(where(out != 1)) = 0;
     out = moddims(out, dim4(out.dims(1), out.dims(0)));
     out.eval();
@@ -372,12 +369,13 @@ af::array AFParser::stringToBoolean(int column) const {
 af::array AFParser::_numParse(int column, af::dtype type) const {
     if (!_length) return array(0, type);
     auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return constant(0, _length, type);
+    if (!maximum) return constant(0, 1, _length, type);
 
     array negatives;
     array points;
     array out;
     _makeUniform(column, out, negatives, points);
+
     out = out.as(type);
     out.eval();
     {
@@ -388,6 +386,7 @@ af::array AFParser::_numParse(int column, af::dtype type) const {
         out *= exponent;
     }
     out = sum(out, 0);
+
     if (!negatives.isempty()) out(negatives) *= -1;
     return out;
 }
