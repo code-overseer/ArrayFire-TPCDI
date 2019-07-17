@@ -294,6 +294,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
 AFDataFrame loadStagingCustomer(char const* directory) {
 
     std::string data = flattenCustomerMgmt(directory);
+    
     AFParser parser(data, '|', false);
     AFDataFrame frame;
     frame.add(parser.asString(0), STRING);
@@ -478,22 +479,25 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     using namespace BatchFunctions;
 
     AFDataFrame financial;
-    {
-        std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
-        auto tmp = dimCompany.project(columns, 4, "DC");
-        auto fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) == '0'));
-        fin1.data("CO_NAME_OR_CIK") = FinwireParser::stringToNum(fin1.data("CO_NAME_OR_CIK"), u64);
-        fin1.types("CO_NAME_OR_CIK") = U64;
-        financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
-        financial.remove("CO_NAME_OR_CIK");
-
-        columns[1] = "Name";
-        tmp = dimCompany.project(columns, 4, "DC");
-        fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) != '0'));
-        fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
-        fin1.remove("CO_NAME_OR_CIK");
-        financial.concatenate(fin1);
-    }
+    std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
+    auto tmp = dimCompany.project(columns, 4, "DC");
+    auto fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) == '0'));
+    
+    fin1.data("CO_NAME_OR_CIK") = FinwireParser::stringToNum(fin1.data("CO_NAME_OR_CIK"), u64);
+    fin1.types("CO_NAME_OR_CIK") = U64;
+    
+    financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
+    financial.remove("CO_NAME_OR_CIK");
+    
+    columns[1] = "Name";
+    tmp = dimCompany.project(columns, 4, "DC");
+    fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) != '0'));
+    fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
+    fin1.remove("CO_NAME_OR_CIK");
+    financial.concatenate(fin1);
+    af::sync();
+    fin1.clear();
+    tmp.clear();
 
     auto cond1 = AFDataFrame::dateOrTimeHash(financial.data("DC.EffectiveDate"))
                  <= AFDataFrame::dateOrTimeHash(financial.data("PTS").rows(0,2));

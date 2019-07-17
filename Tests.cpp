@@ -1,6 +1,7 @@
 #include "Tests.h"
 #include "AFDataFrame.h"
 #include "FinwireParser.h"
+#include <memory>
 
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);

@@ -6,6 +6,7 @@
 #include "BatchFunctions.h"
 #include "Tests.h"
 #include "Enums.h"
+#include <cstring>
 
 using namespace BatchFunctions;
 using namespace af;
@@ -309,7 +310,7 @@ array AFDataFrame::_subSort(array const &elements, array const &bucket, bool con
         idx_output = join(0, eq.cols(0, end - 1), eq.cols(1, end) - 1);
     }
     // max size of bucket
-    auto h = max(diff1(idx_output,0)).scalar<uint64_t>() + 1;
+    auto h = max(diff1(idx_output,0)).scalar<unsigned long long>() + 1;
     auto idx = batchFunc(idx_output(0,span), range(dim4(h, idx_output.dims(1)), 0, u32), BatchFunctions::batchAdd);
     auto idx_cpy = idx;
     idx_cpy(where(batchFunc(idx_cpy, idx_output(1,span), BatchFunctions::batchGreater))) = UINT32_MAX;
@@ -357,18 +358,16 @@ array AFDataFrame::hashColumn(int column, bool sortable) const {
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
     AFDataFrame result;
-    af::array l;
-    af::array r;
+
     auto &leftType = _dataTypes[lhs_column];
     auto &rightType = rhs._dataTypes[rhs_column];
     if (leftType != rightType) throw std::runtime_error("Supplied column data types do not match");
 
-    l = hashColumn(lhs_column);
-    r = rhs.hashColumn(rhs_column);
-    l.eval();
-    r.eval();
+    auto l = hashColumn(lhs_column);
+    auto r = rhs.hashColumn(rhs_column);
 
     auto idx = crossCompare(l, r);
+
     if (_deviceData[lhs_column].dims(0) <= rhs._deviceData[rhs_column].dims(0)) {
         l = _deviceData[lhs_column](span, idx.first);
         r = rhs._deviceData[rhs_column](range(dim4(l.dims(0)),0,u32), idx.second);
@@ -386,20 +385,17 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         idx.first = idx.first(tmp);
         idx.second = idx.second(tmp);
     }
-
+    print("Collision Checked");
     for (int i = 0; i < _deviceData.size(); i++) {
-        array tmp = _deviceData[i](span, idx.first);
-        result.add(tmp, _dataTypes[i]);
-        result.nameColumn(_idxToName.at(i), i);
+      result.add(_deviceData[i](span, idx.first), _dataTypes[i], _idxToName.at(i).c_str());
     }
-
+    print("LEFT");
     for (int i = 0; i < rhs._deviceData.size(); i++) {
         if (i == rhs_column) continue;
-        array tmp = rhs._deviceData[i](span, idx.second);
-        result.add(tmp, rhs._dataTypes[i]);
-        result.nameColumn(rhs.name() + "." + rhs._idxToName.at(i), result._deviceData.size() - 1);
+        result.add(rhs._deviceData[i](span, idx.second), rhs._dataTypes[i],
+		   (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
     }
-
+    print("right");
     return result;
 }
 

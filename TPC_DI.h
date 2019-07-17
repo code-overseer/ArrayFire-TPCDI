@@ -1,6 +1,4 @@
-#include <utility>
 
-#include <utility>
 
 //
 // Created by Bryan Wong on 2019-06-28.
@@ -10,6 +8,8 @@
 #define ARRAYFIRE_TPCDI_TPC_DI_H
 #include "AFDataFrame.h"
 #include "AFParser.hpp"
+#include <utility>
+#include <memory>
 
 typedef std::shared_ptr<AFDataFrame> AFDF_ptr;
 struct Finwire {
