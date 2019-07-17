@@ -494,7 +494,7 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) != '0'));
     fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
     fin1.remove("CO_NAME_OR_CIK");
-    financial.concatenate(fin1);
+    if (!fin1.data(0).isempty()) financial.concatenate(fin1);
     af::sync();
     fin1.clear();
     tmp.clear();
@@ -593,6 +593,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     {
         std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
         s1 = security.project(order, 3, "S1");
+
         order[0] = "Symbol";
         order[1] = "EffectiveDate";
         s1.sortBy(order, 2);
@@ -601,15 +602,16 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
 
     s1.add(range(dim4(1, length), 1, u64), U64, "RN");
     std::string order[2] = {"RN", "Symbol"};
-    {
-        auto s2 = s1.project(order, 2, "S2");
-        s2.data("RN") = s2.data("RN") - 1;
-        s1 = s1.equiJoin(s2, "RN", "RN");
-        s1 = s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
-    }
+    auto s2 = s1.project(order, 2, "S2");
+    s2.data("RN") = s2.data("RN") - 1;
+    s1 = s1.equiJoin(s2, "RN", "RN");
+    s1 = s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
+    if (s1.data(0).isempty()) return security;
+
     order[0] = "SK_SecurityID";
     order[1] = "EffectiveDate";
     s1 = s1.project(order, 2, "candidate");
+    print(security.data("SK_SecurityID").dims());
     auto out = AFDataFrame::crossCompare(security.data("SK_SecurityID"), s1.data("SK_SecurityID"));
     security.data("IsCurrent")(out.first) = 0;
     security.data("EndDate")(span, out.first) = s1.data("EffectiveDate");

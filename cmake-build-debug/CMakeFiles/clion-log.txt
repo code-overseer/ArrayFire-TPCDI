@@ -1,0 +1,8 @@
+/Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /Users/bryanwong/Documents/C++/ArrayFire-TPCDI
+-- Boost version: 1.70.0
+-- Found the following Boost libraries:
+--   filesystem
+--   regex
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug

@@ -385,17 +385,17 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         idx.first = idx.first(tmp);
         idx.second = idx.second(tmp);
     }
-    print("Collision Checked");
+    if (rhs.name() == "DC") print("Collision Checked");
     for (int i = 0; i < _deviceData.size(); i++) {
       result.add(_deviceData[i](span, idx.first), _dataTypes[i], _idxToName.at(i).c_str());
     }
-    print("LEFT");
+    if (rhs.name() == "DC") print("LEFT");
     for (int i = 0; i < rhs._deviceData.size(); i++) {
         if (i == rhs_column) continue;
         result.add(rhs._deviceData[i](span, idx.second), rhs._dataTypes[i],
 		   (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
     }
-    print("right");
+    if (rhs.name() == "DC") print("right");
     return result;
 }
 

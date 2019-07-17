@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="ArrayFire-TPCDI"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\..\;CMake Files\..\..\..\..\..\opt\;CMake Files\..\..\..\..\..\opt\arrayfire\;CMake Files\..\..\..\..\..\opt\arrayfire\share\;CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\;CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="ArrayFire-TPCDI">
+				<Option output="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/ArrayFire-TPCDI" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/."/>
+					<Add directory="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/rapidxml"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/opt/arrayfire/include"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"/>
+					<Add directory="/System/Library/Frameworks"/>
+					<Add directory="/Library/Frameworks"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 ArrayFire-TPCDI"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="ArrayFire-TPCDI/fast">
+				<Option output="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/ArrayFire-TPCDI" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add directory="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/."/>
+					<Add directory="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/rapidxml"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/opt/arrayfire/include"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/10.0.1/include"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"/>
+					<Add directory="/System/Library/Frameworks"/>
+					<Add directory="/Library/Frameworks"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 ArrayFire-TPCDI/fast"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/AFDataFrame.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/AFDataFrame.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/AFParser.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/AFParser.hpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/BatchFunctions.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/BatchFunctions.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/Enums.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/FinwireParser.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/FinwireParser.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/TPC_DI.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/TPC_DI.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/Tests.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/Tests.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/XMLFlattener.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/XMLFlattener.h">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/main.cpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/rapidxml/rapidxml.hpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/rapidxml/rapidxml_iterators.hpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/rapidxml/rapidxml_print.hpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/rapidxml/rapidxml_utils.hpp">
+			<Option target="ArrayFire-TPCDI"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireCPUTargets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireCPUTargets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireCUDATargets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireCUDATargets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireOpenCLTargets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireOpenCLTargets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireUnifiedTargets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+		<Unit filename="/Users/bryanwong/Documents/C++/ArrayFire-TPCDI/../../../../../opt/arrayfire/share/ArrayFire/cmake/ArrayFireUnifiedTargets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\opt\arrayfire\share\ArrayFire\cmake\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>
