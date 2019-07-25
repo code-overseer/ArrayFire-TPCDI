@@ -43,12 +43,15 @@ int main(int argc, char *argv[])
         lhs = array(14, l).as(u32);
         rhs = array(15, r).as(u32);
         lhs = flipdims(lhs);
+        lhs = join(0, lhs, range(lhs.dims(), 1, u32));
         rhs = flipdims(rhs);
+        rhs = join(0, rhs, range(rhs.dims(), 1, u32));
     }
-    array setrl = flipdims(setIntersect(lhs, rhs));
+    auto setrl = flipdims(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
+
+
     unsigned int m = 6; // need to choose bucket size;
     unsigned int n;
-    array hash_table;
     {
         auto set0 = setrl % m;
         array idx;
@@ -59,37 +62,30 @@ int main(int argc, char *argv[])
         auto set1 = flipdims(setUnique(set0, true));
         auto hist = flipdims(histogram(bin, set1.elements()));
         n = sum<unsigned int>(max(hist).as(u32)); // max collisions
-        hash_table = constant(UINT32_MAX, dim4(n, m), u32);
+        auto hash_table = constant(UINT32_MAX, dim4(n, m), u32);
         auto starts = batchFunc(set1 * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
         starts = flipdims(starts(batchFunc(hist, range(dim4(n), 0, u32), BatchFunctions::batchSub) > 0));
         hash_table(starts) = flipdims(setrl(idx));
-    }
-
-    {
-        auto h = batchFunc(lhs % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
+        auto h = batchFunc(lhs.row(0) % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
         h = hash_table(h);
         h = moddims(h,dim4(n, h.elements() / n));
-        h = batchFunc(h, lhs, BatchFunctions::batchEqual);
+        h = batchFunc(h, lhs.row(0), BatchFunctions::batchEqual);
         h = flipdims(where(anyTrue(h, 0)));
-        lhs = lhs(h);
+        lhs = lhs(span,h);
 
-        h = batchFunc(rhs % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
+        h = batchFunc(rhs.row(0) % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
         h = hash_table(h);
         h = moddims(h,dim4(n, h.elements() / n));
-        h = batchFunc(h, rhs, BatchFunctions::batchEqual);
+        h = batchFunc(h, rhs.row(0), BatchFunctions::batchEqual);
         h = flipdims(where(anyTrue(h, 0)));
-        rhs = rhs(h);
+        rhs = rhs(span,h);
     }
-
-    auto bin = join(1, constant(1,dim4(1),lhs.type()), diff1(lhs, 1)) > 0;
-    auto il = flipdims(where(bin));
-    bin = accum(bin, 1) - 1;
-    auto cl = flipdims(histogram(bin, setrl.elements())).as(u32);
-
-    bin = join(1, constant(1,dim4(1),rhs.type()), diff1(rhs, 1)) > 0;
-    auto ir = flipdims(where(bin));
-    bin = accum(bin, 1) - 1;
-    auto cr = flipdims(histogram(bin, setrl.elements())).as(u32);
+    auto cl = flipdims(histogram(lhs.row(0), lhs.row(0).elements())).as(u32);
+    cl = cl(cl > 0);
+    auto il = scan(cl, 1, AF_BINARY_ADD, false);
+    auto cr = flipdims(histogram(rhs.row(0), rhs.row(0).elements())).as(u32);
+    cr = cr(cr > 0);
+    auto ir = scan(cr, 1, AF_BINARY_ADD, false);
 
     auto outpos = cr * cl;
     auto out_size = sum<unsigned int>(sum(outpos,1));
@@ -110,6 +106,8 @@ int main(int argc, char *argv[])
     r(b * (outpos(i) + cr(i) * j + k) + !b * out_size) = ir(i) + k;
     l = l.cols(0,end - 1);
     r = r.cols(0,end - 1);
+    l = lhs(1,l);
+    r = rhs(1,r);
     l.eval();
     r.eval();
     af::sync();
