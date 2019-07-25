@@ -42,6 +42,7 @@ public:
     /* Returns number of columns */
     unsigned long width() const { return _width; }
     static void dateKeyToDate(af::array &out, DateFormat format);
+    af::array stringToBoolean(int column) const;
     af::array asDate(int column, DateFormat inputFormat, bool isDelimited) const;
     af::array asDateTime(int column, DateFormat format) const;
     af::array asUchar(int column) const;
@@ -55,7 +56,6 @@ public:
     af::array asDouble(int column) const;
     af::array asString(int column) const;
     af::array asTime(int column) const;
-    af::array stringToBoolean(int column) const;
 };
 
 

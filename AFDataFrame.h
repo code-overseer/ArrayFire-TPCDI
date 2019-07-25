@@ -64,6 +64,7 @@ public:
     af::array prefixHash(std::string const &name) const { return prefixHash(_nameToIdx.at(name)); }
     af::array polyHash(int column) const;
     af::array polyHash(std::string const &name) const { return polyHash(_nameToIdx.at(name)); }
+
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
     AFDataFrame equiJoin(AFDataFrame const &rhs, std::string const &lName, std::string const &rName) const {
         return equiJoin(rhs, _nameToIdx.at(lName), rhs._nameToIdx.at(rName));
@@ -82,8 +83,10 @@ public:
     static af::array stringToDate(af::array &datestr, DateFormat inputFormat, bool isDelimited);
     static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs,
                                                         af::batchFunc_t predicate = BatchFunctions::batchEqual);
+    std::pair<af::array, af::array> hashCompare(af::array lhs, af::array rhs);
     static af::array prefixHash(af::array const &column);
     static af::array polyHash(af::array const &column);
+
     static af::array flipdims(af::array const &arr) { return moddims(arr, af::dim4(arr.dims(1), arr.dims(0))); }
 private:
     static af::array _subSort(af::array const &elements, af::array const &bucket, bool isAscending);

@@ -254,13 +254,14 @@ af::array AFDataFrame::prefixHash(array const &column) {
     auto const r = n % 8;
     auto const h = n / 8 + 1 * (r != 0);
     auto const s1 = flip(range(dim4(8), 0, u64),0) * 8;
-    auto out = sum(batchFunc(column.rows(0, 7), s1, bitShiftLeft), 0);
+    auto out = n < 8 ? sum(batchFunc(column.rows(0, n - 1), s1.rows(0, n - 1), bitShiftLeft), 0) :
+               sum(batchFunc(column.rows(0, 7), s1, bitShiftLeft), 0);
     for (int i = 1; i < h; ++i) {
         auto e = i * 8 + 7;
         if (e < n) out = join(0, out, sum(batchFunc(column.rows(i * 8, e), s1, bitShiftLeft), 0));
         else out = join(0, out, sum(batchFunc(column.rows(i * 8, i * 8 + r), s1.rows(0, r - 1), bitShiftLeft), 0));
     }
-
+    out.eval();
     return out;
 }
 
@@ -270,7 +271,7 @@ af::array AFDataFrame::prefixHash(int column) const {
 }
 
 af::array AFDataFrame::polyHash(array const &column) {
-    uint64_t const prime = 71llU;
+    uint64_t const prime = 67llU;
     auto hash = range(dim4(column.dims(0),1), 0, u64);
     hash = pow(prime, hash).as(u64);
     hash = batchFunc(column, hash, batchMult);
@@ -285,7 +286,6 @@ af::array AFDataFrame::polyHash(int column) const {
 }
 
 void AFDataFrame::sortBy(int column, bool isAscending) {
-
     array elements = hashColumn(column, true);
     auto const size = elements.dims(0);
     {
@@ -303,14 +303,19 @@ void AFDataFrame::sortBy(int column, bool isAscending) {
 array AFDataFrame::_subSort(array const &elements, array const &bucket, bool const isAscending) {
     array idx_output;
     {
-        auto eq = sum(batchFunc(bucket, setUnique(bucket, isAscending), BatchFunctions::batchEqual),1);
-        eq = flipdims(eq).as(u64);
-        eq = join(1, constant(0,dim4(1), u64), eq);
-        eq = accum(eq, 1);
-        idx_output = join(0, eq.cols(0, end - 1), eq.cols(1, end) - 1);
+        auto buckets = setUnique(bucket, isAscending).elements();
+        auto eq = isAscending ? diff1(bucket, 1).as(s32) : diff1(flip(bucket, 1).as(s32));
+        eq = join(1, constant(1, dim4(1), s32), eq);
+        eq = eq.as(b8);
+        idx_output = flipdims(where(eq));
+        eq = accum(eq.as(u64));
+        eq -= 1;
+        eq = flipdims(histogram(eq, buckets));
+        eq = idx_output + eq - 1;
+        idx_output = join(0, idx_output, eq);
     }
     // max size of bucket
-    auto h = max(diff1(idx_output,0)).scalar<unsigned long long>() + 1;
+    auto h = sum<unsigned int>(max(diff1(idx_output,0)).as(u32)) + 1;
     auto idx = batchFunc(idx_output(0,span), range(dim4(h, idx_output.dims(1)), 0, u32), BatchFunctions::batchAdd);
     auto idx_cpy = idx;
     idx_cpy(where(batchFunc(idx_cpy, idx_output(1,span), BatchFunctions::batchGreater))) = UINT32_MAX;
@@ -345,7 +350,7 @@ void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
 }
 
 array AFDataFrame::hashColumn(af::array const &column, DataType type, bool sortable) {
-    if (type == STRING) return sortable ? prefixHash(column) : polyHash(column);
+    if (type == STRING) return sortable ? prefixHash(column) : polyHash(prefixHash(column));
     if (type == DATE || type == TIME) return dateOrTimeHash(column).as(u64);
     if (type == DATETIME) return datetimeHash(column).as(u64);
 
@@ -406,6 +411,89 @@ std::pair<array, array> AFDataFrame::crossCompare(af::array const &lhs, af::arra
     r = r % rhs.dims(1);
 
     return { l, r };
+}
+
+std::pair<af::array, af::array> AFDataFrame::hashCompare(array lhs, array rhs) {
+    array setrl = flipdims(setIntersect(lhs, rhs));
+    if (setrl.isempty()) return { array(1,0,u32), array(1,0,u32) };
+    unsigned int m = 6; // need to choose bucket size;
+    unsigned int n;
+    array hash_table;
+    {
+        array idx;
+        auto set0 = setrl % m;
+        sort(set0, idx, set0, 1);
+        set0.eval();
+
+        auto bin = join(1, constant(1,dim4(1),set0.type()), diff1(set0, 1));
+        bin = bin > 0;
+        bin = accum(bin, 1) - 1;
+        bin.eval();
+
+        auto set1 = flipdims(setUnique(set0, true));
+        auto hist = flipdims(histogram(bin, set1.elements()));
+        n = sum<unsigned int>(max(hist).as(u32)); // max collisions
+        hash_table = constant(UINT32_MAX, dim4(n, m), u32);
+
+        auto starts = batchFunc(set1 * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
+        starts = starts(batchFunc(hist, range(dim4(n), 0, u32), BatchFunctions::batchSub) > 0);
+        starts.eval();
+
+        hash_table(starts) = flipdims(setrl(idx));
+        hash_table.eval();
+    }
+
+    {
+        auto h = batchFunc(lhs % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
+        h = hash_table(h);
+        h = moddims(h,dim4(n, h.elements() / n));
+        h = batchFunc(h, lhs, BatchFunctions::batchEqual);
+        h = flipdims(where(anyTrue(h, 0)));
+        lhs = lhs(h);
+
+        h = batchFunc(rhs % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
+        h = hash_table(h);
+        h = moddims(h,dim4(n, h.elements() / n));
+        h = batchFunc(h, rhs, BatchFunctions::batchEqual);
+        h = flipdims(where(anyTrue(h, 0)));
+        rhs = rhs(h);
+    }
+
+    auto bin = join(1, constant(1,dim4(1),lhs.type()), diff1(lhs, 1)) > 0;
+    auto il = flipdims(where(bin));
+    bin = accum(bin, 1) - 1;
+    auto cl = flipdims(histogram(bin, setrl.elements())).as(u32);
+
+    bin = join(1, constant(1,dim4(1),rhs.type()), diff1(rhs, 1)) > 0;
+    auto ir = flipdims(where(bin));
+    bin = accum(bin, 1) - 1;
+    auto cr = flipdims(histogram(bin, setrl.elements())).as(u32);
+
+    auto outpos = cr * cl;
+    auto out_size = sum<unsigned int>(sum(outpos,1));
+    outpos = scan(outpos, 1, AF_BINARY_ADD, false);
+    af::sync();
+
+    auto x = setrl.elements();
+    auto y = sum<unsigned int>(max(cl,1));
+    auto z = sum<unsigned int>(max(cr,1));
+    auto i = range(dim4(1, x * y * z), 1, u32);
+    auto j = i / z % y;
+    auto k = i % z;
+    i = i / y / z;
+    lhs = array(1, out_size + 1, u32);
+    rhs = array(1, out_size + 1, u32);
+    auto b = !(j / cl(i)) && !(k / cr(i));
+    lhs(b * (outpos(i) + cl(i) * k + j) + !b * out_size) = il(i) + j;
+    rhs(b * (outpos(i) + cr(i) * j + k) + !b * out_size) = ir(i) + k;
+    lhs = lhs.cols(0,end - 1);
+    rhs = rhs.cols(0,end - 1);
+
+    lhs.eval();
+    rhs.eval();
+    af::sync();
+
+    return { lhs, rhs };
 }
 
 void AFDataFrame::reorder(int const *seq, int size) {
@@ -476,12 +564,12 @@ array AFDataFrame::stringToDate(af::array &datestr, DateFormat inputFormat, bool
     if (!datestr.dims(1)) return array(3, 0, u16);
 
     af::array out = datestr.rows(0, end - 1);
-    out(where(out < '0' || out > '9')) = 0;
+    out(out < '0' || out > '9') = 0;
     auto nulls = where(allTrue(out == 0, 0));
     nulls.eval();
     out = out - '0';
     out(span, nulls) = 0;
-    out = out(where(out >= 0 && out <= 9));
+    out = out(out >= 0 && out <= 9);
     out = moddims(out, dim4(8, out.dims(0)/8));
     out = batchFunc(out, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
     out = sum(out, 0);

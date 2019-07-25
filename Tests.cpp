@@ -107,3 +107,32 @@ void test_StringMatch(char const *filepath) {
     lval = af::constant(99991231, af::dim4(frame.data()[0].dims(0)), u32);
     frame.add(lval, DATE);
 }
+
+void hashTest(char const *filepath) {
+    AFDataFrame frame;
+    {
+        AFParser file(filepath,',');
+        frame.add(file.asString(0), STRING, "Words");
+        af::sync();
+    }
+
+    af::timer::start();
+    auto h = AFDataFrame::polyHash(AFDataFrame::prefixHash(frame.data("Words")));
+    af::sync();
+    printf("%f\n", af::timer::stop());
+    af::array idx;
+    af::sort(h, idx, AFDataFrame::flipdims(h));
+    auto i = af::setUnique(h, true);
+    auto j = diff1(h);
+    j = where(j == 0);
+    j = join(0, j, j + 1);
+    j.eval();
+//    print(h.dims());
+//    print(i.dims());
+    auto im = (i % 375761llU);
+//    print(im.dims());
+    frame = frame.select(idx);
+    if (j.isempty()) return;
+//    AFDataFrame::printStr(frame.data("Words")(af::span, j));
+
+}

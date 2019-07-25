@@ -95,7 +95,7 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
     if (!_length) return;
 
     auto tmp = max(diff1(_indexer,0),1);
-    tmp -= range(tmp.dims(), 0, u8).as(b8);
+    tmp -= range(tmp.dims(), 0, u8) > 0;
     _maxColumnWidths = tmp.host<uint32_t>();
     tmp = accum(tmp, 0) + range(tmp.dims(), 0, u32);
     _cumulativeMaxColumnWidths = tmp.host<uint32_t>();
@@ -330,7 +330,6 @@ array AFParser::asString(int column) const {
 
     out = batchFunc(out, range(dim4(maximum + 1, 1), 0, u32), batchAdd);
     out(where(batchFunc(out, _indexer.row(column + 1), batchGE))) = UINT32_MAX;
-
     out = flat(out);
     auto cond = where(out != UINT32_MAX);
     array tmp = out(cond);

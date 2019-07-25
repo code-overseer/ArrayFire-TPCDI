@@ -154,7 +154,6 @@ array FinwireParser::stringToDate(af::array &datestr, DateFormat inputFormat, bo
     out = sum(out, 0);
 
     AFParser::dateKeyToDate(out, inputFormat);
-
     out.eval();
 
     return out;
@@ -205,9 +204,7 @@ array FinwireParser::_PTSToDatetime(array &PTS, DateFormat inputFormat, bool isD
 
     time -= '0';
     time(span, nulls) = 0;
-    if (isDelimited) {
-        time(seq(2, 5, 3), span) = 255;
-    }
+    if (isDelimited) time(seq(2, 5, 3), span) = 255;
 
     time = moddims(time(where(time >= 0 && time <= 9)), dim4(6, time.dims(1)));
     time = batchFunc(time, flip(pow(10, range(dim4(6, 1), 0, u32)), 0), batchMult);
@@ -219,7 +216,6 @@ array FinwireParser::_PTSToDatetime(array &PTS, DateFormat inputFormat, bool isD
 }
 
 af::array FinwireParser::stringToNum(af::array &numstr, af::dtype type) {
-
     if (!numstr.dims(1)) return array(0, type);
 
     auto lengths = numstr;

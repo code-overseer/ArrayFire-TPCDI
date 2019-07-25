@@ -649,7 +649,7 @@ array marketingNameplate(array const &networth, array const &income, array const
     out(idx) = 0;
     auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
     idx = join(0, tmp, idx);
-    auto h = max(diff1(idx, 0)).scalar<uint32_t>() + 1;
+    auto h = sum<uint32_t>(max(diff1(idx, 0))) + 1;
     tmp = batchFunc(idx.row(0), range(dim4(h), 0, u32), BatchFunctions::batchAdd);
     tmp(where(batchFunc(tmp, idx.row(1), BatchFunctions::batchGreater))) = UINT32_MAX;
     idx = where(tmp != UINT32_MAX);
@@ -802,7 +802,7 @@ af::array phoneNumberProcessing(af::array &ctry, af::array &area, af::array &loc
     out(idx) = 0;
     auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
     idx = join(0, tmp, idx);
-    auto h = max(diff1(idx, 0)).scalar<uint32_t>() + 1;
+    auto h = sum<uint32_t>(max(diff1(idx, 0))) + 1;
     tmp = batchFunc(idx.row(0), range(dim4(h), 0, u32), BatchFunctions::batchAdd);
     tmp(where(batchFunc(tmp, idx.row(1), BatchFunctions::batchGreater))) = UINT32_MAX;
     idx = where(tmp != UINT32_MAX);
@@ -819,9 +819,21 @@ AFDataFrame loadDimCustomer(Customer &s_Customer, AFDataFrame &taxRate, AFDataFr
 
 
     std::pair<int, char const*> input[] = {
-            {2, "CustomerID"}, {3, "TaxID"}, {7, "LastName"}, {8, "FirstName"}, {9, "MiddleInitial"},
-            {4, "Gender"}, {5, "Tier"}, {6, "DOB"}, {10, "AddressLine1"}, {11, "AddressLine2"},
-            {12, "PostalCode"}, {13, "City"}, {14, "StateProvince"}, {15, "Country"}, {16, "Email1"},
+            {2, "CustomerID"},
+            {3, "TaxID"},
+            {7, "LastName"},
+            {8, "FirstName"},
+            {9, "MiddleInitial"},
+            {4, "Gender"},
+            {5, "Tier"},
+            {6, "DOB"},
+            {10, "AddressLine1"},
+            {11, "AddressLine2"},
+            {12, "PostalCode"},
+            {13, "City"},
+            {14, "StateProvince"},
+            {15, "Country"},
+            {16, "Email1"},
             {17, "Email2"}
     };
     auto &frame = *s_Customer.newCust;
@@ -845,6 +857,7 @@ AFDataFrame loadDimCustomer(Customer &s_Customer, AFDataFrame &taxRate, AFDataFr
         dimCustomer.add(tmp.data("TaxRate.TX_NAME"), STRING, "NationalTaxRateDesc");
         dimCustomer.add(tmp.data("TaxRate.TX_RATE"), FLOAT, "NationalTaxRate");
     }
+
     {
         AFDataFrame tmp;
         tmp.name("LocalTax");
