@@ -8,7 +8,7 @@
 
 /* For debug */
 template<typename T>
-void print(T i) {std::cout << i << std::endl;}
+void print(T i) {af::sync(); std::cout << i << std::endl;}
 
 class AFParser {
 private:

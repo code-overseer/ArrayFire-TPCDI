@@ -2,6 +2,11 @@
 #include "AFDataFrame.h"
 #include "FinwireParser.h"
 #include <memory>
+#if USING_OPENCL
+#include "OpenCL/opencl_kernels.h"
+#elif USING_CUDA
+#include "CUDA/cuda_kernels.h"
+#endif
 
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
@@ -127,12 +132,54 @@ void hashTest(char const *filepath) {
     j = where(j == 0);
     j = join(0, j, j + 1);
     j.eval();
-//    print(h.dims());
-//    print(i.dims());
     auto im = (i % 375761llU);
-//    print(im.dims());
     frame = frame.select(idx);
     if (j.isempty()) return;
-//    AFDataFrame::printStr(frame.data("Words")(af::span, j));
-
 }
+
+void testSetJoin() {
+    using namespace af;
+    auto flipdims = AFDataFrame::flipdims;
+
+    array lhs;
+    array rhs;
+    {
+        int l[] = {2,3,3,5,5,6,6,6,6,8,8,9,9,9};
+        int r[] = {2,3,4,4,5,5,5,6,7,7,7,9,9,11,12};
+        lhs = array(14, l).as(u64);
+        rhs = array(15, r).as(u64);
+        lhs = flipdims(lhs);
+        lhs = join(0, lhs, range(lhs.dims(), 1, u64));
+        rhs = flipdims(rhs);
+        rhs = join(0, rhs, range(rhs.dims(), 1, u64));
+    }
+    auto setrl = flipdims(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
+    auto resl = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
+
+    #if USING_CUDA || USING_OPENCL
+        auto comp = setrl.device<uint64_t>();
+        auto result_left = resl.device<uint64_t>();
+        auto input = lhs.device<uint64_t>();
+        af::sync();
+        launch_IsExist(result_left, input, comp, resl.elements(), setrl.elements());
+        setrl.unlock();
+        resl.unlock();
+        lhs.unlock();
+    #else
+        auto i_size = resl.elements();
+        auto comp_size = setrl.elements();
+        auto id = range(dim4(1, i_size * comp_size), 1, u64);
+        auto i = id / comp_size;
+        auto j = id % comp_size;
+        auto b = setrl(j) == lhs(0, i);
+        auto k = b * i + !b * i_size;
+        resl(k) = 1;
+    #endif
+
+    resl = resl.cols(0, end - 1);
+    af_print(resl);
+    af_print(lhs);
+    af_print(lhs(span, where(resl)));
+}
+
+

@@ -8,11 +8,13 @@
 #include "AFParser.hpp"
 #include "AFDataFrame.h"
 #include <functional>
+#include <string>
 
 class FinwireParser {
 public:
     std::function<std::string(char const*)> loadFile = AFParser::loadFile;
-    explicit FinwireParser(char const* filename);
+
+    FinwireParser(const std::vector<std::string> &files);
     enum RecordType { FIN = 0, CMP = 1, SEC = 2 };
     AFDataFrame extractData(RecordType type) const;
     AFDataFrame extractCmp() const;
@@ -23,7 +25,7 @@ public:
     static af::array stringToTime(af::array &timestr, bool isDelimited = false);
 private:
     static af::array _PTSToDatetime(af::array &PTS, DateFormat inputFormat = YYYYMMDD, bool isDelimited = false);
-
+    static std::string collect(const std::vector<std::string> &files);
     char const _search[3][4] = {"FIN", "CMP", "SEC"};
     int const _widths[3] = {17, 16, 12};
     int const _FINLengths[18] = {15, 3, 4, 1, 8, 8, 17, 17, 12, 12, 12, 17, 17, 17, 13, 13, 60, -1};

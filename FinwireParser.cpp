@@ -4,11 +4,14 @@
 
 #include "FinwireParser.h"
 #include "BatchFunctions.h"
+#include <thread>
+#include <string>
+#include <functional>
 using namespace af;
 using namespace BatchFunctions;
 
-FinwireParser::FinwireParser(char const *filename) {
-    auto text = loadFile(filename);
+FinwireParser::FinwireParser(const std::vector<std::string> &files) {
+    auto text = collect(files);
     if (text.back() != '\n') text += '\n';
     _finwireData = array(text.size() + 1, text.c_str()).as(u8);
     _finwireData = _finwireData(where(_finwireData != '\r'));
@@ -19,6 +22,38 @@ FinwireParser::FinwireParser(char const *filename) {
     auto row_start = join(1, constant(0, 1, u32), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
     _maxRowWidth = max(diff1(_indexer, 0)).scalar<uint32_t>();
+}
+
+std::string FinwireParser::collect(const std::vector<std::string> &files) {
+    auto const num = files.size();
+    auto const limit = std::thread::hardware_concurrency() - 1;
+
+    std::vector<std::string> data((size_t)num);
+    std::vector<unsigned long> sizes((size_t)num);
+    static auto loader = [&](int i) {
+        data[i] = AFParser::loadFile(files[i].c_str());
+        if (data[i].back() != '\n') data[i] += '\n';
+        sizes[i] = data[i].size();
+    };
+    std::thread threads[limit];
+    for (unsigned long i = 0; i < num / limit + 1; ++i) {
+        auto jlim = (i == num / limit) ? num % limit : limit;
+        for (unsigned long j = i % limit; j < jlim; ++j) {
+            auto t = std::thread(loader, i * limit + j);
+            threads[j].swap(t);
+        }
+        for (unsigned long j = i % limit; j < jlim; ++j) {
+            threads[j].join();
+        }
+    }
+
+    std::string output;
+    size_t total_size = 0;
+    for (int i = 0; i < num; ++i) total_size += sizes[i];
+    output.reserve(total_size + 1);
+    for (int i = 0; i < num; ++i) output.append(data[i]);
+
+    return output;
 }
 
 af::array FinwireParser::_extract(af::array const &start, int const length) const {
@@ -44,8 +79,10 @@ AFDataFrame FinwireParser::extractData(RecordType const type) const {
     {
         auto recType = batchFunc(_indexer.row(0), range(dim4(3, 1), 0, u32) + 15, batchAdd);
         array tmp = _finwireData(recType);
+
         tmp = moddims(tmp, dim4(3, tmp.dims(0) / 3));
         tmp.eval();
+
         rows = where(allTrue(batchFunc(tmp, array(3, 1, _search[type]), batchEqual), 0));
         if (rows.isempty()) {
             for (int i = 0; i < _widths[type]; ++i) output.add(array(1, 0, u8), STRING);
@@ -81,10 +118,8 @@ AFDataFrame FinwireParser::extractData(RecordType const type) const {
 
 AFDataFrame FinwireParser::extractCmp() const {
     auto output = extractData(CMP);
-
     output.data(7) = stringToDate(output.data(7));
     output.types(7) = DATE;
-
     return output;
 }
 
@@ -141,15 +176,14 @@ array FinwireParser::stringToDate(af::array &datestr, DateFormat inputFormat, bo
     if (!datestr.dims(1)) return array(3, 0, u16);
 
     af::array out = datestr.rows(0, end - 1);
-    auto nulls = where(allTrue(out == 0 || out == ' ', 0));
-    nulls.eval();
+    out(where(allTrue(out == 0 || out == ' ', 0))) = '0';
     out(where(out >= '0' && out <='9')) -= '0';
-    out(span, nulls) = 0;
     if (isDelimited) {
         auto delims = AFParser::dateDelimIndices(inputFormat);
         out(seq(delims.first, delims.second, delims.second - delims.first), span) = 255;
+        out = out(where(out >= 0 && out <= 9));
     }
-    out = moddims(out(where(out >= 0 && out <= 9)), dim4(8, out.dims(1)));
+    out = moddims(out, dim4(8, out.dims(1)));
     out = batchFunc(out, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
     out = sum(out, 0);
 

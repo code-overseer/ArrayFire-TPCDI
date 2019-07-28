@@ -1,24 +1,39 @@
 cmake_minimum_required(VERSION 3.10)
-project(ArrayFire-TPCDI)
+
+if(USING_CUDA)
+    project(ArrayFire-TPCDI LANGUAGES CXX CUDA)
+    set(CMAKE_CUDA_FLAGS -arch=sm_30)
+    add_definitions( -DUSING_CUDA=TRUE )
+else()
+    project(ArrayFire-TPCDI LANGUAGES CXX)
+endif()
+if (APPLE)
+    add_definitions( -DIS_APPLE=TRUE )
+    add_definitions( -DCL_SILENCE_DEPRECATION )
+    add_definitions( -DCL_LOG_ERRORS=stderr )
+endif()
+
 set(CMAKE_CXX_STANDARD 14)
 
 include_directories(.)
 include_directories(rapidxml)
 FIND_PACKAGE(ArrayFire REQUIRED)
 INCLUDE_DIRECTORIES(${ArrayFire_INCLUDE_DIRS})
-
-# MacOS doesn't have c++17 and boost regex is different from c++ regex
 FIND_PACKAGE(Boost COMPONENTS filesystem regex REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+
+FIND_PACKAGE(OpenCL REQUIRED)
+INCLUDE_DIRECTORIES( ${OpenCL_INCLUDE_DIRS})
+add_definitions( -DOCL_KERNEL_DIR="${CMAKE_SOURCE_DIR}/OpenCL/" )
 
 add_executable(ArrayFire-TPCDI
         rapidxml/rapidxml.hpp
         rapidxml/rapidxml_iterators.hpp
         rapidxml/rapidxml_print.hpp
         rapidxml/rapidxml_utils.hpp
+        main.cpp
         AFParser.cpp
         AFParser.hpp
-        main.cpp
         Enums.h
         BatchFunctions.cpp
         BatchFunctions.h
@@ -29,7 +44,19 @@ add_executable(ArrayFire-TPCDI
         TPC_DI.cpp
         TPC_DI.h
         XMLFlattener.cpp
-        XMLFlattener.h FinwireParser.cpp FinwireParser.h)
+        XMLFlattener.h
+        FinwireParser.cpp
+        FinwireParser.h)
+
+if (USING_CUDA)
+    set_source_files_properties(main.cpp CUDA/cuda_kernels.h PROPERTIES LANGUAGE CUDA)
+    TARGET_SOURCES(ArrayFire-TPCDI PRIVATE CUDA/cuda_kernels.h)
+    set_property(TARGET ArrayFire-TPCDI PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+elseif(USING_OPENCL)
+    add_definitions( -DUSING_OPENCL=TRUE )
+    TARGET_SOURCES(ArrayFire-TPCDI PRIVATE OpenCL/opencl_kernels.h OpenCL/opencl_helper.h)
+endif()
 
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${ArrayFire_Unified_LIBRARIES} )
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${Boost_LIBRARIES} )
+TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${OpenCL_LIBRARIES} )

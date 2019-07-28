@@ -33,7 +33,7 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
     }
     _data.eval();
     _generateIndexer(delimiter, hasHeader);
-    sync();
+    af::sync();
 }
 
 AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _filename(nullptr),
@@ -42,7 +42,7 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
     _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(delimiter, hasHeader);
-    sync();
+    af::sync();
 }
 
 AFParser::~AFParser() {
@@ -54,7 +54,7 @@ std::string AFParser::loadFile(char const *filename) {
     std::ifstream file(filename);
     std::string text;
     file.seekg(0, std::ios::end);
-    text.reserve(file.tellg());
+    text.reserve(((size_t)file.tellg()) + 1);
     file.seekg(0, std::ios::beg);
     text.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     file.close();

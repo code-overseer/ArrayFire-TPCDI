@@ -231,7 +231,6 @@ void nameStagingSecurity(AFDataFrame &security) {
     security.nameColumn("CO_NAME_OR_CIK", 11);
 }
 
-/* Staging Tables */
 Finwire loadStagingFinwire(char const *directory) {
     std::string dir(directory);
     std::vector<std::string> finwireFiles;
@@ -244,22 +243,17 @@ Finwire loadStagingFinwire(char const *directory) {
         if( n != std::string::npos) continue;
         finwireFiles.push_back( i->path().string() );
     }
+
     sort(finwireFiles.begin(), finwireFiles.end());
     AFDF_ptr stagingCompany = nullptr;
     AFDF_ptr stagingFinancial = nullptr;
     AFDF_ptr stagingSecurity = nullptr;
-    for (auto const &path : finwireFiles) {
-        FinwireParser finwire(path.c_str());
-        if (!stagingCompany && !stagingFinancial && !stagingSecurity) {
-            stagingCompany = std::make_shared<AFDataFrame>(finwire.extractCmp());
-            stagingFinancial = std::make_shared<AFDataFrame>(finwire.extractFin());
-            stagingSecurity = std::make_shared<AFDataFrame>(finwire.extractSec());
-        } else {
-            stagingCompany->concatenate(finwire.extractCmp());
-            stagingFinancial->concatenate(finwire.extractFin());
-            stagingSecurity->concatenate(finwire.extractSec());
-        }
-    }
+
+    FinwireParser finwire(finwireFiles);
+    stagingCompany = std::make_shared<AFDataFrame>(finwire.extractCmp());
+    stagingFinancial = std::make_shared<AFDataFrame>(finwire.extractFin());
+    stagingSecurity = std::make_shared<AFDataFrame>(finwire.extractSec());
+
     nameStagingCompany(*stagingCompany);
     nameStagingFinancial(*stagingFinancial);
     nameStagingSecurity(*stagingSecurity);
@@ -397,7 +391,6 @@ void nameDimCompany(AFDataFrame &dimCompany) {
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
     auto dimCompany = s_Company.equiJoin(industry,5,0);
-
     dimCompany = dimCompany.equiJoin(statusType, 4, 0);
     {
         std::string order[15] = {
@@ -411,11 +404,11 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.types("PTS") = DATE;
     dimCompany.nameColumn("EffectiveDate", "PTS");
 
-    auto length = dimCompany.data(0).dims(1);
-    dimCompany.insert(range(dim4(1, length), 1, u64), U64, 0, "SK_CompanyID");
-    dimCompany.insert(constant(1, dim4(1, length), b8), BOOL, dimCompany.data().size() - 1, "IsCurrent");
-    dimCompany.insert(constant(1, dim4(1, length), u32), UINT, dimCompany.data().size() - 1, "BatchID");
-    dimCompany.add(tile(AFDataFrame::endDate(), dim4(1, length)), DATE, "EndDate");
+    dimCompany.insert(range(dim4(1, dimCompany.length()), 1, u64), U64, 0, "SK_CompanyID");
+    dimCompany.insert(constant(1, dim4(1, dimCompany.length()), b8), BOOL, dimCompany.data().size() - 1, "IsCurrent");
+    dimCompany.insert(constant(1, dim4(1, dimCompany.length()), u32), UINT, dimCompany.data().size() - 1, "BatchID");
+    dimCompany.add(tile(AFDataFrame::endDate(), dim4(1, dimCompany.length())), DATE, "EndDate");
+
     {
         auto lowGrade = dimCompany.data(5).row(0) != 'A';
         array col = dimCompany.data(5).rows(0,2);
@@ -423,33 +416,25 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
         lowGrade.eval();
         dimCompany.insert(lowGrade, BOOL, 6, "isLowGrade");
     }
+
     nameDimCompany(dimCompany);
     dimCompany.data("CompanyID") = FinwireParser::stringToNum(dimCompany.data("CompanyID"), u64);
     dimCompany.types("CompanyID") = U64;
-    AFDataFrame s1;
-    {
-        std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
-        s1 = dimCompany.project(order, 3, "S1");
-        order[0] = order[1];
-        order[1] = order[2];
-        s1.sortBy(order, 2);
-    }
 
-    s1.add(range(dim4(1, length), 1, u64), U64);
-    s1.nameColumn("RN", s1.data().size() - 1);
-    std::string order[2] = {"RN", "CompanyID"};
-    {
-        auto s2 = s1.project(order,2,"S2");
-        s2.data("RN") = s2.data("RN") - 1;
-        s1 = s1.equiJoin(s2, "RN", "RN");
-        auto idx = where(s1.data("CompanyID") == s1.data("S2.CompanyID"));
-        s1 = s1.select(idx);
-    }
+    std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
+    auto s1 = dimCompany.project(order, 3, "S1");
+    s1.sortBy(order + 1, 2);
 
-    order[0] = "SK_CompanyID";
-    order[1] = "EffectiveDate";
+    auto s2 = s1.project(order + 1, 1, "S2");
+    s1 = s1.select(range(dim4(s1.length() - 1), 0, u64));
+    s2 = s2.select(range(dim4(s2.length() - 1), 0, u64) + 1);
+    s1 = s1.zip(s2);
+    s1 = s1.select(where(s1.data("CompanyID") == s1.data("S2.CompanyID")));
+
+    std::swap(order[1], order[2]);
     s1 = s1.project(order, 2, "candidate");
-    auto out = AFDataFrame::crossCompare(dimCompany.data("SK_CompanyID"), s1.data("SK_CompanyID"));
+
+    auto out = AFDataFrame::setCompare(dimCompany.data("SK_CompanyID"), s1.data("SK_CompanyID"));
     dimCompany.data("IsCurrent")(out.first) = 0;
     dimCompany.data("EndDate")(span, out.first) = s1.data("EffectiveDate");
 
@@ -588,23 +573,20 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
 
     nameDimSecurity(security);
 
-    AFDataFrame s1;
-    {
-        std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
-        s1 = security.project(order, 3, "S1");
+    std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
+    auto s1 = security.project(order, 3, "S1");
 
-        order[0] = "Symbol";
-        order[1] = "EffectiveDate";
-        s1.sortBy(order, 2);
-        af::sync();
-    }
+    order[0] = "Symbol";
+    order[1] = "EffectiveDate";
+    s1.sortBy(order, 2);
 
-    s1.add(range(dim4(1, length), 1, u64), U64, "RN");
-    std::string order[2] = {"RN", "Symbol"};
-    auto s2 = s1.project(order, 2, "S2");
-    s2.data("RN") = s2.data("RN") - 1;
-    s1 = s1.equiJoin(s2, "RN", "RN");
+    order[0] = "Symbol";
+    auto s2 = s1.project(order, 1, "S2");
+    s1 = s1.select(range(dim4(s1.length() - 1), 0, u64));
+    s2 = s2.select(range(dim4(s2.length() - 1), 0, u64) + 1);
+    s1 = s1.zip(s2);
     s1 = s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
+
     if (s1.data(0).isempty()) return security;
 
     order[0] = "SK_SecurityID";

@@ -23,43 +23,24 @@ void AFDataFrame::printStr(array str_array) {
 
 AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _deviceData(std::move(other._deviceData)),
                                                          _dataTypes(std::move(other._dataTypes)),
-                                                         _length(other._length),
                                                          _nameToIdx(std::move(other._nameToIdx)),
                                                          _idxToName(std::move(other._idxToName)),
                                                          _tableName(std::move(other._tableName)) {
-    if (!_length) {
-        _rowIndexes = range(_deviceData[0].dims(), 0, u32);
-        _rowIndexes.eval();
-    }
-    other._rowIndexes = array();
-    other._length = 0;
 }
 
 AFDataFrame::AFDataFrame(AFDataFrame const &other) : _deviceData(other._deviceData),
                                                     _dataTypes(other._dataTypes),
-                                                    _length(other._length),
                                                     _nameToIdx(other._nameToIdx),
                                                     _idxToName(other._idxToName),
-                                                     _tableName(other._tableName + "_cpy") {
-    if (!_length) {
-        _rowIndexes = range(_deviceData[0].dims(), 0, u32);
-        _rowIndexes.eval();
-    }
+                                                     _tableName(other._tableName) {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
     _deviceData = std::move(other._deviceData);
     _dataTypes = std::move(other._dataTypes);
-    _length = other._length;
-    if (!_length) {
-        _rowIndexes = other._rowIndexes;
-        _rowIndexes.eval();
-    }
     _nameToIdx = std::move(other._nameToIdx);
     _idxToName = std::move(other._idxToName);
     _tableName = std::move(other._tableName);
-    other._rowIndexes = array();
-    other._length = 0;
     return *this;
 }
 
@@ -67,11 +48,6 @@ AFDataFrame& AFDataFrame::operator=(AFDataFrame const &other) noexcept {
     _deviceData = other._deviceData;
     _dataTypes = other._dataTypes;
     _nameToIdx = other._nameToIdx;
-    _length = other._length;
-    if (!_length) {
-        _rowIndexes = range(_deviceData[0].dims(), 0, u32);
-        _rowIndexes.eval();
-    }
     _tableName = other._tableName + "_cpy";
     return *this;
 }
@@ -83,11 +59,6 @@ void AFDataFrame::add(array &column, DataType type, const char *name) {
 void AFDataFrame::add(array &&column, DataType type, const char *name) {
     _deviceData.emplace_back(column);
     _dataTypes.emplace_back(type);
-
-    if (!_length) {
-        _length = _deviceData[0].dims(1);
-        _rowIndexes = range(dim4(1, _length), 1, u32);
-    }
 
     if (name) nameColumn(name, _deviceData.size() - 1);
 }
@@ -124,17 +95,10 @@ void AFDataFrame::remove(int index) {
     }
 }
 
-void AFDataFrame::_flush() {
+void AFDataFrame::_flush(af::array const &idx) {
     for (auto &i : _deviceData) {
-        i = i(span, _rowIndexes);
+        i = i(span, idx);
         i.eval();
-    }
-    _length = _deviceData[0].dims(0);
-    if (!_length) {
-        _length = _deviceData[0].dims(0);
-        _rowIndexes = range(dim4(1, _length), 1, u32);
-    } else {
-        _rowIndexes = array(0, u32);
     }
 }
 
@@ -174,9 +138,9 @@ af::array AFDataFrame::datetimeHash(af::array const &datetime) {
 
 void AFDataFrame::dateSort(int index, bool ascending) {
     auto keys = dateOrTimeHash(index);
-    array out;
-    sort(out, _rowIndexes, keys, 1, ascending);
-    _flush();
+    array idx;
+    sort(keys, idx, keys, 1, ascending);
+    _flush(idx);
 }
 
 af::array AFDataFrame::endDate() {
@@ -200,10 +164,10 @@ AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const
 
 AFDataFrame AFDataFrame::select(af::array const &index) const {
     AFDataFrame out(*this);
-    out._rowIndexes = index;
-    out._flush();
+    out._flush(index);
     return out;
 }
+
 
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
@@ -211,6 +175,17 @@ AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string
         columns[i] = _nameToIdx.at(names[i]);
     }
     return project(columns, size, name);
+}
+
+AFDataFrame AFDataFrame::zip(AFDataFrame &&rhs) const {
+    if (length() != rhs.length()) throw std::runtime_error("Left and Right tables do not have the same length");
+    AFDataFrame output = *this;
+
+    for (int i = 0; i < rhs._deviceData.size(); i++) {
+        output.add(rhs._deviceData[i], rhs._dataTypes[i], (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+    }
+
+    return output;
 }
 
 void AFDataFrame::concatenate(AFDataFrame &&frame) {
@@ -221,8 +196,6 @@ void AFDataFrame::concatenate(AFDataFrame &&frame) {
     }
 
     for (int i = 0; i < _deviceData.size(); ++i) {
-        af::array left;
-        af::array right;
 
         if (_dataTypes[i] == STRING) {
             auto delta = _deviceData[i].dims(0) - frame._deviceData[i].dims(0);
@@ -261,6 +234,7 @@ af::array AFDataFrame::prefixHash(array const &column) {
         if (e < n) out = join(0, out, sum(batchFunc(column.rows(i * 8, e), s1, bitShiftLeft), 0));
         else out = join(0, out, sum(batchFunc(column.rows(i * 8, i * 8 + r), s1.rows(0, r - 1), bitShiftLeft), 0));
     }
+    if (out.type() != u64) out = out.as(u64);
     out.eval();
     return out;
 }
@@ -277,6 +251,7 @@ af::array AFDataFrame::polyHash(array const &column) {
     hash = batchFunc(column, hash, batchMult);
     hash = sum(hash, 0);
     hash.eval();
+    if (hash.type() != u64) hash = hash.as(u64);
     return hash;
 }
 
@@ -288,48 +263,47 @@ af::array AFDataFrame::polyHash(int column) const {
 void AFDataFrame::sortBy(int column, bool isAscending) {
     array elements = hashColumn(column, true);
     auto const size = elements.dims(0);
-    {
-        array sorting;
-        sort(sorting, _rowIndexes, elements(0, span), 1, isAscending);
-    }
-    _flush();
+    array sorting;
+    array idx;
+    sort(sorting, idx, elements(0, span), 1, isAscending);
+    _flush(idx);
     for (int j = 1; j < size; ++j) {
-        _rowIndexes = _subSort(elements(j, span), elements(j - 1, span), isAscending);
-        _flush();
+        idx = _subSort(elements(j, span), elements(j - 1, span), isAscending);
+        _flush(idx);
     }
 
 }
 
 array AFDataFrame::_subSort(array const &elements, array const &bucket, bool const isAscending) {
-    array idx_output;
-    {
-        auto buckets = setUnique(bucket, isAscending).elements();
-        auto eq = isAscending ? diff1(bucket, 1).as(s32) : diff1(flip(bucket, 1).as(s32));
-        eq = join(1, constant(1, dim4(1), s32), eq);
-        eq = eq.as(b8);
-        idx_output = flipdims(where(eq));
-        eq = accum(eq.as(u64));
-        eq -= 1;
-        eq = flipdims(histogram(eq, buckets));
-        eq = idx_output + eq - 1;
-        idx_output = join(0, idx_output, eq);
-    }
+
+    auto idx_output = isAscending ? diff1(bucket, 1).as(s64) : diff1(flip(bucket, 1), 1).as(s64);
+    idx_output = join(1, constant(1, dim4(1), u64), (idx_output > 0).as(u64));
+    idx_output = accum(idx_output, 1) - 1;
+    idx_output = flipdims(histogram(idx_output, idx_output.elements())).as(u64);
+    idx_output = idx_output(idx_output > 0);
+    idx_output = join(0, scan(idx_output, 1, AF_BINARY_ADD, false),
+                      accum(idx_output, 1) - 1);
+    idx_output.eval();
     // max size of bucket
-    auto h = sum<unsigned int>(max(diff1(idx_output,0)).as(u32)) + 1;
-    auto idx = batchFunc(idx_output(0,span), range(dim4(h, idx_output.dims(1)), 0, u32), BatchFunctions::batchAdd);
+    auto h = sum<unsigned int>(max(diff1(idx_output,0)).as(u64)) + 1;
+
+    auto idx = batchFunc(idx_output(0,span), range(dim4(h, idx_output.dims(1)), 0, u64), BatchFunctions::batchAdd);
     auto idx_cpy = idx;
-    idx_cpy(where(batchFunc(idx_cpy, idx_output(1,span), BatchFunctions::batchGreater))) = UINT32_MAX;
+    idx_cpy(where(batchFunc(idx_cpy, idx_output(1,span), BatchFunctions::batchGreater))) = UINT64_MAX;
     {
-        auto nonNullIdx = where(idx_cpy!=UINT32_MAX);
+        auto nonNullIdx = where(idx_cpy != UINT64_MAX);
         array nonNullData = idx_cpy(nonNullIdx);
         nonNullData = elements(nonNullData);
+        nonNullData.eval();
         idx_cpy(nonNullIdx) = flipdims(nonNullData);
+        idx_cpy.eval();
     }
     sort(idx_cpy, idx_output, idx_cpy, 0, isAscending);
-    idx_output += range(idx_output.dims(), 1, u32) * idx_output.dims(0);
-    idx_output = idx_output(where(idx_cpy!=UINT32_MAX));
+    idx_output += range(idx_output.dims(), 1, idx_output.type()) * idx_output.dims(0);
+    idx_output = idx_output(where(idx_cpy != UINT64_MAX));
     idx_output = idx(idx_output);
     idx_output.eval();
+
     return idx_output;
 }
 
@@ -343,8 +317,8 @@ void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
         array buckets = hashColumn(columns[i - 1]);
         auto subsize = elements.dims(0);
         for (int j = 0; j < subsize; ++j) {
-            _rowIndexes = _subSort(elements(j, span), j ? elements(j - 1, span) : buckets, asc);
-            _flush();
+            array idx = _subSort(elements(j, span), j ? elements(j - 1, span) : buckets, asc);
+            _flush(idx);
         }
     }
 }
@@ -371,7 +345,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     auto l = hashColumn(lhs_column);
     auto r = rhs.hashColumn(rhs_column);
 
-    auto idx = crossCompare(l, r);
+    auto idx = setCompare(l, r);
 
     if (_deviceData[lhs_column].dims(0) <= rhs._deviceData[rhs_column].dims(0)) {
         l = _deviceData[lhs_column](span, idx.first);
@@ -390,17 +364,17 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         idx.first = idx.first(tmp);
         idx.second = idx.second(tmp);
     }
-    if (rhs.name() == "DC") print("Collision Checked");
+
     for (int i = 0; i < _deviceData.size(); i++) {
       result.add(_deviceData[i](span, idx.first), _dataTypes[i], _idxToName.at(i).c_str());
     }
-    if (rhs.name() == "DC") print("LEFT");
+
     for (int i = 0; i < rhs._deviceData.size(); i++) {
         if (i == rhs_column) continue;
         result.add(rhs._deviceData[i](span, idx.second), rhs._dataTypes[i],
 		   (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
     }
-    if (rhs.name() == "DC") print("right");
+
     return result;
 }
 
@@ -413,61 +387,32 @@ std::pair<array, array> AFDataFrame::crossCompare(af::array const &lhs, af::arra
     return { l, r };
 }
 
-std::pair<af::array, af::array> AFDataFrame::hashCompare(array lhs, array rhs) {
-    array setrl = flipdims(setIntersect(lhs, rhs));
-    if (setrl.isempty()) return { array(1,0,u32), array(1,0,u32) };
-    unsigned int m = 6; // need to choose bucket size;
-    unsigned int n;
-    array hash_table;
+std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
+    lhs = join(0, lhs, range(lhs.dims(), 1, u64));
+    rhs = join(0, rhs, range(rhs.dims(), 1, u64));
     {
         array idx;
-        auto set0 = setrl % m;
-        sort(set0, idx, set0, 1);
-        set0.eval();
-
-        auto bin = join(1, constant(1,dim4(1),set0.type()), diff1(set0, 1));
-        bin = bin > 0;
-        bin = accum(bin, 1) - 1;
-        bin.eval();
-
-        auto set1 = flipdims(setUnique(set0, true));
-        auto hist = flipdims(histogram(bin, set1.elements()));
-        n = sum<unsigned int>(max(hist).as(u32)); // max collisions
-        hash_table = constant(UINT32_MAX, dim4(n, m), u32);
-
-        auto starts = batchFunc(set1 * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
-        starts = starts(batchFunc(hist, range(dim4(n), 0, u32), BatchFunctions::batchSub) > 0);
-        starts.eval();
-
-        hash_table(starts) = flipdims(setrl(idx));
-        hash_table.eval();
+        array tmp;
+        sort(tmp, idx, lhs.row(0), 1);
+        lhs = lhs(span, idx);
+        sort(tmp, idx, rhs.row(0), 1);
+        rhs = rhs(span, idx);
     }
 
-    {
-        auto h = batchFunc(lhs % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
-        h = hash_table(h);
-        h = moddims(h,dim4(n, h.elements() / n));
-        h = batchFunc(h, lhs, BatchFunctions::batchEqual);
-        h = flipdims(where(anyTrue(h, 0)));
-        lhs = lhs(h);
+    auto setrl = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
+    _removeNonExistant(setrl, lhs, rhs);
 
-        h = batchFunc(rhs % m * n, range(dim4(n), 0, u32), BatchFunctions::batchAdd);
-        h = hash_table(h);
-        h = moddims(h,dim4(n, h.elements() / n));
-        h = batchFunc(h, rhs, BatchFunctions::batchEqual);
-        h = flipdims(where(anyTrue(h, 0)));
-        rhs = rhs(h);
-    }
+//    auto cl = flipdims(histogram(lhs.row(0), lhs.row(0).elements())).as(u64);
+    auto cl = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0),1) > 0).as(u64)), 1) - 1;
+    cl = flipdims(histogram(cl, cl.elements())).as(u64);
+    cl = cl(cl > 0);
+    auto il = scan(cl, 1, AF_BINARY_ADD, false);
 
-    auto bin = join(1, constant(1,dim4(1),lhs.type()), diff1(lhs, 1)) > 0;
-    auto il = flipdims(where(bin));
-    bin = accum(bin, 1) - 1;
-    auto cl = flipdims(histogram(bin, setrl.elements())).as(u32);
-
-    bin = join(1, constant(1,dim4(1),rhs.type()), diff1(rhs, 1)) > 0;
-    auto ir = flipdims(where(bin));
-    bin = accum(bin, 1) - 1;
-    auto cr = flipdims(histogram(bin, setrl.elements())).as(u32);
+//    auto cr = flipdims(histogram(rhs.row(0), rhs.row(0).elements())).as(u64);
+    auto cr = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0),1) > 0).as(u64)), 1) - 1;
+    cr = flipdims(histogram(cr, cr.elements())).as(u64);
+    cr = cr(cr > 0);
+    auto ir = scan(cr, 1, AF_BINARY_ADD, false);
 
     auto outpos = cr * cl;
     auto out_size = sum<unsigned int>(sum(outpos,1));
@@ -475,25 +420,77 @@ std::pair<af::array, af::array> AFDataFrame::hashCompare(array lhs, array rhs) {
     af::sync();
 
     auto x = setrl.elements();
-    auto y = sum<unsigned int>(max(cl,1));
-    auto z = sum<unsigned int>(max(cr,1));
-    auto i = range(dim4(1, x * y * z), 1, u32);
+    auto y = sum<unsigned int>(max(cl, 1));
+    auto z = sum<unsigned int>(max(cr, 1));
+    auto i = range(dim4(1, x * y * z), 1, u64);
     auto j = i / z % y;
     auto k = i % z;
     i = i / y / z;
-    lhs = array(1, out_size + 1, u32);
-    rhs = array(1, out_size + 1, u32);
+    array l(1, out_size + 1, u64);
+    array r(1, out_size + 1, u64);
+
     auto b = !(j / cl(i)) && !(k / cr(i));
-    lhs(b * (outpos(i) + cl(i) * k + j) + !b * out_size) = il(i) + j;
-    rhs(b * (outpos(i) + cr(i) * j + k) + !b * out_size) = ir(i) + k;
-    lhs = lhs.cols(0,end - 1);
-    rhs = rhs.cols(0,end - 1);
+    l(b * (outpos(i) + cl(i) * k + j) + !b * out_size) = il(i) + j;
+    r(b * (outpos(i) + cr(i) * j + k) + !b * out_size) = ir(i) + k;
+    l = l.cols(0,end - 1);
+    r = r.cols(0,end - 1);
+
+    lhs = lhs(1, l);
+    rhs = rhs(1, r);
 
     lhs.eval();
     rhs.eval();
-    af::sync();
 
     return { lhs, rhs };
+}
+
+void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs) {
+    auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
+    auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
+
+    // TODO standardize launch_ISExist to use af::array
+    #if USING_CUDA || USING_OPENCL
+    auto comp = setrl.device<uint64_t>();
+    auto result_left = res_l.device<uint64_t>();
+    auto result_right = res_r.device<uint64_t>();
+    auto input_l = lhs.device<uint64_t>();
+    auto input_r = rhs.device<uint64_t>();
+    af::sync();
+    printf("GPU threads for lhs: %llu\n", res_l.elements() * setrl.elements());
+    launch_IsExist(result_left, input_l, comp, res_l.elements(), setrl.elements());
+    printf("GPU threads for rhs: %llu\n", res_r.elements() * setrl.elements());
+    launch_IsExist(result_right, input_r, comp, res_r.elements(), setrl.elements());
+
+    setrl.unlock();
+    lhs.unlock();
+    rhs.unlock();
+    res_l.unlock();
+    res_r.unlock();
+    #else
+    auto i_size = res_l.elements();
+    auto comp_size = setrl.elements();
+    auto id = range(dim4(1, i_size * comp_size), 1, u64);
+    auto i = id / comp_size;
+    auto j = id % comp_size;
+    auto b = moddims(setrl(j), i.dims()) == moddims(lhs(0, i),i.dims());
+    auto k = b * i + !b * i_size;
+    res_l(k) = 1;
+
+    i_size = res_r.elements();
+    id = range(dim4(1, i_size * comp_size), 1, u64);
+    i = id / comp_size;
+    j = id % comp_size;
+    b = moddims(setrl(j), i.dims()) == moddims(rhs(0, i),i.dims());
+    k = b * i + !b * i_size;
+    res_r(k) = 1;
+    #endif
+
+    res_r = res_r.cols(0, end - 1);
+    res_l = res_l.cols(0, end - 1);
+    lhs = lhs(span, where(res_l));
+    rhs = rhs(span, where(res_r));
+    lhs.eval();
+    rhs.eval();
 }
 
 void AFDataFrame::reorder(int const *seq, int size) {
@@ -590,7 +587,6 @@ void AFDataFrame::flushToHost() {
         _hostData.emplace_back(tmp);
     }
     _deviceData.clear();
-    _rowIndexes = array();
 }
 
 AFDataFrame::~AFDataFrame() {
@@ -602,7 +598,6 @@ AFDataFrame::~AFDataFrame() {
 
 void AFDataFrame::clear() {
     _deviceData.clear();
-    if (!_deviceData.empty()) _rowIndexes = array(0, u32);
     _tableName.clear();
     _idxToName.clear();
     _nameToIdx.clear();
@@ -611,7 +606,6 @@ void AFDataFrame::clear() {
     }
     _hostData.clear();
     _dataTypes.clear();
-    _length = 0;
 }
 
 

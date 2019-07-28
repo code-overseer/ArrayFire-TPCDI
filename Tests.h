@@ -22,5 +22,6 @@ void test_stringToBool(char const *filepath);
 void test_UChar(char const *filepath);
 void test_StringHash(char const *filepath);
 void hashTest(char const *filepath);
+void testSetJoin();
 
 #endif //ARRAYFIRE_TPCDI_TESTS_H

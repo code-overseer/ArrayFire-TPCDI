@@ -13,10 +13,15 @@
 #include <functional>
 #include "AFParser.hpp"
 #include "BatchFunctions.h"
+#if USING_OPENCL
+#include "OpenCL/opencl_kernels.h"
+#elif USING_CUDA
+#include "CUDA/cuda_kernels.h"
+#endif
 
 class AFDataFrame {
 public:
-    AFDataFrame() : _length(0) {};
+    AFDataFrame() {};
     AFDataFrame(AFDataFrame&& other) noexcept;
     AFDataFrame(AFDataFrame const &other);
     virtual ~AFDataFrame();
@@ -69,8 +74,11 @@ public:
     AFDataFrame equiJoin(AFDataFrame const &rhs, std::string const &lName, std::string const &rName) const {
         return equiJoin(rhs, _nameToIdx.at(lName), rhs._nameToIdx.at(rName));
     }
+    AFDataFrame zip(AFDataFrame &&rhs) const;
+    AFDataFrame zip(AFDataFrame &rhs) const { return zip(std::move(rhs)); }
     std::string name(const std::string& str);
     std::string name() const;
+    uint64_t length() const { return _deviceData.empty() ? 0 : _deviceData[0].dims(1); }
     void flushToHost();
     void clear();
     void nameColumn(const std::string& name, int column);
@@ -83,10 +91,9 @@ public:
     static af::array stringToDate(af::array &datestr, DateFormat inputFormat, bool isDelimited);
     static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs,
                                                         af::batchFunc_t predicate = BatchFunctions::batchEqual);
-    std::pair<af::array, af::array> hashCompare(af::array lhs, af::array rhs);
+    static std::pair<af::array, af::array> setCompare(af::array lhs, af::array rhs);
     static af::array prefixHash(af::array const &column);
     static af::array polyHash(af::array const &column);
-
     static af::array flipdims(af::array const &arr) { return moddims(arr, af::dim4(arr.dims(1), arr.dims(0))); }
 private:
     static af::array _subSort(af::array const &elements, af::array const &bucket, bool isAscending);
@@ -95,10 +102,10 @@ private:
     std::vector<void*> _hostData;
     std::vector<DataType> _dataTypes;
     std::string _tableName;
-    unsigned long _length;
-    af::array _rowIndexes;
     std::unordered_map<std::string, unsigned int> _nameToIdx;
     std::unordered_map<unsigned int, std::string> _idxToName;
-    void _flush();
+    void _flush(af::array const &idx);
+
+    static void _removeNonExistant(const af::array &setrl, af::array &lhs, af::array &rhs);
 };
 #endif //ARRAYFIRE_TPCDI_AFDATAFRAME_H
