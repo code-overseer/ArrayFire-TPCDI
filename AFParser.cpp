@@ -7,30 +7,33 @@
 //
 
 #include "AFParser.hpp"
-#include <fstream>
 #include "BatchFunctions.h"
-#include "AFDataFrame.h"
-#include <exception>
+#include "TPCDI_Utils.h"
 #include <sstream>
 #include <utility>
-#include <limits>
 
-template<typename T>
-using Vector = std::vector<T>;
-template<typename T>
-using Predicate = std::function<bool(T)>;
-typedef unsigned long ulong;
 using namespace af;
 using namespace BatchFunctions;
+using namespace TPCDI_Utils;
 
 AFParser::AFParser(char const *filename, char const delimiter, bool const hasHeader) : _filename(filename),
 _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
     {
-        std::string txt = loadFile(_filename);
+        std::string txt = TPCDI_Utils::loadFile(_filename);
         if (txt.back() != '\n') txt += '\n';
         _data = array(txt.size() + 1, txt.c_str()).as(u8);
         _data = _data(where(_data != '\r'));
     }
+    _data.eval();
+    _generateIndexer(delimiter, hasHeader);
+    af::sync();
+}
+
+AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, bool const hasHeader) : _filename(nullptr),
+_length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
+    auto text = collect(files);
+    _data = array(text.size() + 1, text.c_str()).as(u8);
+    _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(delimiter, hasHeader);
     af::sync();
@@ -50,24 +53,9 @@ AFParser::~AFParser() {
     if (_cumulativeMaxColumnWidths) af::freeHost(_cumulativeMaxColumnWidths);
 }
 
-std::string AFParser::loadFile(char const *filename) {
-    std::ifstream file(filename);
-    std::string text;
-    file.seekg(0, std::ios::end);
-    text.reserve(((size_t)file.tellg()) + 1);
-    file.seekg(0, std::ios::beg);
-    text.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-    file.close();
-    return text;
-}
-
-void AFParser::_colToRow(af::array& arr) {
-    arr = moddims(arr, dim4(1, arr.elements()));
-}
-
 void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
     _indexer = where(_data == '\n');
-    _colToRow(_indexer);
+    _indexer = flipdims(_indexer);
     _length = _indexer.elements();
     {
         auto col_end = where(_data == delimiter);
@@ -102,144 +90,19 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
 }
 
 af::array AFParser::asTime(int column) const {
-    if (!_length) return array(3, 0, u8);
-    int8_t const i = column != 0;
-    int8_t const len = 8;
-
-    auto idx = _indexer.row(column) + i;
-    auto nulls = _indexer.row(column + 1) - idx;
-    nulls = where(nulls != len);
-    nulls.eval();
-    array out = batchFunc(range(dim4(len, 1), 0, u32), idx, batchAdd);
-
-    out = moddims(_data(out), out.dims()) - '0';
-    out(span, nulls) = 0;
-    out(seq(2, 5, 3), span) = 255;
-    out = moddims(out(where(out >= 0 && out <= 9)), dim4(6, out.dims(1)));
-
-    out = batchFunc(out, flip(pow(10, range(dim4(6, 1), 0, u32)), 0), batchMult);
-    out = sum(out, 0);
-    out = join(0, out / 10000, out % 10000 / 100, out % 100).as(u8);
-    out.eval();
-
-    return out;
-}
-
-array AFParser::asDateTime(int const column, DateFormat const inputFormat) const {
-    if (!_length) return array(6, 0, u16);
-    int8_t const i = column != 0;
-    int8_t const dlen = 10;
-    int8_t const tlen = 8;
-    int8_t const len = 19;
-    auto const idx = _indexer.row(column) + i;
-
-    auto nulls = _indexer.row(column + 1) - idx;
-    nulls = where(nulls != len);
-    nulls.eval();
-
-    auto date = batchFunc(range(dim4(dlen, 1), 0, u32), idx, batchAdd);
-
-    date = moddims(_data(date), date.dims()) - '0';
-    date(span,nulls) = 0;
-
-    auto delims = dateDelimIndices(inputFormat);
-    date(seq(delims.first, delims.second, delims.second - delims.first), span) = 255;
-    date = moddims(date(where(date >= 0 && date <= 9)), dim4(8, date.dims(1)));
-    date = batchFunc(date, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
-    date = sum(date, 0);
-
-    dateKeyToDate(date, inputFormat);
-
-    auto time = batchFunc(range(dim4(tlen, 1), 0, u32) + dlen + 1, idx, batchAdd);
-    time = moddims(_data(time), time.dims()) - '0';
-    time(span, nulls) = 0;
-
-    time(seq(2, 5, 3), span) = 255;
-    time = moddims(time(where(time >= 0 && time <= 9)), dim4(6, time.dims(1)));
-
-    time = batchFunc(time, flip(pow(10, range(dim4(6, 1), 0, u32)), 0), batchMult);
-    time = sum(time, 0);
-    time = join(0, time / 10000, time % 10000 / 100, time % 100).as(u16);
-    time.eval();
-
-    return join(0, date, time);
-}
-
-std::pair<int8_t, int8_t> AFParser::dateDelimIndices(DateFormat format) {
-    if (format == YYYYDDMM || format == YYYYMMDD)
-        return { 4, 7 };
-
-    return { 2, 5 };
-}
-
-void AFParser::dateKeyToDate(af::array &out, DateFormat format) {
-    switch (format) {
-        case YYYYMMDD:
-            out = join(0, out / 10000, out % 10000 / 100, out % 100).as(u16);
-            return;
-        case YYYYDDMM:
-            out = join(0, out / 10000, out % 100, out % 10000 / 100).as(u16);
-            return;
-        case MMDDYYYY:
-            out = join(0, out % 10000, out / 1000000, out % 10000 % 100).as(u16);
-            return;
-        case DDMMYYYY:
-            out = join(0, out % 10000, out % 10000 % 100, out / 1000000).as(u16);
-            return;
-        default:
-            throw std::runtime_error("No such date format");
-    }
+    auto out = _makeUniform(column);
+    return stringToTime(out, true);
 }
 
 /* This creates a copy of the column, TODO need to deal with missing values */
-array AFParser::asDate(int column, DateFormat inputFormat, bool isDelimited) const {
-    if (!_length) return array(3, 0, u16);
-    int8_t const i = column != 0;
-    int8_t const len = isDelimited ? 10 : 8;
-
-    auto idx = _indexer.row(column) + i;
-
-    auto nulls = _indexer.row(column + 1) - idx;
-    nulls = where(nulls != len);
-    nulls.eval();
-
-    array out = batchFunc(range(dim4(len, 1), 0, u32), idx, batchAdd);
-
-    out = moddims(_data(out), out.dims()) - '0';
-    out(span, nulls) = 0;
-
-    if (isDelimited) {
-        auto delims = dateDelimIndices(inputFormat);
-        out(seq(delims.first, delims.second, delims.second - delims.first), span) = UINT8_MAX;
-    }
-
-    out = moddims(out(where(out >= 0 && out <= 9)), dim4(8, out.dims(1)));
-    out = batchFunc(out, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
-    out = sum(out, 0);
-
-    dateKeyToDate(out, inputFormat);
-
-    out.eval();
-
-    return out;
+array AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
+    auto out = _makeUniform(column);
+    return stringToDate(out, isDelimited, inputFormat);
 }
 
-/* generate chracter indices of a column invalid indices replaced with UINT32_MAX */
-array AFParser::_generateReversedCharacterIndices(int const column) const {
-    // Get the last character index
-    unsigned int const i = column != 0;
-    auto const maximum = _maxColumnWidths[column];
-    auto out = _indexer.row(column + 1) - 1;
-    // Get the indices of the whole number
-    out = batchFunc(out, range(dim4(maximum, 1), 0, u32), batchSub);
-    // Removes the indices that do not point to part of the number (by pading these indices with UINT32_MAX)
-    out(where(batchFunc(out, out.row(0), batchGreater))) = UINT32_MAX; // TODO may not need this line
-    out(where(batchFunc(out, _indexer.row(column) + i, batchLess))) = UINT32_MAX;
-    // Transpose then flatten the array so that it can be used to index _data
-    out = flat(out);
-    out.eval();
-
-    return out;
+af::array AFParser::asDateTime(int column, bool isDelimited, DateFormat inputFormat) const {
+    auto out = _makeUniform(column);
+    return stringToDateTime(out, isDelimited, inputFormat);
 }
 
 array AFParser::asUchar(int column) const {
@@ -247,31 +110,37 @@ array AFParser::asUchar(int column) const {
     out.eval();
     return out;
 }
+
 array AFParser::asUshort(int column) const {
     auto out = _numParse(column, u16);
     out.eval();
     return out;
 }
+
 array AFParser::asShort(int column) const {
     auto out = _numParse(column, s16);
     out.eval();
     return out;
 }
+
 array AFParser::asUint(int const column) const {
     auto out = _numParse(column, u32);
     out.eval();
     return out;
 }
+
 array AFParser::asInt(int const column) const {
     auto out = _numParse(column, s32);
     out.eval();
     return out;
 }
+
 array AFParser::asFloat(int const column) const {
     auto out = _numParse(column, f32);
     out.eval();
     return out;
 }
+
 array AFParser::asU64(int const column) const {
     auto out = _numParse(column, u64);
     out.eval();
@@ -290,35 +159,27 @@ array AFParser::asDouble(int const column) const {
     return out;
 }
 
-void AFParser::_makeUniform(int column, array &output, array &negatives, array &points) const {
-    auto const maximum = _maxColumnWidths[column];
-    output = _generateReversedCharacterIndices(column);
-    auto cond = where(output != UINT32_MAX);
-    {
-        array tmp = output(cond);
-        tmp = _data(tmp);
-        tmp = tmp.as(u32);
-        tmp.eval();
-        output(cond) = tmp;
-    }
+af::array AFParser::_makeUniform(int column) const {
+    auto const maximum = _maxColumnWidths[column] + 1; // delimiter
+    unsigned int const i = column != 0;
+    auto out = static_cast<array>(_indexer.row(column + 1));
+    // Get the indices of the whole number
+    out = batchFunc(out, range(dim4(maximum), 0, u32), batchSub);
+    // Removes the indices that do not point to part of the number (by pading these indices with UINT32_MAX)
 
-    cond = where(output == '-');
-    // cache negative rows
-    negatives = cond / maximum;
-    negatives = moddims(negatives, dim4(1, negatives.dims(0)));
-    // set '-' to padded value
-    output(cond) = 0;
+    out(where(batchFunc(out, _indexer.row(column + 1), batchGreater))) = UINT32_MAX;
+    out(where(batchFunc(out, _indexer.row(column) + i, batchLess))) = UINT32_MAX;
+    // Transpose then flatten the array so that it can be used to index _data
 
-    cond = where(output == '.');
-    // cache decimal points
-    points = constant(-1, 1, output.dims(0) / maximum, s32);
-    points(cond / maximum) = (cond % maximum).as(s32);
+    out = flip(out, 0);
+    auto cond = where(out != UINT32_MAX);
+    out(cond) = _data(static_cast<array>(out(cond))).as(u32);
+    out(out == UINT32_MAX) = ' ';
+    out = moddims(out, dim4(maximum, out.elements() / maximum)).as(u8);
+    out.row(end) = 0;
+    out.eval();
 
-
-    output(cond) = 0;
-    output(where(output == UINT32_MAX)) = 0;
-    output(where(output)) -= '0';
-    output = moddims(output, dim4(maximum, output.dims(0)/maximum));
+    return out;
 }
 
 array AFParser::asString(int column) const {
@@ -353,41 +214,17 @@ void AFParser::printData() const {
 }
 
 // TODO add nulls
-af::array AFParser::stringToBoolean(int column) const {
+af::array AFParser::asBoolean(int column) const {
     if (!_length) return array(0, b8);
     unsigned int const i = column != 0;
     auto out = _indexer.row(column) + i;
     out = _data(out);
-    out(where(out == 'T' || out == 't' || out == '1')) = 1;
-    out(where(out != 1)) = 0;
-    out = moddims(out, dim4(out.dims(1), out.dims(0)));
-    out.eval();
-    return out;
+    return stringToBoolean(out);
 }
 
 af::array AFParser::_numParse(int column, af::dtype type) const {
-    if (!_length) return array(0, type);
-    auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return constant(0, 1, _length, type);
-
-    array negatives;
-    array points;
-    array out;
-    _makeUniform(column, out, negatives, points);
-
-    out = out.as(type);
-    out.eval();
-    {
-        auto exponent = range(dim4(maximum, 1), 0, s32);
-        exponent = batchFunc(exponent, points, batchSub);
-        exponent(where(exponent > 0)) -= 1;
-        exponent = pow(10, exponent.as(type));
-        out *= exponent;
-    }
-    out = sum(out, 0);
-
-    if (!negatives.isempty()) out(negatives) *= -1;
-    return out;
+    auto out = _makeUniform(column);
+    return stringToNum(out, type);
 }
 
 

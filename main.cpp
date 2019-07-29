@@ -1,8 +1,6 @@
 #include <cstdio>
 #include <fstream>
-#include <iostream>
 #include <string>
-#include <thread>
 #include "BatchFunctions.h"
 #include "Tests.h"
 #include "TPC_DI.h"
@@ -40,16 +38,24 @@ int main(int argc, char *argv[])
     #endif
     auto path = argc > 1 ? argv[1] : DIR::DIRECTORY;
     timer::start();
+    print("DimDate");
     auto dimDate = loadDimDate(path);
-    print("statusType");
+    print("StatusType");
     auto statusType = loadStatusType(path);
     print("Finwire");
     auto finwire = loadStagingFinwire(path);
     print("industry");
     auto industry = loadIndustry(path);
     print("dimCompany");
-    auto dimCompany = loadDimCompany(*finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    dimCompany.sortBy("CompanyID");
     printf("%f\n", timer::stop());
+    print("audit");
+    auto audit = loadAudit(path);
+    printf("Load and Parse %f\n", timer::stop());
+    timer::start();
+    audit.flushToHost();
+
 //    testSetJoin();
 
     return 0;
@@ -87,20 +93,18 @@ void experiment(int argc, char *argv[]) {
     print("s_customer");
     auto s_customer = loadStagingCustomer(path);
     print("dimCompany");
-    auto dimCompany = loadDimCompany(*finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
     print("financial");
-    auto financial = loadFinancial(*finwire.financial, dimCompany);
+    auto financial = loadFinancial(finwire.financial, dimCompany);
     financial.flushToHost();
     print("dimSecurity");
-    auto dimSecurity = loadDimSecurity(*finwire.security, dimCompany, statusType);
+    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
 
     dimSecurity.flushToHost();
     dimCompany.flushToHost();
     statusType.flushToHost();
-    finwire.security->clear();
-    finwire.company->clear();
-    finwire.financial->clear();
+    finwire.clear();
     print("prospect");
     auto prospect = loadProspect(s_prospect, batchDate);
     prospect.flushToHost();

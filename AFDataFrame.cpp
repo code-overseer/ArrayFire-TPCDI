@@ -5,21 +5,14 @@
 #include "AFDataFrame.h"
 #include "BatchFunctions.h"
 #include "Tests.h"
+#include "TPCDI_Utils.h"
 #include "Enums.h"
 #include <cstring>
 
 using namespace BatchFunctions;
+using namespace TPCDI_Utils;
 using namespace af;
-/* For debug */
-void AFDataFrame::printStr(array str_array) {
-    str_array.row(end) = '\n';
-    str_array = str_array(where(str_array));
-    str_array = join(0, flat(str_array), af::constant(0, 1, u8));
-    str_array.eval();
-    auto d = str_array.host<uint8_t>();
-    print((char*)d);
-    af::freeHost(d);
-}
+
 
 AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _deviceData(std::move(other._deviceData)),
                                                          _dataTypes(std::move(other._dataTypes)),
@@ -112,41 +105,6 @@ af::array AFDataFrame::stringMatchIdx(int column, char const *str) const {
     return idx;
 }
 
-array AFDataFrame::dateOrTimeHash(int index) const {
-    if (_dataTypes[index] != DATE) throw std::runtime_error("Invalid column type");
-    return dateOrTimeHash(_deviceData[index]);
-}
-
-af::array AFDataFrame::dateOrTimeHash(array const &date) {
-    auto mult = flip(pow(100, range(dim4(3,1), 0, u32)), 0);
-    auto key = batchFunc(mult, date, batchMult);
-    key = sum(key, 0);
-    return key;
-}
-
-array AFDataFrame::datetimeHash(int index) const {
-    if (_dataTypes[index] != DATETIME) throw std::runtime_error("Invalid column type");
-    return datetimeHash(_deviceData[index]);
-}
-
-af::array AFDataFrame::datetimeHash(af::array const &datetime) {
-    auto mult = flip(pow(100U, range(dim4(6,1), 0, u64)), 0);
-    auto key = batchFunc(mult, datetime.as(u64), batchMult);
-    key = sum(key, 0);
-    return key;
-}
-
-void AFDataFrame::dateSort(int index, bool ascending) {
-    auto keys = dateOrTimeHash(index);
-    array idx;
-    sort(keys, idx, keys, 1, ascending);
-    _flush(idx);
-}
-
-af::array AFDataFrame::endDate() {
-    return join(0, constant(9999, 1, u16), constant(12, 1, u16), constant(31, 1, u16));
-}
-
 af::array AFDataFrame::project(int column) const {
     return af::array(_deviceData[column]);
 }
@@ -168,7 +126,6 @@ AFDataFrame AFDataFrame::select(af::array const &index) const {
     return out;
 }
 
-
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
     for (int i = 0; i < size; i++) {
@@ -181,10 +138,9 @@ AFDataFrame AFDataFrame::zip(AFDataFrame &&rhs) const {
     if (length() != rhs.length()) throw std::runtime_error("Left and Right tables do not have the same length");
     AFDataFrame output = *this;
 
-    for (int i = 0; i < rhs._deviceData.size(); i++) {
+    for (size_t i = 0; i < rhs._deviceData.size(); ++i) {
         output.add(rhs._deviceData[i], rhs._dataTypes[i], (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
     }
-
     return output;
 }
 
@@ -212,54 +168,6 @@ void AFDataFrame::concatenate(AFDataFrame &&frame) {
     }
 }
 
-void AFDataFrame::concatenate(AFDataFrame &frame) {
-    concatenate(std::move(frame));
-}
-
-bool AFDataFrame::isEmpty() {
-    return _deviceData.empty();
-}
-
-af::array AFDataFrame::prefixHash(array const &column) {
-    if (column.type() != u8) throw std::invalid_argument("Unexpected array type, input must be unsigned char");
-    auto const n = column.dims(0);
-    if (!n) throw std::runtime_error("Cannot hash null column");
-    auto const r = n % 8;
-    auto const h = n / 8 + 1 * (r != 0);
-    auto const s1 = flip(range(dim4(8), 0, u64),0) * 8;
-    auto out = n < 8 ? sum(batchFunc(column.rows(0, n - 1), s1.rows(0, n - 1), bitShiftLeft), 0) :
-               sum(batchFunc(column.rows(0, 7), s1, bitShiftLeft), 0);
-    for (int i = 1; i < h; ++i) {
-        auto e = i * 8 + 7;
-        if (e < n) out = join(0, out, sum(batchFunc(column.rows(i * 8, e), s1, bitShiftLeft), 0));
-        else out = join(0, out, sum(batchFunc(column.rows(i * 8, i * 8 + r), s1.rows(0, r - 1), bitShiftLeft), 0));
-    }
-    if (out.type() != u64) out = out.as(u64);
-    out.eval();
-    return out;
-}
-
-af::array AFDataFrame::prefixHash(int column) const {
-    if (_dataTypes[column] != STRING) throw std::runtime_error("Expected string column");
-    return prefixHash(_deviceData[column]);
-}
-
-af::array AFDataFrame::polyHash(array const &column) {
-    uint64_t const prime = 67llU;
-    auto hash = range(dim4(column.dims(0),1), 0, u64);
-    hash = pow(prime, hash).as(u64);
-    hash = batchFunc(column, hash, batchMult);
-    hash = sum(hash, 0);
-    hash.eval();
-    if (hash.type() != u64) hash = hash.as(u64);
-    return hash;
-}
-
-af::array AFDataFrame::polyHash(int column) const {
-    if (_dataTypes[column] != STRING) throw std::runtime_error("Expected string column");
-    return polyHash(_deviceData[column]);
-}
-
 void AFDataFrame::sortBy(int column, bool isAscending) {
     array elements = hashColumn(column, true);
     auto const size = elements.dims(0);
@@ -271,7 +179,6 @@ void AFDataFrame::sortBy(int column, bool isAscending) {
         idx = _subSort(elements(j, span), elements(j - 1, span), isAscending);
         _flush(idx);
     }
-
 }
 
 array AFDataFrame::_subSort(array const &elements, array const &bucket, bool const isAscending) {
@@ -325,14 +232,11 @@ void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
 
 array AFDataFrame::hashColumn(af::array const &column, DataType type, bool sortable) {
     if (type == STRING) return sortable ? prefixHash(column) : polyHash(prefixHash(column));
-    if (type == DATE || type == TIME) return dateOrTimeHash(column).as(u64);
+    if (type == DATE) return dateHash(column).as(u64);
+    if (type == TIME) return timeHash(column).as(u64);
     if (type == DATETIME) return datetimeHash(column).as(u64);
 
     return array(column).as(u64);
-}
-
-array AFDataFrame::hashColumn(int column, bool sortable) const {
-    return hashColumn(_deviceData[column], _dataTypes[column], sortable);
 }
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
@@ -554,28 +458,6 @@ void AFDataFrame::nameColumn(std::string const& name, int column) {
 
 void AFDataFrame::nameColumn(std::string const& name, std::string const &old) {
     nameColumn(name, _nameToIdx.at(old));
-}
-
-// TODO move to finwireparser
-array AFDataFrame::stringToDate(af::array &datestr, DateFormat inputFormat, bool isDelimited) {
-    if (!datestr.dims(1)) return array(3, 0, u16);
-
-    af::array out = datestr.rows(0, end - 1);
-    out(out < '0' || out > '9') = 0;
-    auto nulls = where(allTrue(out == 0, 0));
-    nulls.eval();
-    out = out - '0';
-    out(span, nulls) = 0;
-    out = out(out >= 0 && out <= 9);
-    out = moddims(out, dim4(8, out.dims(0)/8));
-    out = batchFunc(out, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
-    out = sum(out, 0);
-
-    AFParser::dateKeyToDate(out, inputFormat);
-
-    out.eval();
-
-    return out;
 }
 
 void AFDataFrame::flushToHost() {

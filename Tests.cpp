@@ -1,12 +1,13 @@
 #include "Tests.h"
 #include "AFDataFrame.h"
-#include "FinwireParser.h"
 #include <memory>
+#include "TPCDI_Utils.h"
 #if USING_OPENCL
 #include "OpenCL/opencl_kernels.h"
 #elif USING_CUDA
 #include "CUDA/cuda_kernels.h"
 #endif
+using namespace TPCDI_Utils;
 
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
@@ -61,20 +62,20 @@ void test_String(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.asString(0);
 //    af_print(result)
-    FinwireParser::stringToNum(result, s32);
+    stringToNum(result, s32);
     af::sync();
 }
 
 void test_stringToBool(char const *filepath) {
     auto test = AFParser(filepath, '|', false);
-    auto result = test.stringToBoolean(17);
+    auto result = test.asBoolean(17);
     af_print(result)
     af::sync();
 }
 
 void test_Date(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asDate(0, YYYYMMDD, false);
+    auto result = test.asDate(0, true);
     af_print(result)
     af::sync();
 }
@@ -114,6 +115,7 @@ void test_StringMatch(char const *filepath) {
 }
 
 void hashTest(char const *filepath) {
+    
     AFDataFrame frame;
     {
         AFParser file(filepath,',');
@@ -122,11 +124,11 @@ void hashTest(char const *filepath) {
     }
 
     af::timer::start();
-    auto h = AFDataFrame::polyHash(AFDataFrame::prefixHash(frame.data("Words")));
+    auto h = polyHash(prefixHash(frame.data("Words")));
     af::sync();
     printf("%f\n", af::timer::stop());
     af::array idx;
-    af::sort(h, idx, AFDataFrame::flipdims(h));
+    af::sort(h, idx, flipdims(h));
     auto i = af::setUnique(h, true);
     auto j = diff1(h);
     j = where(j == 0);
@@ -139,8 +141,7 @@ void hashTest(char const *filepath) {
 
 void testSetJoin() {
     using namespace af;
-    auto flipdims = AFDataFrame::flipdims;
-
+    
     array lhs;
     array rhs;
     {

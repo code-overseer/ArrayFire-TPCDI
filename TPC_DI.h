@@ -8,32 +8,22 @@
 #define ARRAYFIRE_TPCDI_TPC_DI_H
 #include "AFDataFrame.h"
 #include "AFParser.hpp"
+#include "TPCDI_Utils.h"
+#include "FinwireParser.h"
 #include <utility>
 #include <memory>
 
-typedef std::shared_ptr<AFDataFrame> AFDF_ptr;
-struct Finwire {
-public:
-    AFDF_ptr company;
-    AFDF_ptr financial;
-    AFDF_ptr security;
-    Finwire(AFDF_ptr cmp, AFDF_ptr fin, AFDF_ptr sec) : company(std::move(cmp)),
-    financial(std::move(fin)), security(std::move(sec)) {}
-    Finwire(Finwire &&other) noexcept;
-};
-
 struct Customer {
 public:
-    AFDF_ptr newCust;
-    AFDF_ptr addAcct;
-    AFDF_ptr updAcct;
-    AFDF_ptr closeAcct;
-    AFDF_ptr updCust;
-    AFDF_ptr inact;
-    Customer(AFDF_ptr newC, AFDF_ptr addA, AFDF_ptr updA, AFDF_ptr closeA, AFDF_ptr updC, AFDF_ptr in) :
-    newCust(std::move(newC)), addAcct(std::move(addA)), updAcct(std::move(updA)), closeAcct(std::move(closeA)),
-    updCust(std::move(updC)), inact(std::move(in)) {}
-    Customer(Customer &&other) noexcept;
+    AFDataFrame* newCust;
+    AFDataFrame* addAcct;
+    AFDataFrame* updAcct;
+    AFDataFrame* closeAcct;
+    AFDataFrame* updCust;
+    AFDataFrame* inact;
+    Customer(AFDataFrame* newC, AFDataFrame* addA, AFDataFrame* updA, AFDataFrame* closeA, AFDataFrame* updC, AFDataFrame* in) :
+    newCust(newC), addAcct(addA), updAcct(updA), closeAcct(closeA), updCust(updC), inact(in) {}
+    virtual ~Customer() { delete newCust; delete addAcct; delete updAcct; delete closeAcct; delete updCust; delete inact; }
 };
 
 AFDataFrame loadBatchDate(char const* directory);
@@ -81,7 +71,5 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany);
 AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType);
 
 AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate);
-
-af::array phoneNumberProcessing(af::array &ctry, af::array &area, af::array &local, af::array &ext);
 
 #endif //ARRAYFIRE_TPCDI_TPC_DI_H

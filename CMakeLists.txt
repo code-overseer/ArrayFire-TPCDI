@@ -46,7 +46,7 @@ add_executable(ArrayFire-TPCDI
         XMLFlattener.cpp
         XMLFlattener.h
         FinwireParser.cpp
-        FinwireParser.h)
+        FinwireParser.h TPCDI_Utils.cpp TPCDI_Utils.h)
 
 if (USING_CUDA)
     set_source_files_properties(main.cpp CUDA/cuda_kernels.h PROPERTIES LANGUAGE CUDA)

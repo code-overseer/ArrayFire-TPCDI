@@ -14,8 +14,7 @@
 #include <unordered_map>
 #include "AFParser.hpp"
 
-void
-fillBlanks(int &count, std::string fieldName, std::unordered_map<std::string, int> &tracker, std::string &data,
+void fillBlanks(int &count, std::string fieldName, std::unordered_map<std::string, int> &tracker, std::string &data,
            bool isAtt = false);
 
 void depthFirstAppend(std::string &data, rapidxml::xml_node<> *node, std::unordered_map<std::string, int> &tracker,
