@@ -2,9 +2,9 @@
 #include "AFDataFrame.h"
 #include <memory>
 #include "TPCDI_Utils.h"
-#if USING_OPENCL
+#if defined(USING_OPENCL)
 #include "OpenCL/opencl_kernels.h"
-#elif USING_CUDA
+#elif defined(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
 #endif
 using namespace TPCDI_Utils;
@@ -157,7 +157,7 @@ void testSetJoin() {
     auto setrl = flipdims(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
     auto resl = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
 
-    #if USING_CUDA || USING_OPENCL
+    #if defined(USING_CUDA) || defined(USING_OPENCL)
         auto comp = setrl.device<uint64_t>();
         auto result_left = resl.device<uint64_t>();
         auto input = lhs.device<uint64_t>();

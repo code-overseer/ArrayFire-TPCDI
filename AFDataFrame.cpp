@@ -297,16 +297,20 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
     }
 
     auto setrl = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
-    #if (AF_TEST && (defined(USING_CUDA) || defined(USING_OPENCL)))
+    #if (defined(AF_TEST) && (defined(USING_CUDA) || defined(USING_OPENCL)))
         Logger::startTimer("AF");
         _removeNonExistant(setrl, lhs, rhs, 1);
         Logger::logTime("AF");
-    #elif (defined(USING_CUDA) || defined(USING_OPENCL))
+    #elif (defined(USING_CUDA))
+        Logger::startTimer("CUDA");
+        _removeNonExistant(setrl, lhs, rhs);
+        Logger::logTime("CUDA");
+    #elif (defined(USING_OPENCL)
         Logger::startTimer("OCL");
         _removeNonExistant(setrl, lhs, rhs);
         Logger::logTime("OCL");
     #else
-    _removeNonExistant(setrl, lhs, rhs, 1);
+        _removeNonExistant(setrl, lhs, rhs, 1);
     #endif
 
 

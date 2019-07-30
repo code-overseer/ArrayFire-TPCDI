@@ -1,14 +1,8 @@
-#include <cstdio>
-#include <fstream>
+#include <cstring>
 #include <string>
 #include "BatchFunctions.h"
 #include "Logger.h"
 #include "TPC_DI.h"
-#if defined(USING_OPENCL)
-#include "OpenCL/opencl_kernels.h"
-#elif define(USING_CUDA)
-#include "CUDA/cuda_kernels.h"
-#endif
 
 using namespace af;
 
@@ -22,9 +16,14 @@ namespace DIR {
     char const* WORDS = "/Users/bryanwong/Documents/MPSI/words_alpha.txt";
     char const* NUMBERS = "/Users/bryanwong/Documents/MPSI/numbers.txt";
     char const* UUID = "/Users/bryanwong/Documents/MPSI/uuid.txt";
-//    char const* DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
+    #if defined(IS_APPLE)
+    char const* DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
+    #else
     char const* DIRECTORY = "/home/jw5514/data/5/Batch1/";
+    #endif
 }
+
+void optParse(int argc, char *argv[]);
 
 void experiment(int argc, char *argv[]);
 
@@ -37,16 +36,18 @@ int main(int argc, char *argv[])
     #else
         setBackend(AF_BACKEND_CPU);
     #endif
-    auto path = argc > 1 ? argv[1] : DIR::DIRECTORY;
+    if (argc == 2 && !strcmp(argv[1], "-i")) info();
+    optParse(argc, argv);
+
     Logger::startTimer();
     print("DimDate");
-    auto dimDate = loadDimDate(path);
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
     print("StatusType");
-    auto statusType = loadStatusType(path);
+    auto statusType = loadStatusType(DIR::DIRECTORY);
     print("Finwire");
-    auto finwire = loadStagingFinwire(path);
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
     print("industry");
-    auto industry = loadIndustry(path);
+    auto industry = loadIndustry(DIR::DIRECTORY);
     print("dimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     dimCompany.sortBy("CompanyID");
@@ -58,7 +59,6 @@ int main(int argc, char *argv[])
 
 void experiment(int argc, char *argv[]) {
     auto path = argc > 1 ? argv[1] : DIR::DIRECTORY;
-    timer::start();
     auto batchDate = loadBatchDate(path);
     auto dimDate = loadDimDate(path);
     auto dimTime = loadDimTime(path);
@@ -109,13 +109,14 @@ void experiment(int argc, char *argv[]) {
     auto dimBroker = loadDimBroker(path, dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
-    af::sync();
-    char t[64];
-    sprintf(t, "%f", timer::stop());
+}
 
-    if (argc < 3) return;
-    std::ofstream outfile;
-    outfile.open("results.csv", std::ios_base::app);
-    outfile << argv[2] << ',' << t << '\n';
-    outfile.close();
+void optParse(int argc, char *argv[]) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i],"-f")) {
+            DIR::DIRECTORY = argv[i + 1];
+        } else if (!strcmp(argv[i],"-d")) {
+            setDevice(atoi(argv[i + 1]));
+        }
+    }
 }

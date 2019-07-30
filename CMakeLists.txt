@@ -28,7 +28,7 @@ if (USING_OPENCL)
     FIND_PACKAGE(OpenCL REQUIRED)
     INCLUDE_DIRECTORIES( ${OpenCL_INCLUDE_DIRS})
 endif()
-message( ${OpenCL_INCLUDE_DIRS})
+
 add_executable(ArrayFire-TPCDI
         rapidxml/rapidxml.hpp
         rapidxml/rapidxml_iterators.hpp

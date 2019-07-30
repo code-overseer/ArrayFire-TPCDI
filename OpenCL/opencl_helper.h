@@ -4,6 +4,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
