@@ -141,7 +141,7 @@ void hashTest(char const *filepath) {
 
 void testSetJoin() {
     using namespace af;
-    
+    typedef unsigned long long ull;
     array lhs;
     array rhs;
     {
@@ -158,9 +158,9 @@ void testSetJoin() {
     auto resl = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
 
     #if defined(USING_CUDA) || defined(USING_OPENCL)
-        auto comp = setrl.device<uint64_t>();
-        auto result_left = resl.device<uint64_t>();
-        auto input = lhs.device<uint64_t>();
+        auto comp = setrl.device<ull>();
+        auto result_left = resl.device<ull>();
+        auto input = lhs.device<ull>();
         af::sync();
         launch_IsExist(result_left, input, comp, resl.elements(), setrl.elements());
         setrl.unlock();

@@ -3,23 +3,23 @@
 
 #include <cuda.h>
 #include <stdio.h>
-
+typedef unsigned long long ull;
 __global__
-static void IsExists(uint64_t *result, uint64_t const *input, uint64_t const *comparison, uint64_t const i_size, uint64_t const comp_size) {
-    const uint64_t id = blockIdx.x * blockDim.x + threadIdx.x;
+static void IsExists(ull *result, ull const *input, ull const *comparison, ull const i_size, ull const comp_size) {
+    const ull id = blockIdx.x * blockDim.x + threadIdx.x;
 
-	 uint64_t i = id / comp_size;
-	 uint64_t j = id % comp_size;
+	 ull i = id / comp_size;
+	 ull j = id % comp_size;
 	 bool b = id < i_size * comp_size && comparison[j] == input[2 * i];
-	 uint64_t k = b * i + !b * i_size;
+	 ull k = b * i + !b * i_size;
 
 	 result[k] = 1;
 }
 
-void inline launch_IsExist(uint64_t *result, uint64_t const *input, uint64_t const *comparison, uint64_t const i_size, uint64_t const comp_size) {
-    uint64_t const threadLimit = 1024;
-    uint64_t const threadCount = i_size * comp_size;
-    uint64_t const blocks = (threadCount/threadLimit) + 1;
+void inline launch_IsExist(ull *result, ull const *input, ull const *comparison, ull const i_size, ull const comp_size) {
+    ull const threadLimit = 1024;
+    ull const threadCount = i_size * comp_size;
+    ull const blocks = (threadCount/threadLimit) + 1;
 
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);

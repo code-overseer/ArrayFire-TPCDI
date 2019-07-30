@@ -358,12 +358,12 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
 void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs) {
     auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
     auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
-
-    auto comp = setrl.device<uint64_t>();
-    auto result_left = res_l.device<uint64_t>();
-    auto result_right = res_r.device<uint64_t>();
-    auto input_l = lhs.device<uint64_t>();
-    auto input_r = rhs.device<uint64_t>();
+    typedef unsigned long long ull;
+    auto comp = setrl.device<ull>();
+    auto result_left = res_l.device<ull>();
+    auto result_right = res_r.device<ull>();
+    auto input_l = lhs.device<ull>();
+    auto input_r = rhs.device<ull>();
     af::sync();
     auto i_size = lhs.row(0).elements();
     printf("GPU threads for lhs: %llu\n", i_size * setrl.elements());

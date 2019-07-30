@@ -50,7 +50,7 @@ add_executable(ArrayFire-TPCDI
         FinwireParser.h TPCDI_Utils.cpp TPCDI_Utils.h Logger.cpp Logger.h)
 
 if (USING_CUDA)
-    set_source_files_properties(main.cpp CUDA/cuda_kernels.h PROPERTIES LANGUAGE CUDA)
+    set_source_files_properties(AFDataFrame.cpp Tests.cpp main.cpp CUDA/cuda_kernels.h PROPERTIES LANGUAGE CUDA)
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE CUDA/cuda_kernels.h)
     set_property(TARGET ArrayFire-TPCDI PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 elseif(USING_OPENCL)
