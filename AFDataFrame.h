@@ -13,11 +13,6 @@
 #include "Enums.h"
 #include "AFParser.hpp"
 #include "BatchFunctions.h"
-#if USING_OPENCL
-#include "OpenCL/opencl_kernels.h"
-#elif USING_CUDA
-#include "CUDA/cuda_kernels.h"
-#endif
 
 class AFDataFrame {
 public:

@@ -5,7 +5,7 @@
 #include <fstream>
 #include <string>
 
-#if IS_APPLE
+#ifdef IS_APPLE
 #include <OpenCL/opencl.h>
 #else
 #include <CL/cl.h>
@@ -75,7 +75,11 @@ static cl_command_queue create_queue(cl_context context)
         throw (err);
     }
 
+    #ifdef IS_APPLE
     cl_command_queue queue = clCreateCommandQueue(context, device, 0, &err);
+    #else
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, 0, &err);
+    #endif
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to command queue\n", err);
         throw (err);

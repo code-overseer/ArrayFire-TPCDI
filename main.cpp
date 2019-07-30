@@ -4,9 +4,9 @@
 #include "BatchFunctions.h"
 #include "Logger.h"
 #include "TPC_DI.h"
-#if USING_OPENCL
+#if defined(USING_OPENCL)
 #include "OpenCL/opencl_kernels.h"
-#elif USING_CUDA
+#elif define(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
 #endif
 
@@ -22,16 +22,17 @@ namespace DIR {
     char const* WORDS = "/Users/bryanwong/Documents/MPSI/words_alpha.txt";
     char const* NUMBERS = "/Users/bryanwong/Documents/MPSI/numbers.txt";
     char const* UUID = "/Users/bryanwong/Documents/MPSI/uuid.txt";
-    char const* DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
+//    char const* DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
+    char const* DIRECTORY = "/home/jw5514/data/5/Batch1/";
 }
 
 void experiment(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
-    #if USING_OPENCL
+    #if defined(USING_OPENCL)
         setBackend(AF_BACKEND_OPENCL);
-    #elif USING_CUDA
+    #elif defined(USING_CUDA)
         setBackend(AF_BACKEND_CUDA);
     #else
         setBackend(AF_BACKEND_CPU);

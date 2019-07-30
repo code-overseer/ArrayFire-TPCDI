@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <cstring>
 using namespace af;
 using namespace BatchFunctions;
 

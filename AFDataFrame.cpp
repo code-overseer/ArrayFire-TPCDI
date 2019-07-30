@@ -4,6 +4,11 @@
 #include "Enums.h"
 #include <cstring>
 #include "Logger.h"
+#if defined(USING_OPENCL)
+#include "OpenCL/opencl_kernels.h"
+#elif defined(USING_CUDA)
+#include "CUDA/cuda_kernels.h"
+#endif
 
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
@@ -292,11 +297,11 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
     }
 
     auto setrl = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
-    #if (AF_TEST && (USING_CUDA || USING_OPENCL))
+    #if (AF_TEST && (defined(USING_CUDA) || defined(USING_OPENCL)))
         Logger::startTimer("AF");
         _removeNonExistant(setrl, lhs, rhs, 1);
         Logger::logTime("AF");
-    #elif (USING_CUDA || USING_OPENCL)
+    #elif (defined(USING_CUDA) || defined(USING_OPENCL))
         Logger::startTimer("OCL");
         _removeNonExistant(setrl, lhs, rhs);
         Logger::logTime("OCL");
@@ -345,6 +350,7 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
     return { lhs, rhs };
 }
 
+#if defined(USING_CUDA) || defined(USING_OPENCL)
 void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs) {
     auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
     auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
@@ -376,6 +382,7 @@ void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs)
     lhs.eval();
     rhs.eval();
 }
+#endif
 
 void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs, bool swt) {
     auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
