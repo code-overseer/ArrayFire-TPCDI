@@ -9,7 +9,10 @@
 #elif defined(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
 #endif
-
+#ifndef ULL
+#define ULL
+    typedef unsigned long long ull;
+#endif
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
 using namespace af;
@@ -301,11 +304,11 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
         Logger::startTimer("AF");
         _removeNonExistant(setrl, lhs, rhs, 1);
         Logger::logTime("AF");
-    #elif (defined(USING_CUDA))
+    #elif defined(USING_CUDA)
         Logger::startTimer("CUDA");
         _removeNonExistant(setrl, lhs, rhs);
         Logger::logTime("CUDA");
-    #elif (defined(USING_OPENCL)
+    #elif defined(USING_OPENCL)
         Logger::startTimer("OCL");
         _removeNonExistant(setrl, lhs, rhs);
         Logger::logTime("OCL");
@@ -358,7 +361,7 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
 void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs) {
     auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
     auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
-    typedef unsigned long long ull;
+
     auto comp = setrl.device<ull>();
     auto result_left = res_l.device<ull>();
     auto result_right = res_r.device<ull>();

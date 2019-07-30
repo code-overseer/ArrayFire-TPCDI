@@ -3,7 +3,10 @@
 
 #include <cuda.h>
 #include <stdio.h>
+#ifndef ULL
+    #define ULL
 typedef unsigned long long ull;
+#endif
 __global__
 static void IsExists(ull *result, ull const *input, ull const *comparison, ull const i_size, ull const comp_size) {
     const ull id = blockIdx.x * blockDim.x + threadIdx.x;

@@ -2,7 +2,10 @@
 #define ARRAYFIRE_TPCDI_OPENCL_KERNELS_H
 
 #include "opencl_helper.h"
-typedef unsigned long long ull;
+#ifndef ULL
+    #define ULL
+    typedef unsigned long long ull;
+#endif
 void inline launch_IsExist(ull *result, ull const *input, ull const *comparison, ull const i_size, ull const comp_size) {
     std::string is_exist_kernel = get_kernel_string(OCL_KERNEL_DIR"/opencl_kernels.cl");
     // Get OpenCL context from memory buffer and create a Queue

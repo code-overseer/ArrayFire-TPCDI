@@ -7,6 +7,10 @@
 #elif defined(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
 #endif
+#ifndef ULL
+#define ULL
+    typedef unsigned long long ull;
+#endif
 using namespace TPCDI_Utils;
 
 void test_SignedInt(char const *filepath) {
@@ -141,7 +145,6 @@ void hashTest(char const *filepath) {
 
 void testSetJoin() {
     using namespace af;
-    typedef unsigned long long ull;
     array lhs;
     array rhs;
     {
