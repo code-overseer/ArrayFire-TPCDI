@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 #include "BatchFunctions.h"
-#include "Tests.h"
+#include "Logger.h"
 #include "TPC_DI.h"
 #if USING_OPENCL
 #include "OpenCL/opencl_kernels.h"
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
         setBackend(AF_BACKEND_CPU);
     #endif
     auto path = argc > 1 ? argv[1] : DIR::DIRECTORY;
-    timer::start();
+    Logger::startTimer();
     print("DimDate");
     auto dimDate = loadDimDate(path);
     print("StatusType");
@@ -49,14 +49,8 @@ int main(int argc, char *argv[])
     print("dimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     dimCompany.sortBy("CompanyID");
-    printf("%f\n", timer::stop());
-    print("audit");
-    auto audit = loadAudit(path);
-    printf("Load and Parse %f\n", timer::stop());
-    timer::start();
-    audit.flushToHost();
-
-//    testSetJoin();
+    Logger::logTime();
+    Logger::sendToCSV();
 
     return 0;
 }

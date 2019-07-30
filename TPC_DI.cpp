@@ -3,7 +3,6 @@
 #include <boost/regex.hpp>
 #include <rapidxml.hpp>
 #include "TPC_DI.h"
-#include "XMLFlattener.h"
 #include "BatchFunctions.h"
 
 namespace fs = boost::filesystem;
@@ -250,7 +249,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
 AFDataFrame loadStagingCustomer(char const* directory) {
 
-    std::string data = flattenCustomerMgmt(directory);
+    std::string data = XML_Parser::flattenCustomerMgmt(directory);
     
     AFParser parser(data, '|', false);
     AFDataFrame frame;
@@ -766,8 +765,6 @@ inline af::array phoneNumberProcessing(af::array &ctry, af::array &area, af::arr
 }
 
 AFDataFrame loadDimCustomer(Customer &s_Customer, AFDataFrame &taxRate, AFDataFrame &prospect) {
-
-
     std::pair<int, char const*> input[] = {
             {2, "CustomerID"},
             {3, "TaxID"},

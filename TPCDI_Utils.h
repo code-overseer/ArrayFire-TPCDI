@@ -3,6 +3,8 @@
 #include <arrayfire.h>
 #include <iostream>
 #include <tuple>
+#include <rapidxml.hpp>
+#include <unordered_map>
 #include "Enums.h"
 
 template<typename T>
@@ -31,7 +33,19 @@ namespace TPCDI_Utils {
     af::array datetimeHash(af::array const &datetime);
     af::array prefixHash(af::array const &column);
     af::array polyHash(af::array const &column);
+}
 
+namespace XML_Parser {
+    typedef std::unordered_map<std::string, int> StrToInt;
+    typedef std::string String;
+    typedef rapidxml::xml_node<> Node;
+    void fillBlanks(int &count, std::string fieldName, StrToInt &tracker, String &data, bool isAtt = false);
+
+    void depthFirstAppend(String &data, Node *node, StrToInt &tracker,  String branch, Node *root);
+
+    void learnFieldNames(Node *node, StrToInt &tracker, String branch, Node *root);
+
+    std::string flattenCustomerMgmt(char const *directory);
 }
 
 #endif //ARRAYFIRE_TPCDI_TPCDI_UTILS_H

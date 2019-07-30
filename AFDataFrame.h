@@ -9,8 +9,8 @@
 #include <cstdio>
 #include <unordered_map>
 #include <arrayfire.h>
-#include "Enums.h"
 #include <functional>
+#include "Enums.h"
 #include "AFParser.hpp"
 #include "BatchFunctions.h"
 #if USING_OPENCL
@@ -43,17 +43,13 @@ public:
     static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs,
                                                         af::batchFunc_t predicate = BatchFunctions::batchEqual);
     static std::pair<af::array, af::array> setCompare(af::array lhs, af::array rhs);
-    void reorder(int const *seq, int size);
-    void reorder(std::string const *seq, int size);
     void sortBy(int column, bool isAscending = true);
     void sortBy(int *columns, int size, const bool *isAscending = nullptr);
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
+    void nameColumn(const std::string& name, int column);
     std::string name(const std::string& str);
-    std::string name() const;
     void flushToHost();
     void clear();
-    void nameColumn(const std::string& name, int column);
-    void nameColumn(const std::string& name, const std::string &old);
 
     inline af::array hashColumn(int const column, bool sortable = false) const { return hashColumn(_deviceData[column], _dataTypes[column], sortable); }
     inline af::array hashColumn(std::string const &name, bool sortable = false) const { return hashColumn(_nameToIdx.at(name), sortable); }
@@ -75,9 +71,11 @@ public:
         sortBy(seqnum, size, isAscending);
     }
     inline uint64_t length() const { return _deviceData.empty() ? 0 : _deviceData[0].dims(1); }
+    inline void nameColumn(const std::string& name, const std::string &old) { nameColumn(name, _nameToIdx.at(old)); }
+    inline std::string name() const { return _tableName; }
 private:
     static af::array _subSort(af::array const &elements, af::array const &bucket, bool isAscending);
-    af::array project(int column) const;
+    inline af::array project(int column) const { return af::array(_deviceData[column]); }
     std::vector<af::array> _deviceData;
     std::vector<void*> _hostData;
     std::vector<DataType> _dataTypes;
@@ -86,5 +84,6 @@ private:
     std::unordered_map<unsigned int, std::string> _idxToName;
     void _flush(af::array const &idx);
     static void _removeNonExistant(const af::array &setrl, af::array &lhs, af::array &rhs);
+    static void _removeNonExistant(const af::array &setrl, af::array &lhs, af::array &rhs, bool swt);
 };
 #endif //ARRAYFIRE_TPCDI_AFDATAFRAME_H

@@ -14,7 +14,6 @@ if (APPLE)
 endif()
 
 set(CMAKE_CXX_STANDARD 14)
-
 include_directories(.)
 include_directories(rapidxml)
 FIND_PACKAGE(ArrayFire REQUIRED)
@@ -43,10 +42,8 @@ add_executable(ArrayFire-TPCDI
         AFDataFrame.h
         TPC_DI.cpp
         TPC_DI.h
-        XMLFlattener.cpp
-        XMLFlattener.h
         FinwireParser.cpp
-        FinwireParser.h TPCDI_Utils.cpp TPCDI_Utils.h)
+        FinwireParser.h TPCDI_Utils.cpp TPCDI_Utils.h Logger.cpp Logger.h)
 
 if (USING_CUDA)
     set_source_files_properties(main.cpp CUDA/cuda_kernels.h PROPERTIES LANGUAGE CUDA)
@@ -55,6 +52,10 @@ if (USING_CUDA)
 elseif(USING_OPENCL)
     add_definitions( -DUSING_OPENCL=TRUE )
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE OpenCL/opencl_kernels.h OpenCL/opencl_helper.h)
+endif()
+
+if (AF_TEST)
+    add_definitions( -DAF_TEST=TRUE )
 endif()
 
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${ArrayFire_Unified_LIBRARIES} )
