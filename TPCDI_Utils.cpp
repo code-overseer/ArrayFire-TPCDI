@@ -29,23 +29,32 @@ std::string TPCDI_Utils::loadFile(char const *filename) {
     return text;
 }
 
-std::string TPCDI_Utils::collect(std::vector<std::string> const &files) {
+void inline bulk_loader(char const *file, std::string *data, unsigned long *sizes, bool const hasHeader) {
+    *data = TPCDI_Utils::loadFile(file);
+    if (hasHeader) {
+        auto pos = data->find_first_of('\n');
+        data->erase(0, (pos != std::string::npos) ? pos + 1 : std::string::npos);
+    }
+    if (!data->empty() && data->back() != '\n') *data += '\n';
+    *sizes = data->size();
+}
+
+std::string TPCDI_Utils::collect(std::vector<std::string> const &files, bool const hasHeader) {
     auto const num = files.size();
     auto const limit = std::thread::hardware_concurrency() - 1;
-
     std::vector<std::string> data((size_t)num);
     std::vector<unsigned long> sizes((size_t)num);
-    static auto loader = [&](int i) {
-        data[i] = TPCDI_Utils::loadFile(files[i].c_str());
-        if (data[i].back() != '\n') data[i] += '\n';
-        sizes[i] = data[i].size();
-    };
 
     std::thread threads[limit];
     for (unsigned long i = 0; i < num / limit + 1; ++i) {
         auto jlim = (i == num / limit) ? num % limit : limit;
-        for (auto j = i % limit; j < jlim; ++j) threads[j] = std::thread(loader, i * limit + j);
-        for (auto j = i % limit; j < jlim; ++j) threads[j].join();
+        for (decltype(i) j = 0; j < jlim; ++j) {
+            auto n = i * limit + j;
+            auto d = data.data() + n;
+            auto s = sizes.data() + n;
+            threads[j] = std::thread(bulk_loader, files[n].c_str(), d, s, hasHeader);
+        };
+        for (decltype(i) j = 0; j < jlim; ++j) threads[j].join();
     }
 
     size_t total_size = 0;
@@ -89,7 +98,7 @@ inline void digitsToNumber(af::array &output, af::array const &numLengths, af::a
 }
 
 af::array TPCDI_Utils::stringToNum(af::array &numstr, af::dtype type) {
-    if (!numstr.dims(1)) return array(0, type);
+    if (!numstr.dims(1)) return array(0, 0, type);
     auto lengths = numstr;
     lengths(where(lengths)) = 255;
     auto idx = where(lengths == 0);
@@ -116,7 +125,7 @@ af::array TPCDI_Utils::flipdims(af::array const &arr) {
     return moddims(arr, af::dim4(arr.dims(1), arr.dims(0)));
 }
 
-af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool isDelimited, DateFormat dateFormat) {
+af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool const isDelimited, DateFormat dateFormat) {
     if (!datestr.dims(1)) return array(3, 0, u16);
 
     af::array out = datestr.rows(0, end - 1);
@@ -125,7 +134,7 @@ af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool isDelimited, 
     if (isDelimited) {
         auto delims = dateDelimIndices(dateFormat);
         out(seq(delims.first, delims.second, delims.second - delims.first), span) = 255;
-        out = out(where(out >= 0 && out <= 9));
+        out = out(out >= 0 && out <= 9);
     }
     out = moddims(out, dim4(8, out.elements() / 8));
     out = batchFunc(out, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
@@ -155,12 +164,11 @@ array TPCDI_Utils::stringToTime(af::array const &timestr, bool isDelimited) {
     if (!timestr.dims(1)) return array(3, 0, u16);
 
     af::array out = timestr.rows(0, end - 1);
-    out(where(allTrue(out == 0 || out == ' ', 0))) = '0';
-    out(where(out >= '0' && out <='9')) -= '0';
-
+    out(span, where(allTrue(out == ' ', 0))) = '0';
+    out(out >= '0' && out <='9') -= '0';
     if (isDelimited) out(seq(2, 5, 3), span) = 255;
-
-    out = moddims(out(where(out >= 0 && out <= 9)), dim4(6, out.elements() / 6));
+    out = out(out >= 0 && out <= 9);
+    out = moddims(out, dim4(6, out.elements() / 6));
     out = batchFunc(out, flip(pow(10, range(dim4(6, 1), 0, u32)), 0), batchMult);
     out = sum(out, 0);
     out = join(0, out / 10000, out % 10000 / 100, out % 100).as(u16);
@@ -169,9 +177,9 @@ array TPCDI_Utils::stringToTime(af::array const &timestr, bool isDelimited) {
     return out;
 }
 
-af::array TPCDI_Utils::stringToDateTime(af::array &datetimestr, bool isDelimited, DateFormat dateFormat) {
+af::array TPCDI_Utils::stringToDateTime(af::array &datetimestr, bool const isDelimited, DateFormat dateFormat) {
     if (!datetimestr.dims(1)) return array(6, 0, u16);
-    af::array date = datetimestr.rows(0, isDelimited ? 11 : 9);
+    af::array date = datetimestr.rows(0, isDelimited ? 10 : 8);
     date = stringToDate(date, isDelimited, dateFormat);
 
     af::array time = datetimestr.rows(end - (isDelimited ? 8 : 6), end);

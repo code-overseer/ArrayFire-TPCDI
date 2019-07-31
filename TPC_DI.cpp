@@ -4,6 +4,7 @@
 #include <rapidxml.hpp>
 #include "TPC_DI.h"
 #include "BatchFunctions.h"
+#include "Logger.h"
 
 namespace fs = boost::filesystem;
 namespace xml = rapidxml;
@@ -309,10 +310,18 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     strcat(file, "CashTransaction.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
+    Logger::startTimer("Ulong");
     frame.add(parser.asU64(0), U64);
-    frame.add(parser.asDateTime(1, YYYYMMDD), DATE);
+    Logger::logTime("Ulong");
+    Logger::startTimer("DateTime");
+    frame.add(parser.asDateTime(1, true, YYYYMMDD), DATE);
+    Logger::logTime("DateTime");
+    Logger::startTimer("Double2");
     frame.add(parser.asDouble(2), DOUBLE);
+    Logger::logTime("Double2");
+    Logger::startTimer("String");
     frame.add(parser.asString(3), STRING);
+    Logger::logTime("String");
     return frame;
 }
 

@@ -13,7 +13,7 @@ void printStr(af::array str_array);
 
 namespace TPCDI_Utils {
     std::string loadFile(char const *filename);
-    std::string collect(std::vector<std::string> const &files);
+    std::string collect(std::vector<std::string> const &files, bool hasHeader = false);
     af::array stringToNum(af::array &numstr, af::dtype type);
     af::array flipdims(af::array const &arr);
     constexpr std::pair<int8_t,int8_t> dateDelimIndices(DateFormat format) {

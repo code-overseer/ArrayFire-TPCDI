@@ -6,6 +6,8 @@
 #include "OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
+#else
+#include "CPU/vector_functions.h"
 #endif
 #ifndef ULL
 #define ULL
@@ -157,33 +159,16 @@ void testSetJoin() {
         rhs = flipdims(rhs);
         rhs = join(0, rhs, range(rhs.dims(), 1, u64));
     }
-    auto setrl = flipdims(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
-    auto resl = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
+    auto equalSet = flipdims(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
 
-    #if defined(USING_CUDA) || defined(USING_OPENCL)
-        auto comp = setrl.device<ull>();
-        auto result_left = resl.device<ull>();
-        auto input = lhs.device<ull>();
-        af::sync();
-        launch_IsExist(result_left, input, comp, resl.elements(), setrl.elements());
-        setrl.unlock();
-        resl.unlock();
-        lhs.unlock();
-    #else
-        auto i_size = resl.elements();
-        auto comp_size = setrl.elements();
-        auto id = range(dim4(1, i_size * comp_size), 1, u64);
-        auto i = id / comp_size;
-        auto j = id % comp_size;
-        auto b = setrl(j) == lhs(0, i);
-        auto k = b * i + !b * i_size;
-        resl(k) = 1;
-    #endif
+    bagSetIntersect(lhs, equalSet);
+    bagSetIntersect(rhs, equalSet);
 
-    resl = resl.cols(0, end - 1);
-    af_print(resl);
+    auto equals = equalSet.elements();
+
+    joinScatter(lhs, rhs, equals);
+
     af_print(lhs);
-    af_print(lhs(span, where(resl)));
 }
 
 

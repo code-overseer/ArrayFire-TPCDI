@@ -290,144 +290,31 @@ std::pair<array, array> AFDataFrame::crossCompare(af::array const &lhs, af::arra
     return { l, r };
 }
 
-std::pair<af::array, af::array> AFDataFrame::setCompare(array &lhs, array &rhs) {
-    lhs = join(0, lhs, range(lhs.dims(), 1, u64));
-    rhs = join(0, rhs, range(rhs.dims(), 1, u64));
+std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
+    printf("LHS rows: %llu\n", left.elements());
+    printf("RHS rows: %llu\n", right.elements());
+    Logger::startTimer("Join");
+    auto lhs = join(0, left, range(left.dims(), 1, u64));
+    auto rhs = join(0, right, range(right.dims(), 1, u64));
     {
         array idx;
         array tmp;
-        sort(tmp, idx, lhs.row(0), 1);
+        sort(tmp, idx, left, 1);
         lhs = lhs(span, idx);
-        sort(tmp, idx, rhs.row(0), 1);
+        sort(tmp, idx, right, 1);
         rhs = rhs(span, idx);
     }
+    auto equalSet = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
 
-    auto setrl = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
+    bagSetIntersect(lhs, equalSet);
+    bagSetIntersect(rhs, equalSet);
 
-    #if defined(AF_TEST)
-        Logger::startTimer("AF");
-        _removeNonExistant(setrl, lhs, rhs, 1);
-        Logger::logTime("AF");
-    #elif defined(USING_CUDA)
-        Logger::startTimer("CUDA");
-        _removeNonExistant(setrl, lhs, rhs);
-        Logger::logTime("CUDA");
-    #elif defined(USING_OPENCL)
-        Logger::startTimer("OCL");
-        _removeNonExistant(setrl, lhs, rhs);
-        Logger::logTime("OCL");
-    #else
-        Logger::startTimer("CPU");
-        _removeNonExistant(setrl, lhs, rhs);
-        Logger::logTime("CPU");
-    #endif
+    auto equals = equalSet.elements();
+    joinScatter(lhs, rhs, equals);
 
-    auto cl = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0),1) > 0).as(u64)), 1) - 1;
-    cl = flipdims(histogram(cl, cl.elements())).as(u64);
-    cl = cl(cl > 0);
-    auto il = scan(cl, 1, AF_BINARY_ADD, false);
-
-    auto cr = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0),1) > 0).as(u64)), 1) - 1;
-    cr = flipdims(histogram(cr, cr.elements())).as(u64);
-    cr = cr(cr > 0);
-    auto ir = scan(cr, 1, AF_BINARY_ADD, false);
-
-    auto outpos = cr * cl;
-    auto out_size = sum<unsigned int>(outpos);
-    outpos = scan(outpos, 1, AF_BINARY_ADD, false);
-    af::sync();
-
-    auto x = setrl.elements();
-    auto y = sum<unsigned int>(max(cl, 1));
-    auto z = sum<unsigned int>(max(cr, 1));
-    #if (!defined(AF_TEST) && defined(USING_CUDA))
-    Logger::startTimer("CUDA Scatter");
-    launch_IndexScatter(il, ir, cl, cr, outpos, l, r, x, y, z, out_size);
-    Logger::logTime("CUDA Scatter");
-    #else
-    Logger::startTimer("AF Scatter");
-    auto i = range(dim4(1, x * y * z), 1, u64);
-    auto j = i / z % y;
-    auto k = i % z;
-    i = i / y / z;
-    array l(1, out_size + 1, u64);
-    array r(1, out_size + 1, u64);
-
-    auto b = !(j / cl(i)) && !(k / cr(i));
-    l(b * (outpos(i) + cl(i) * k + j) + !b * out_size) = il(i) + j;
-    r(b * (outpos(i) + cr(i) * j + k) + !b * out_size) = ir(i) + k;
-    Logger::logTime("AF Scatter");
-    #endif
-
-    l = l.cols(0,end - 1);
-    r = r.cols(0,end - 1);
-    lhs = lhs(1, l);
-    rhs = rhs(1, r);
-    lhs.eval();
-    rhs.eval();
+    printf("Output rows: %llu\n", lhs.elements());
+    Logger::logTime("Join");
     return { lhs, rhs };
-}
-
-void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs) {
-    auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
-    auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
-
-    auto comp = setrl.device<ull>();
-    auto result_left = res_l.device<ull>();
-    auto result_right = res_r.device<ull>();
-    auto input_l = lhs.device<ull>();
-    auto input_r = rhs.device<ull>();
-    af::sync();
-    auto i_size = lhs.row(0).elements();
-    printf("Thread count for lhs: %llu\n", i_size * setrl.elements());
-    launch_IsExist(result_left, input_l, comp, i_size, setrl.elements());
-    i_size = rhs.row(0).elements();
-    printf("Thread count rhs: %llu\n", i_size * setrl.elements());
-    launch_IsExist(result_right, input_r, comp, i_size, setrl.elements());
-
-    setrl.unlock();
-    lhs.unlock();
-    rhs.unlock();
-    res_l.unlock();
-    res_r.unlock();
-
-    res_r = res_r.cols(0, end - 1);
-    res_l = res_l.cols(0, end - 1);
-    lhs = lhs(span, where(res_l));
-    rhs = rhs(span, where(res_r));
-    lhs.eval();
-    rhs.eval();
-}
-
-void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs, bool swt) {
-    auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
-    auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
-
-    auto i_size = lhs.row(0).elements();
-    auto const comp_size = setrl.elements();
-    printf("Thread count for lhs: %llu\n", i_size * comp_size);
-    auto id = range(dim4(1, i_size * comp_size), 1, u64);
-    auto i = id / comp_size;
-    auto j = id % comp_size;
-    auto b = moddims(setrl(j), i.dims()) == moddims(lhs(0, i),i.dims());
-    auto k = b * i + !b * i_size;
-    res_l(k) = 1;
-
-    i_size = rhs.row(0).elements();
-    printf("Thread count rhs: %llu\n", i_size * comp_size);
-    id = range(dim4(1, i_size * comp_size), 1, u64);
-    i = id / comp_size;
-    j = id % comp_size;
-    b = moddims(setrl(j), i.dims()) == moddims(rhs(0, i),i.dims());
-    k = b * i + !b * i_size;
-    res_r(k) = 1;
-
-    res_r = res_r.cols(0, end - 1);
-    res_l = res_l.cols(0, end - 1);
-    lhs = lhs(span, where(res_l));
-    rhs = rhs(span, where(res_r));
-    lhs.eval();
-    rhs.eval();
 }
 
 std::string AFDataFrame::name(std::string const& str) {
@@ -445,9 +332,13 @@ void AFDataFrame::flushToHost() {
     af::sync();
     if (_deviceData.empty()) return;
     for (auto const &a : _deviceData) {
-        auto tmp = malloc(a.bytes());
-        a.host(tmp);
-        _hostData.emplace_back(tmp);
+        if (a.bytes()) {
+            auto tmp = malloc(a.bytes());
+            a.host(tmp);
+            _hostData.emplace_back(tmp);
+        } else {
+            _hostData.emplace_back(nullptr);
+        }
     }
     _deviceData.clear();
 }

@@ -11,6 +11,7 @@
 #include "TPCDI_Utils.h"
 #include <sstream>
 #include <utility>
+#include "Logger.h"
 
 using namespace af;
 using namespace BatchFunctions;
@@ -31,11 +32,11 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
 
 AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, bool const hasHeader) : _filename(nullptr),
 _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
-    auto text = collect(files);
+    auto text = collect(files, hasHeader);
     _data = array(text.size() + 1, text.c_str()).as(u8);
     _data = _data(where(_data != '\r'));
     _data.eval();
-    _generateIndexer(delimiter, hasHeader);
+    _generateIndexer(delimiter, false);
     af::sync();
 }
 
@@ -94,8 +95,7 @@ af::array AFParser::asTime(int column) const {
     return stringToTime(out, true);
 }
 
-/* This creates a copy of the column, TODO need to deal with missing values */
-array AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
+af::array AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
     auto out = _makeUniform(column);
     return stringToDate(out, isDelimited, inputFormat);
 }
@@ -160,6 +160,7 @@ array AFParser::asDouble(int const column) const {
 }
 
 af::array AFParser::_makeUniform(int column) const {
+    if (!_length || !_maxColumnWidths[column]) return array(0, 0, u8);
     auto const maximum = _maxColumnWidths[column] + 1; // delimiter
     unsigned int const i = column != 0;
     auto out = static_cast<array>(_indexer.row(column + 1));
@@ -172,34 +173,43 @@ af::array AFParser::_makeUniform(int column) const {
     // Transpose then flatten the array so that it can be used to index _data
 
     out = flip(out, 0);
-    auto cond = where(out != UINT32_MAX);
+    auto cond = out != UINT32_MAX;
     out(cond) = _data(static_cast<array>(out(cond))).as(u32);
     out(out == UINT32_MAX) = ' ';
-    out = moddims(out, dim4(maximum, out.elements() / maximum)).as(u8);
+    out = out.as(u8);
     out.row(end) = 0;
     out.eval();
-
     return out;
 }
 
 array AFParser::asString(int column) const {
-    if (!_length) return array(0, u8);
+    if (!_length) return array(0, 0, u8);
     unsigned int const i = column != 0;
     auto out = _indexer.row(column) + i;
     auto const maximum = _maxColumnWidths[column];
     if (!maximum) return constant(0, 1, _length, u8);
 
     out = batchFunc(out, range(dim4(maximum + 1, 1), 0, u32), batchAdd);
-    out(where(batchFunc(out, _indexer.row(column + 1), batchGE))) = UINT32_MAX;
+    Logger::startTimer("NULLGEN");
+    out(batchFunc(out, _indexer.row(column + 1), batchGE)) = UINT32_MAX;
+    Logger::logTime("NULLGEN");
     out = flat(out);
-    auto cond = where(out != UINT32_MAX);
+
+    auto cond = out != UINT32_MAX;
     array tmp = out(cond);
     tmp = _data(tmp);
     tmp = tmp.as(u8);
     tmp.eval();
-    out(where(out == UINT32_MAX)) = 0;
+
+    Logger::startTimer("NULLIFY");
+    out(!cond) = 0;
+    Logger::logTime("NULLIFY");
+
     out = out.as(u8);
+
+    Logger::startTimer("ASSIGN");
     out(cond) = tmp;
+    Logger::logTime("ASSIGN");
 
     out = moddims(out, dim4(maximum + 1, out.elements()/(maximum + 1)));
     out.eval();
@@ -215,7 +225,7 @@ void AFParser::printData() const {
 
 // TODO add nulls
 af::array AFParser::asBoolean(int column) const {
-    if (!_length) return array(0, b8);
+    if (!_length) return array(0, 0, b8);
     unsigned int const i = column != 0;
     auto out = _indexer.row(column) + i;
     out = _data(out);

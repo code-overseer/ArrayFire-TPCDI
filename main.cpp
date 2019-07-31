@@ -23,9 +23,7 @@ namespace DIR {
     #endif
 }
 
-void optParse(int argc, char *argv[]);
-
-void experiment(int argc, char *argv[]);
+void experiment();
 
 int main(int argc, char *argv[])
 {
@@ -36,87 +34,97 @@ int main(int argc, char *argv[])
     #else
         setBackend(AF_BACKEND_CPU);
     #endif
-    if (argc == 2 && !strcmp(argv[1], "-i")) info();
-    optParse(argc, argv);
+    if (argc == 2 && !strcmp(argv[1], "-i")) {
+        info();
+        return 0;
+    }
+
+    for (int i = 1; i < argc; ++i) {
+        if (!strcmp(argv[i],"-f")) {
+            DIR::DIRECTORY = argv[++i];
+        } else if (!strcmp(argv[i],"-d")) {
+            setDevice(atoi(argv[++i]));
+        } else if (!strcmp(argv[i],"-o")) {
+            Logger::output() = argv[++i];
+        }
+    }
 
     Logger::startTimer();
-    print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
-    print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
-    print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
-    print("industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
-    print("dimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
-    dimCompany.sortBy("CompanyID");
+//    experiment();
+    print("Staging Cash Balnces");
+    auto s_cash = loadStagingCashBalances(DIR::DIRECTORY);
     Logger::logTime();
-    Logger::sendToCSV();
+//    Logger::sendToCSV();
 
     return 0;
 }
 
-void experiment(int argc, char *argv[]) {
-    auto path = argc > 1 ? argv[1] : DIR::DIRECTORY;
-    auto batchDate = loadBatchDate(path);
-    auto dimDate = loadDimDate(path);
-    auto dimTime = loadDimTime(path);
-
+void experiment() {
+    auto batchDate = loadBatchDate(DIR::DIRECTORY);
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    
+    print("DimTime");
+    auto dimTime = loadDimTime(DIR::DIRECTORY);
     dimTime.flushToHost();
-    print("industry");
-    auto industry = loadIndustry(path);
-    print("statusType");
-    auto statusType = loadStatusType(path);
-    print("taxRate");
-    auto taxRate = loadTaxRate(path);
+    
+    print("Industry");
+    auto industry = loadIndustry(DIR::DIRECTORY);
+    
+    print("StatusType");
+    auto statusType = loadStatusType(DIR::DIRECTORY);
+    
+    print("TaxRate");
+    auto taxRate = loadTaxRate(DIR::DIRECTORY);
     taxRate.flushToHost();
-    print("tradeType");
-    auto tradeType = loadTradeType(path);
+    
+    print("TradeType");
+    auto tradeType = loadTradeType(DIR::DIRECTORY);
     tradeType.flushToHost();
-    print("audit");
-    auto audit = loadAudit(path);
+    
+    print("Audit");
+    auto audit = loadAudit(DIR::DIRECTORY);
     audit.flushToHost();
-    print("finwire");
-    auto finwire = loadStagingFinwire(path);
-    print("s_prospect");
-    auto s_prospect = loadStagingProspect(path);
-    print("s_cash");
-    auto s_cash = loadStagingCashBalances(path);
-    print("s_watches");
-    auto s_watches = loadStagingWatches(path);
-    print("s_customer");
-    auto s_customer = loadStagingCustomer(path);
-    print("dimCompany");
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+    
+    print("Staging Prospect");
+    auto s_prospect = loadStagingProspect(DIR::DIRECTORY);
+    
+    print("Staging Cash Balnces");
+    auto s_cash = loadStagingCashBalances(DIR::DIRECTORY);
+    
+    print("Staging Watches");
+    auto s_watches = loadStagingWatches(DIR::DIRECTORY);
+    
+    print("Staging Customer");
+    auto s_customer = loadStagingCustomer(DIR::DIRECTORY);
+    
+    print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
-    print("financial");
+    
+    print("Financial");
     auto financial = loadFinancial(finwire.financial, dimCompany);
     financial.flushToHost();
-    print("dimSecurity");
+    
+    print("DimSecurity");
     auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
 
     dimSecurity.flushToHost();
     dimCompany.flushToHost();
     statusType.flushToHost();
     finwire.clear();
-    print("prospect");
+    
+    print("Prospect");
     auto prospect = loadProspect(s_prospect, batchDate);
     prospect.flushToHost();
     batchDate.flushToHost();
     s_prospect.clear();
-    print("dimBroker");
-    auto dimBroker = loadDimBroker(path, dimDate);
+
+    print("DimBroker");
+    auto dimBroker = loadDimBroker(DIR::DIRECTORY, dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
-}
-
-void optParse(int argc, char *argv[]) {
-    for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i],"-f")) {
-            DIR::DIRECTORY = argv[i + 1];
-        } else if (!strcmp(argv[i],"-d")) {
-            setDevice(atoi(argv[i + 1]));
-        }
-    }
 }

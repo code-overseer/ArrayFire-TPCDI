@@ -37,7 +37,7 @@ public:
     static af::array hashColumn(af::array const &column, DataType type, bool sortable = false);
     static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs,
                                                         af::batchFunc_t predicate = BatchFunctions::batchEqual);
-    static std::pair<af::array, af::array> setCompare(af::array &lhs, af::array &rhs);
+    static std::pair<af::array, af::array> setCompare(af::array const &lhs, af::array const &rhs);
     void sortBy(int column, bool isAscending = true);
     void sortBy(int *columns, int size, const bool *isAscending = nullptr);
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
@@ -79,7 +79,6 @@ private:
     std::unordered_map<std::string, unsigned int> _nameToIdx;
     std::unordered_map<unsigned int, std::string> _idxToName;
     void _flush(af::array const &idx);
-    static void _removeNonExistant(const af::array &setrl, af::array &lhs, af::array &rhs);
-    static void _removeNonExistant(const af::array &setrl, af::array &lhs, af::array &rhs, bool swt);
+
 };
 #endif //ARRAYFIRE_TPCDI_AFDATAFRAME_H

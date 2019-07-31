@@ -1,7 +1,3 @@
-//
-// Created by Bryan Wong on 2019-07-30.
-//
-
 #ifndef ARRAYFIRE_TPCDI_LOGGER_H
 #define ARRAYFIRE_TPCDI_LOGGER_H
 #include <unordered_map>
@@ -17,9 +13,10 @@ private:
     std::unordered_map<std::string, af::timer> _timers;
 public:
     static Logger& instance();
+    static std::string& output();
     static void startTimer(std::string const &name = "main");
     static void logTime(std::string const &name = "main", bool show = true);
-    static void sendToCSV(std::string const &dir = std::string());
+    static void sendToCSV();
     Logger(Logger const &other) = delete;
     Logger& operator=(Logger const &other) = delete;
     Logger(Logger &&other) = delete;

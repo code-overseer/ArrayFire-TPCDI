@@ -14,22 +14,20 @@
 #include <CL/cl.h>
 #endif
 
-static std::string get_kernel_string(const char *file_name)
-{
-    std::ifstream file(file_name);
-    std::string kernel;
+static std::string& get_kernel_string() {
+    static std::string kernel;
+    if (!kernel.empty()) return kernel;
+    std::ifstream file(OCL_KERNEL_DIR"/opencl_kernels.cl");
     std::string line;
 
     while(std::getline(file, line)) {
-        kernel = kernel + line;
-        kernel = kernel + "\n";
+        kernel += line;
+        kernel += "\n";
     }
-
     return kernel;
 }
 
-static cl_context get_context(cl_mem x)
-{
+static cl_context get_context(cl_mem x) {
     cl_context context;
     cl_int err = clGetMemObjectInfo(x, CL_MEM_CONTEXT, sizeof(cl_context), &context, NULL);
     if (err != CL_SUCCESS) {
@@ -39,12 +37,16 @@ static cl_context get_context(cl_mem x)
     return context;
 }
 
-static cl_program build_program(cl_context context, const std::string& kernel_string)
-{
+static cl_program build_program(cl_context context, const std::string& kernel_string) {
+    static cl_context prev = nullptr;
+    static cl_program program = nullptr;
+    if (prev != context) prev = context;
+    else if (program) return program;
+
     cl_int err;
     const char *source = kernel_string.c_str();
     size_t length = kernel_string.size();
-    cl_program program = clCreateProgramWithSource(context, 1, &source, &length, &err);
+    program = clCreateProgramWithSource(context, 1, &source, &length, &err);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to create program\n", err);
         throw (err);
@@ -58,8 +60,7 @@ static cl_program build_program(cl_context context, const std::string& kernel_st
     return program;
 }
 
-static cl_kernel create_kernel(cl_program program, const char *kernel_name)
-{
+static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
     cl_int err;
     cl_kernel kernel = clCreateKernel(program, kernel_name, &err);
     if (err != CL_SUCCESS) {
@@ -69,8 +70,12 @@ static cl_kernel create_kernel(cl_program program, const char *kernel_name)
     return kernel;
 }
 
-static cl_command_queue create_queue(cl_context context)
-{
+static cl_command_queue create_queue(cl_context context) {
+    static cl_context prev = nullptr;
+    static cl_command_queue queue = nullptr;
+    if (prev != context) prev = context;
+    else if (queue) return queue;
+
     cl_device_id device;
     cl_int err = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &device, NULL);
     if (err != CL_SUCCESS) {
@@ -79,15 +84,14 @@ static cl_command_queue create_queue(cl_context context)
     }
 
     #ifdef IS_APPLE
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, &err);
+    queue = clCreateCommandQueue(context, device, 0, &err);
     #else
-    cl_command_queue queue = clCreateCommandQueueWithProperties(context, device, 0, &err);
+    queue = clCreateCommandQueueWithProperties(context, device, 0, &err);
     #endif
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to command queue\n", err);
         throw (err);
     }
-
     return queue;
 }
 
