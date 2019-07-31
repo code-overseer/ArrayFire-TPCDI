@@ -28,7 +28,7 @@ public:
     void insert(af::array &&column, DataType type, int index, const char *name = nullptr);
     void remove(int index);
     void remove(std::string const &name) { remove(_nameToIdx[name]); }
-    af::array stringMatchIdx(int column, char const *str) const;
+    af::array stringMatch(int column, char const *str) const;
     AFDataFrame select(af::array const &index) const;
     AFDataFrame project(int const *columns, int size, std::string const &name) const;
     AFDataFrame project(std::string const *names, int size, std::string const &name) const;
@@ -37,7 +37,7 @@ public:
     static af::array hashColumn(af::array const &column, DataType type, bool sortable = false);
     static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs,
                                                         af::batchFunc_t predicate = BatchFunctions::batchEqual);
-    static std::pair<af::array, af::array> setCompare(af::array lhs, af::array rhs);
+    static std::pair<af::array, af::array> setCompare(af::array &lhs, af::array &rhs);
     void sortBy(int column, bool isAscending = true);
     void sortBy(int *columns, int size, const bool *isAscending = nullptr);
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
@@ -48,10 +48,11 @@ public:
 
     inline af::array hashColumn(int const column, bool sortable = false) const { return hashColumn(_deviceData[column], _dataTypes[column], sortable); }
     inline af::array hashColumn(std::string const &name, bool sortable = false) const { return hashColumn(_nameToIdx.at(name), sortable); }
-    inline af::array stringMatchIdx(std::string const &name, char const *str) const{ return stringMatchIdx(_nameToIdx.at(name), str); }
+    inline af::array stringMatchIdx(std::string const &name, char const *str) const{ return stringMatch(
+                _nameToIdx.at(name), str); }
     inline AFDataFrame zip(AFDataFrame &rhs) const { return zip(std::move(rhs)); }
     inline void concatenate(AFDataFrame &frame) { concatenate(std::move(frame)); }
-    inline bool isEmpty() { return _deviceData.empty(); }
+    inline bool isEmpty() { return _deviceData.empty() || _deviceData[0].isempty(); }
     inline std::vector<af::array> &data() { return _deviceData; }
     inline af::array &data(int column) { return _deviceData[column]; }
     inline af::array &data(std::string const &name) { return data(_nameToIdx.at(name)); }

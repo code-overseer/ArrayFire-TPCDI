@@ -47,7 +47,7 @@ add_executable(ArrayFire-TPCDI
         TPC_DI.cpp
         TPC_DI.h
         FinwireParser.cpp
-        FinwireParser.h TPCDI_Utils.cpp TPCDI_Utils.h Logger.cpp Logger.h)
+        FinwireParser.h TPCDI_Utils.cpp TPCDI_Utils.h Logger.cpp Logger.h CPU/vector_functions.h)
 
 if (USING_CUDA)
     set_source_files_properties(AFDataFrame.cpp Tests.cpp main.cpp CUDA/cuda_kernels.h PROPERTIES LANGUAGE CUDA)

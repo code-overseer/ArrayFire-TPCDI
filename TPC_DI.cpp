@@ -287,7 +287,7 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
         for (int i = 2;  i <= 7; ++i) {
             frame.add(parser.asString(i), STRING);
         }
-        auto idx = frame.stringMatchIdx(5, "314");
+        auto idx = frame.stringMatch(5, "314");
         frame = frame.select(idx);
         frame.remove(5);
     }
@@ -539,31 +539,31 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     security.add(tile(endDate(), dim4(1, length)), DATE, "EndDate");
 
     nameDimSecurity(security);
-
     std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
-    auto s1 = security.project(order, 3, "S1");
+    auto s0 = security.project(order, 3, "S0");
+    s0.sortBy(order + 1, 2);
 
-    order[0] = "Symbol";
-    order[1] = "EffectiveDate";
-    s1.sortBy(order, 2);
-
-    order[0] = "Symbol";
-    auto s2 = s1.project(order, 1, "S2");
-    s1 = s1.select(range(dim4(s1.length() - 1), 0, u64));
-    s2 = s2.select(range(dim4(s2.length() - 1), 0, u64) + 1);
+    auto s2 = s0.project(order + 1, 1, "S2");
+    auto s1 = s0.select(range(dim4(s0.length() - 1), 0, u64) + 1);
+    s2 = s2.select(range(dim4(s2.length() - 1), 0, u64));
     s1 = s1.zip(s2);
     s1 = s1.select(where(allTrue(s1.data("Symbol") == s1.data("S2.Symbol"), 0)));
+    auto end_date = s1.project(order + 2, 1, "EndDate");
+    if (end_date.isEmpty()) return security;
 
-    if (s1.data(0).isempty()) return security;
+    s0 = s0.project(order, 2, "S0");
+    s1 = s0.project(order + 1, 1, "S1");
+    s0 = s0.select(range(dim4(s0.length() - 1), 0, u64));
+    s1 = s1.select(range(dim4(s1.length() - 1), 0, u64) + 1);
+    s0 = s0.zip(s1);
+    s0 = s0.select(where(allTrue(s0.data("Symbol") == s0.data("S1.Symbol"))));
+    s0.project(order, 1, "S0");
+    s0 = s0.zip(end_date);
+    s0.nameColumn("EndDate", "EndDate.EffectiveDate");
 
-    order[0] = "SK_SecurityID";
-    order[1] = "EffectiveDate";
-    s1 = s1.project(order, 2, "candidate");
-    print(security.data("SK_SecurityID").dims());
-    auto out = AFDataFrame::crossCompare(security.data("SK_SecurityID"), s1.data("SK_SecurityID"));
+    auto out = AFDataFrame::setCompare(security.data("SK_SecurityID"), s0.data("SK_SecurityID"));
     security.data("IsCurrent")(out.first) = 0;
-    security.data("EndDate")(span, out.first) = s1.data("EffectiveDate");
-
+    security.data("EndDate")(span, out.first) = (array)s0.data("EndDate")(span, out.second);
     return security;
 }
 
@@ -694,18 +694,18 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
 }
 
 Customer splitCustomer(AFDataFrame &&s_Customer) {
-    auto idx = s_Customer.stringMatchIdx(0, "NEW");
-    AFDataFrame* newC = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatchIdx(0, "ADDACCT");
-    AFDataFrame* add = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatchIdx(0, "UPDACCT");
-    AFDataFrame* uAcc = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatchIdx(0, "CLOSEACCT");
-    AFDataFrame* cAcc = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatchIdx(0, "UPDCUST");
-    AFDataFrame* uCus = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatchIdx(0, "INACT");
-    AFDataFrame* inAc = new AFDataFrame(s_Customer.select(idx));
+    auto idx = s_Customer.stringMatch(0, "NEW");
+    auto newC = new AFDataFrame(s_Customer.select(idx));
+    idx = s_Customer.stringMatch(0, "ADDACCT");
+    auto add = new AFDataFrame(s_Customer.select(idx));
+    idx = s_Customer.stringMatch(0, "UPDACCT");
+    auto uAcc = new AFDataFrame(s_Customer.select(idx));
+    idx = s_Customer.stringMatch(0, "CLOSEACCT");
+    auto cAcc = new AFDataFrame(s_Customer.select(idx));
+    idx = s_Customer.stringMatch(0, "UPDCUST");
+    auto uCus = new AFDataFrame(s_Customer.select(idx));
+    idx = s_Customer.stringMatch(0, "INACT");
+    auto inAc = new AFDataFrame(s_Customer.select(idx));
 
     return Customer(newC, add, uAcc, cAcc, uCus, inAc);
 }

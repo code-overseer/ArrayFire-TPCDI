@@ -8,6 +8,8 @@
 #include "OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
+#else
+#include "CPU/vector_functions.h"
 #endif
 #ifndef ULL
 #define ULL
@@ -99,12 +101,13 @@ void AFDataFrame::_flush(af::array const &idx) {
     }
 }
 
-af::array AFDataFrame::stringMatchIdx(int column, char const *str) const {
+af::array AFDataFrame::stringMatch(int column, char const *str) const {
     if (_dataTypes[column] != STRING) throw std::runtime_error("Invalid column type");
     auto length = strlen(str) + 1;
-    af::array data = _deviceData[column].rows(0, length - 1);
-    auto match = array(dim4(length, 1), str); // include \0
-    auto idx = where(allTrue(batchFunc(data, match, batchEqual), 0));
+    if (_deviceData[column].dims(0) < length) return constant(0, dim4(1, _deviceData[column].dims(1)), b8);
+
+    auto match = array(dim4(length, 1), str);
+    auto idx = allTrue(batchFunc(_deviceData[column].rows(0, length), match, batchEqual), 0);
     idx.eval();
     return idx;
 }
@@ -287,7 +290,7 @@ std::pair<array, array> AFDataFrame::crossCompare(af::array const &lhs, af::arra
     return { l, r };
 }
 
-std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
+std::pair<af::array, af::array> AFDataFrame::setCompare(array &lhs, array &rhs) {
     lhs = join(0, lhs, range(lhs.dims(), 1, u64));
     rhs = join(0, rhs, range(rhs.dims(), 1, u64));
     {
@@ -300,7 +303,8 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
     }
 
     auto setrl = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
-    #if (defined(AF_TEST) && (defined(USING_CUDA) || defined(USING_OPENCL)))
+
+    #if defined(AF_TEST)
         Logger::startTimer("AF");
         _removeNonExistant(setrl, lhs, rhs, 1);
         Logger::logTime("AF");
@@ -313,9 +317,10 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
         _removeNonExistant(setrl, lhs, rhs);
         Logger::logTime("OCL");
     #else
-        _removeNonExistant(setrl, lhs, rhs, 1);
+        Logger::startTimer("CPU");
+        _removeNonExistant(setrl, lhs, rhs);
+        Logger::logTime("CPU");
     #endif
-
 
     auto cl = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0),1) > 0).as(u64)), 1) - 1;
     cl = flipdims(histogram(cl, cl.elements())).as(u64);
@@ -328,13 +333,19 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
     auto ir = scan(cr, 1, AF_BINARY_ADD, false);
 
     auto outpos = cr * cl;
-    auto out_size = sum<unsigned int>(sum(outpos,1));
+    auto out_size = sum<unsigned int>(outpos);
     outpos = scan(outpos, 1, AF_BINARY_ADD, false);
     af::sync();
 
     auto x = setrl.elements();
     auto y = sum<unsigned int>(max(cl, 1));
     auto z = sum<unsigned int>(max(cr, 1));
+    #if (!defined(AF_TEST) && defined(USING_CUDA))
+    Logger::startTimer("CUDA Scatter");
+    launch_IndexScatter(il, ir, cl, cr, outpos, l, r, x, y, z, out_size);
+    Logger::logTime("CUDA Scatter");
+    #else
+    Logger::startTimer("AF Scatter");
     auto i = range(dim4(1, x * y * z), 1, u64);
     auto j = i / z % y;
     auto k = i % z;
@@ -345,19 +356,18 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array lhs, array rhs) {
     auto b = !(j / cl(i)) && !(k / cr(i));
     l(b * (outpos(i) + cl(i) * k + j) + !b * out_size) = il(i) + j;
     r(b * (outpos(i) + cr(i) * j + k) + !b * out_size) = ir(i) + k;
+    Logger::logTime("AF Scatter");
+    #endif
+
     l = l.cols(0,end - 1);
     r = r.cols(0,end - 1);
-
     lhs = lhs(1, l);
     rhs = rhs(1, r);
-
     lhs.eval();
     rhs.eval();
-
     return { lhs, rhs };
 }
 
-#if defined(USING_CUDA) || defined(USING_OPENCL)
 void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs) {
     auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
     auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
@@ -369,11 +379,10 @@ void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs)
     auto input_r = rhs.device<ull>();
     af::sync();
     auto i_size = lhs.row(0).elements();
-    printf("GPU threads for lhs: %llu\n", i_size * setrl.elements());
+    printf("Thread count for lhs: %llu\n", i_size * setrl.elements());
     launch_IsExist(result_left, input_l, comp, i_size, setrl.elements());
-
     i_size = rhs.row(0).elements();
-    printf("GPU threads for rhs: %llu\n", i_size * setrl.elements());
+    printf("Thread count rhs: %llu\n", i_size * setrl.elements());
     launch_IsExist(result_right, input_r, comp, i_size, setrl.elements());
 
     setrl.unlock();
@@ -389,14 +398,14 @@ void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs)
     lhs.eval();
     rhs.eval();
 }
-#endif
 
 void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs, bool swt) {
     auto res_l = constant(0, dim4(1, lhs.row(0).elements() + 1), u64);
     auto res_r = constant(0, dim4(1, rhs.row(0).elements() + 1), u64);
 
     auto i_size = lhs.row(0).elements();
-    auto comp_size = setrl.elements();
+    auto const comp_size = setrl.elements();
+    printf("Thread count for lhs: %llu\n", i_size * comp_size);
     auto id = range(dim4(1, i_size * comp_size), 1, u64);
     auto i = id / comp_size;
     auto j = id % comp_size;
@@ -405,13 +414,13 @@ void AFDataFrame::_removeNonExistant(const array &setrl, array &lhs, array &rhs,
     res_l(k) = 1;
 
     i_size = rhs.row(0).elements();
+    printf("Thread count rhs: %llu\n", i_size * comp_size);
     id = range(dim4(1, i_size * comp_size), 1, u64);
     i = id / comp_size;
     j = id % comp_size;
     b = moddims(setrl(j), i.dims()) == moddims(rhs(0, i),i.dims());
     k = b * i + !b * i_size;
     res_r(k) = 1;
-
 
     res_r = res_r.cols(0, end - 1);
     res_l = res_l.cols(0, end - 1);
