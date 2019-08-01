@@ -4,6 +4,7 @@
 #include <cuda.h>
 #include <stdio.h>
 #include <arrayfire.h>
+#include "TPCDI_Utils.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
@@ -126,7 +127,7 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     auto right = right_out.device<ull>();
     af::sync();
     ull const threadLimit = 1024;
-    ull const threadCount = x * y * z;
+    ull const threadCount = equals * left_max * right_max;
     ull const blocks = (threadCount/threadLimit) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);
