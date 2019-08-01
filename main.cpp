@@ -65,8 +65,8 @@ int main(int argc, char *argv[]) {
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
 
-//    print("DimSecurity");
-//    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
+    print("DimSecurity");
+    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
     Logger::logTime();
 //    Logger::sendToCSV();
 

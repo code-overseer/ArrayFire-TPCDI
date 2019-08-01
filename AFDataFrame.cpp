@@ -186,12 +186,13 @@ void AFDataFrame::sortBy(int column, bool isAscending) {
 }
 
 array AFDataFrame::_subSort(array const &elements, array const &bucket, bool const isAscending) {
-    auto idx_output = isAscending ? diff1(bucket, 1).as(s64) : diff1(flip(bucket, 1), 1).as(s64);
-    idx_output = join(1, constant(1, dim4(1), u64), (idx_output > 0).as(u64));
-    idx_output = accum(idx_output, 1) - 1;
-    idx_output = flipdims(histogram(idx_output, idx_output.elements())).as(u64);
+    auto idx_output = flipdims(histogram(bucket, bucket.elements())).as(u64);
     idx_output = idx_output(idx_output > 0);
-    idx_output = join(0, scan(idx_output, 1, AF_BINARY_ADD, false), accum(idx_output, 1) - 1);
+    if (idx_output.elements() == 1) {
+        idx_output = join(0, constant(0,dim4(1),idx_output.type()), accum(idx_output, 1) - 1);
+    } else {
+        idx_output = join(0, scan(idx_output, 1, AF_BINARY_ADD, false), accum(idx_output, 1) - 1);
+    }
     idx_output.eval();
     // max size of bucket
     auto h = sum<unsigned int>(max(diff1(idx_output,0)).as(u64)) + 1;
@@ -299,10 +300,8 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
         array tmp;
         sort(tmp, idx, left, 1);
         lhs = lhs(span, idx);
-        af_print(lhs.cols(0,9))
         sort(tmp, idx, right, 1);
         rhs = rhs(span, idx);
-        af_print(rhs.cols(0,9))
     }
 
     auto const equalSet = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));

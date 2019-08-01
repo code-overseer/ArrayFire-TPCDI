@@ -350,11 +350,8 @@ inline void nameDimCompany(AFDataFrame &dimCompany) {
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
     auto dimCompany = s_Company.equiJoin(industry,5,0);
-    print(dimCompany.length());
-    return dimCompany;
 
     dimCompany = dimCompany.equiJoin(statusType, 4, 0);
-    print(dimCompany.length());
     {
         std::string order[15] = {
                 "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING","CEO_NAME", "ADDR_LINE_1",
@@ -514,12 +511,10 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         tmp = StatusType.project(columns, 1, "ST");
         security = security.equiJoin(tmp, "STATUS", "ST_ID");
     }
-    print(dimCompany.length());
-    print(security.length());
+
     auto cond1 = dateHash(security.data("DC.EffectiveDate")) <= dateHash(security.data("PTS").rows(0, 2));
     auto cond2 = dateHash(security.data("DC.EndDate")) > dateHash(security.data("PTS").rows(0, 2));
     security = security.select(where(cond1 && cond2));
-    print(security.length());
     {
         std::string order[11] = {
                 "SYMBOL","ISSUE_TYPE", "STATUS","NAME","EX_ID", "DC.SK_CompanyID",
@@ -540,7 +535,6 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     nameDimSecurity(security);
     std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
     auto s0 = security.project(order, 3, "S0");
-    print("HERE");
     s0.sortBy(order + 1, 2);
 
     auto s2 = s0.project(order + 1, 1, "S2");

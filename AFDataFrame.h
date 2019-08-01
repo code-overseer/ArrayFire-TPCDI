@@ -27,7 +27,6 @@ public:
     void insert(af::array &column, DataType type, int index, const char *name = nullptr);
     void insert(af::array &&column, DataType type, int index, const char *name = nullptr);
     void remove(int index);
-    void remove(std::string const &name) { remove(_nameToIdx[name]); }
     af::array stringMatch(int column, char const *str) const;
     AFDataFrame select(af::array const &index) const;
     AFDataFrame project(int const *columns, int size, std::string const &name) const;
@@ -44,9 +43,11 @@ public:
     std::string name(const std::string& str);
     void flushToHost();
     void clear();
+
+    inline void remove(std::string const &name) { remove(_nameToIdx[name]); }
     inline af::array hashColumn(int const column, bool sortable = false) const { return hashColumn(_deviceData[column], _dataTypes[column], sortable); }
     inline af::array hashColumn(std::string const &name, bool sortable = false) const { return hashColumn(_nameToIdx.at(name), sortable); }
-    inline af::array stringMatchIdx(std::string const &name, char const *str) const { return stringMatch(_nameToIdx.at(name), str); }
+    inline af::array stringMatch(std::string const &name, char const *str) const { return stringMatch(_nameToIdx.at(name), str); }
     inline AFDataFrame zip(AFDataFrame &rhs) const { return zip(std::move(rhs)); }
     inline AFDataFrame concatenate(AFDataFrame &frame) const { return concatenate(std::move(frame)); }
     inline bool isEmpty() { return _deviceData.empty() || _deviceData[0].isempty(); }
