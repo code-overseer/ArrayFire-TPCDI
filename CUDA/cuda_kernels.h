@@ -9,13 +9,13 @@
 typedef unsigned long long ull;
 #endif
 __global__
-static void IsExists(ull *result, ull const *input, ull const *comparison, ull const i_size, ull const comp_size) {
+static void IsExists(ull *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     const ull id = blockIdx.x * blockDim.x + threadIdx.x;
 
-	 ull i = id / comp_size;
-	 ull j = id % comp_size;
-	 bool b = id < i_size * comp_size && comparison[j] == input[2 * i];
-	 ull k = b * i + !b * i_size;
+	 ull i = id / set_size;
+	 ull j = id % set_size;
+	 bool b = id < bag_size * set_size && set[j] == bag[2 * i];
+	 ull k = b * i + !b * bag_size;
 
 	 result[k] = 1;
 }
@@ -33,7 +33,7 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     result(k) = 1;
 #else
     ull const threadLimit = 1024;
-    ull const threadCount = i_size * comp_size;
+    ull const threadCount = bag_size * set_size;
     ull const blocks = (threadCount/threadLimit) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);
@@ -85,7 +85,7 @@ void inline launch_IndexScatter(ull const *il, ull const *ir, ull const *cl, ull
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);
 
-    index_scatter<<<grid, block>>>((il, ir, cl, cr, outpos, l, r, x, y, z, dump);
+    index_scatter<<<grid, block>>>(il, ir, cl, cr, outpos, l, r, x, y, z, dump);
 }
 
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
