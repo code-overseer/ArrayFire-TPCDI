@@ -130,7 +130,7 @@ void hashTest(char const *filepath) {
     }
 
     af::timer::start();
-    auto h = polyHash(prefixHash(frame.data("Words")));
+    auto h = polyHash(byteHash(frame.data("Words")));
     af::sync();
     printf("%f\n", af::timer::stop());
     af::array idx;

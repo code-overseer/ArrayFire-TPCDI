@@ -190,9 +190,7 @@ array AFParser::asString(int column) const {
     if (!maximum) return constant(0, 1, _length, u8);
 
     out = batchFunc(out, range(dim4(maximum + 1, 1), 0, u32), batchAdd);
-    Logger::startTimer("NULLGEN");
     out(batchFunc(out, _indexer.row(column + 1), batchGE)) = UINT32_MAX;
-    Logger::logTime("NULLGEN");
     out = flat(out);
 
     auto cond = out != UINT32_MAX;
@@ -201,15 +199,9 @@ array AFParser::asString(int column) const {
     tmp = tmp.as(u8);
     tmp.eval();
 
-    Logger::startTimer("NULLIFY");
     out(!cond) = 0;
-    Logger::logTime("NULLIFY");
-
     out = out.as(u8);
-
-    Logger::startTimer("ASSIGN");
     out(cond) = tmp;
-    Logger::logTime("ASSIGN");
 
     out = moddims(out, dim4(maximum + 1, out.elements()/(maximum + 1)));
     out.eval();

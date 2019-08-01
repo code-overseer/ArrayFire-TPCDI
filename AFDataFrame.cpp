@@ -106,8 +106,8 @@ af::array AFDataFrame::stringMatch(int column, char const *str) const {
     auto length = strlen(str) + 1;
     if (_deviceData[column].dims(0) < length) return constant(0, dim4(1, _deviceData[column].dims(1)), b8);
 
-    auto match = array(dim4(length, 1), str);
-    auto idx = allTrue(batchFunc(_deviceData[column].rows(0, length), match, batchEqual), 0);
+    auto match = array(length, str);
+    auto idx = allTrue(batchFunc(_deviceData[column].rows(0, --length), match, batchEqual), 0);
     idx.eval();
     return idx;
 }
@@ -147,28 +147,28 @@ AFDataFrame AFDataFrame::zip(AFDataFrame &&rhs) const {
     return output;
 }
 
-void AFDataFrame::concatenate(AFDataFrame &&frame) {
+AFDataFrame AFDataFrame::concatenate(AFDataFrame &&frame) const {
     if (_dataTypes.size() != frame._dataTypes.size()) throw std::runtime_error("Number of attributes do not match");
-    for (int i = 0; i < _dataTypes.size(); i++) {
+    for (size_t i = 0; i < _dataTypes.size(); i++) {
         if (frame._dataTypes[i] != _dataTypes[i])
             throw std::runtime_error("Attribute types do not match");
     }
-
-    for (int i = 0; i < _deviceData.size(); ++i) {
-
-        if (_dataTypes[i] == STRING) {
-            auto delta = _deviceData[i].dims(0) - frame._deviceData[i].dims(0);
+    auto out = *this;
+    for (size_t i = 0; i < out._deviceData.size(); ++i) {
+        if (out._dataTypes[i] == STRING) {
+            auto delta = out._deviceData[i].dims(0) - frame._deviceData[i].dims(0);
             if (delta > 0) {
                 auto back = constant(0, delta, frame._deviceData[i].dims(1), u8);
                 frame._deviceData[i] = join(0, frame._deviceData[i], back);
             } else if (delta < 0) {
                 delta = -delta;
-                auto back = constant(0, delta, _deviceData[i].dims(1), u8);
-                _deviceData[i] = join(0, _deviceData[i], back);
+                auto back = constant(0, delta, out._deviceData[i].dims(1), u8);
+                out._deviceData[i] = join(0, out._deviceData[i], back);
             }
         }
-        _deviceData[i] = join(1, _deviceData[i], frame._deviceData[i]);
+        out._deviceData[i] = join(1, out._deviceData[i], frame._deviceData[i]);
     }
+    return out;
 }
 
 void AFDataFrame::sortBy(int column, bool isAscending) {
@@ -179,6 +179,7 @@ void AFDataFrame::sortBy(int column, bool isAscending) {
     sort(sorting, idx, elements(0, span), 1, isAscending);
     _flush(idx);
     for (int j = 1; j < size; ++j) {
+        elements = elements(span, idx);
         idx = _subSort(elements(j, span), elements(j - 1, span), isAscending);
         _flush(idx);
     }
@@ -190,8 +191,7 @@ array AFDataFrame::_subSort(array const &elements, array const &bucket, bool con
     idx_output = accum(idx_output, 1) - 1;
     idx_output = flipdims(histogram(idx_output, idx_output.elements())).as(u64);
     idx_output = idx_output(idx_output > 0);
-    idx_output = join(0, scan(idx_output, 1, AF_BINARY_ADD, false),
-                      accum(idx_output, 1) - 1);
+    idx_output = join(0, scan(idx_output, 1, AF_BINARY_ADD, false), accum(idx_output, 1) - 1);
     idx_output.eval();
     // max size of bucket
     auto h = sum<unsigned int>(max(diff1(idx_output,0)).as(u64)) + 1;
@@ -215,7 +215,6 @@ array AFDataFrame::_subSort(array const &elements, array const &bucket, bool con
     return idx_output;
 }
 
-/* Currently does not work on strings longer than 8 characters */
 void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
     bool asc = isAscending ? isAscending[0] : true;
     sortBy(columns[0], asc);
@@ -227,12 +226,13 @@ void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
         for (decltype(subsize) j = 0; j < subsize; ++j) {
             array idx = _subSort(elements(j, span), j ? elements(j - 1, span) : buckets, asc);
             _flush(idx);
+            elements = elements(span, idx);
         }
     }
 }
 
 array AFDataFrame::hashColumn(af::array const &column, DataType type, bool sortable) {
-    if (type == STRING) return sortable ? prefixHash(column) : polyHash(prefixHash(column));
+    if (type == STRING) return sortable ? byteHash(column) : polyHash(byteHash(column));
     if (type == DATE) return dateHash(column).as(u64);
     if (type == TIME) return timeHash(column).as(u64);
     if (type == DATETIME) return datetimeHash(column).as(u64);
@@ -246,10 +246,9 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     auto &leftType = _dataTypes[lhs_column];
     auto &rightType = rhs._dataTypes[rhs_column];
     if (leftType != rightType) throw std::runtime_error("Supplied column data types do not match");
-
     auto l = hashColumn(lhs_column);
     auto r = rhs.hashColumn(rhs_column);
-
+    if (_tableName == "S_Company") print(l.dims());
     auto idx = setCompare(l, r);
 
     if (_deviceData[lhs_column].dims(0) <= rhs._deviceData[rhs_column].dims(0)) {
@@ -282,11 +281,10 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     return result;
 }
 
-std::pair<array, array> AFDataFrame::crossCompare(af::array const &lhs, af::array const &rhs, batchFunc_t predicate) {
-    auto r = where(batchFunc(flipdims(rhs), lhs, predicate));
+std::pair<af::array, af::array> AFDataFrame::crossCompare(af::array const &lhs, af::array const &rhs) {
+    auto r = where(batchFunc(flipdims(rhs), lhs, BatchFunctions::batchEqual));
     auto l = r / rhs.dims(1);
     r = r % rhs.dims(1);
-
     return { l, r };
 }
 
@@ -301,17 +299,18 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
         array tmp;
         sort(tmp, idx, left, 1);
         lhs = lhs(span, idx);
+        af_print(lhs.cols(0,9))
         sort(tmp, idx, right, 1);
         rhs = rhs(span, idx);
+        af_print(rhs.cols(0,9))
     }
-    auto equalSet = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
 
+    auto const equalSet = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
     bagSetIntersect(lhs, equalSet);
     bagSetIntersect(rhs, equalSet);
 
     auto equals = equalSet.elements();
     joinScatter(lhs, rhs, equals);
-
     printf("Output rows: %llu\n", lhs.elements());
     Logger::logTime("Join");
     return { lhs, rhs };

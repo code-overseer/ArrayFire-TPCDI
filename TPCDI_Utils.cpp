@@ -200,12 +200,12 @@ af::array TPCDI_Utils::stringToBoolean(af::array &boolstr) {
 
 af::array TPCDI_Utils::polyHash(array const &column) {
     uint64_t const prime = 67llU;
-    auto hash = range(dim4(column.dims(0),1), 0, u64);
+    auto hash = range(dim4(column.dims(0)), 0, u64);
     hash = pow(prime, hash).as(u64);
     hash = batchFunc(column, hash, batchMult);
     hash = sum(hash, 0);
+    hash = hash.as(u64);
     hash.eval();
-    if (hash.type() != u64) hash = hash.as(u64);
     return hash;
 }
 
@@ -223,7 +223,7 @@ af::array TPCDI_Utils::datetimeHash(af::array const &datetime) {
     return key;
 }
 
-af::array TPCDI_Utils::prefixHash(array const &column) {
+af::array TPCDI_Utils::byteHash(const array &column) {
     if (column.type() != u8) throw std::invalid_argument("Unexpected array type, input must be unsigned char");
     auto const n = column.dims(0);
     if (!n) throw std::runtime_error("Cannot hash null column");
@@ -235,9 +235,8 @@ af::array TPCDI_Utils::prefixHash(array const &column) {
     for (int i = 1; i < h; ++i) {
         auto e = i * 8 + 7;
         if (e < n) out = join(0, out, sum(batchFunc(column.rows(i * 8, e), s1, bitShiftLeft), 0));
-        else out = join(0, out, sum(batchFunc(column.rows(i * 8, i * 8 + r), s1.rows(0, r - 1), bitShiftLeft), 0));
+        else out = join(0, out, sum(batchFunc(column.rows(i * 8, i * 8 + r - 1), s1.rows(0, r - 1), bitShiftLeft), 0));
     }
-    if (out.type() != u64) out = out.as(u64);
     out.eval();
     return out;
 }

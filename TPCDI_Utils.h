@@ -31,7 +31,7 @@ namespace TPCDI_Utils {
     af::array dateHash(af::array const &date);
     inline af::array timeHash(af::array const &time) { return dateHash(time); };
     af::array datetimeHash(af::array const &datetime);
-    af::array prefixHash(af::array const &column);
+    af::array byteHash(af::array const &column);
     af::array polyHash(af::array const &column);
 }
 

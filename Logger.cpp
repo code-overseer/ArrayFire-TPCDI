@@ -21,8 +21,8 @@ void Logger::logTime(std::string const &name, bool show) {
         std::cerr << buffer << std::endl;
         return;
     }
-    instance()._times.emplace_back(std::make_pair(name, af::timer::stop(instance()._timers.at(name))));
-    if (show) std::cout << instance()._times.back().first << ": " << instance()._times.back().second << std::endl;
+    instance()._times[name].emplace_back(af::timer::stop(instance()._timers.at(name)));
+    if (show) std::cout << name << ": " << instance()._times[name].back() << std::endl;
 }
 std::string& Logger::output() {
     static std::string directory;
@@ -33,9 +33,16 @@ void Logger::sendToCSV() {
     std::stringstream ss;
     auto info = std::string(af::infoString());
     std::replace(info.begin(), info.end(), ',', ' ');
-    ss << info;
+    ss << "Device Info" << ',' << info;
     for (auto const &data : instance()._times) {
-        ss << data.first << ',' << data.second << '\n';
+        ss << data.first << ',';
+        for (size_t i = 0; i < data.second.size(); ++i) {
+            if (i + 1 == data.second.size()) {
+                ss << data.second[i] << '\n';
+            } else {
+                ss << data.second[i] << ',';
+            }
+        }
     }
     std::ofstream file(output() + "result.csv", std::ios_base::app);
     file << ss.str();

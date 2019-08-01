@@ -4,8 +4,6 @@
 #include "Logger.h"
 #include "TPC_DI.h"
 
-using namespace af;
-
 namespace DIR {
     char const* HR = "/Users/bryanwong/Downloads/TPCData/HR3.csv";
     char const* DATE = "/Users/bryanwong/Downloads/TPCData/TestDate.csv";
@@ -25,8 +23,9 @@ namespace DIR {
 
 void experiment();
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
+    using namespace af;
+
     #if defined(USING_OPENCL)
         setBackend(AF_BACKEND_OPENCL);
     #elif defined(USING_CUDA)
@@ -51,8 +50,23 @@ int main(int argc, char *argv[])
 
     Logger::startTimer();
 //    experiment();
-    print("Staging Cash Balnces");
-    auto s_cash = loadStagingCashBalances(DIR::DIRECTORY);
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+
+    print("Industry");
+    auto industry = loadIndustry(DIR::DIRECTORY);
+
+    print("StatusType");
+    auto statusType = loadStatusType(DIR::DIRECTORY);
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+
+    print("DimCompany");
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+
+//    print("DimSecurity");
+//    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
     Logger::logTime();
 //    Logger::sendToCSV();
 

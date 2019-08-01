@@ -66,7 +66,10 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     auto id = range(dim4(1, bag_size * set_size), 1, u64);
     auto i = id / set_size;
     auto j = id % set_size;
-    auto b = moddims(set(j), i.dims()) == moddims(bag(0, i),i.dims());
+    printf("SetSize: %llu\n", set_size);
+    af_print(set(0))
+    af_print(bag(0))
+    auto b = moddims(set(j), i.dims()) == moddims(bag(0, i), i.dims());
     auto k = b * i + !b * bag_size;
     result(k) = 1;
 #else

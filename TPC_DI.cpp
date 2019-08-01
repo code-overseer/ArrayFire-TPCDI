@@ -32,7 +32,6 @@ AFDataFrame loadDimDate(char const *directory) {
     strcat(file, "Date.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-
     frame.add(parser.asU64(0), U64);
     frame.add(parser.asDate(1, true, YYYYMMDD), DATE);
     for (int i = 2;  i < 17; i += 2) {
@@ -256,15 +255,14 @@ AFDataFrame loadStagingCustomer(char const* directory) {
     AFDataFrame frame;
     frame.add(parser.asString(0), STRING);
 
-    frame.add(parser.asDateTime(1, true), DATETIME);
+    frame.add(parser.asDateTime(1, true, YYYYMMDD), DATETIME);
 
     frame.add(parser.asU64(2), U64);
 
     for (int i = 3; i < 5; ++i) frame.add(parser.asString(i), STRING);
 
     frame.add(parser.asUchar(5), UCHAR);
-
-    frame.add(parser.asDate(6, true), DATE);
+    frame.add(parser.asDate(6, true, YYYYMMDD), DATE);
 
     for (int i = 7; i < 32; ++i) frame.add(parser.asString(i), STRING);
 
@@ -285,21 +283,19 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
         AFParser parser(file, ',');
         frame.add(parser.asUint(0), UINT);
         frame.add(parser.asUint(1), UINT);
-        for (int i = 2;  i <= 7; ++i) {
-            frame.add(parser.asString(i), STRING);
-        }
+        for (int i = 2;  i <= 7; ++i) frame.add(parser.asString(i), STRING);
         auto idx = frame.stringMatch(5, "314");
+        print("HERE");
         frame = frame.select(idx);
         frame.remove(5);
     }
-
     auto length = frame.data()[0].dims(1);
     frame.insert(range(dim4(1, length), 1, u64), U64, 0);
     frame.add(constant(1, dim4(1, length), b8), BOOL);
     frame.add(constant(1, dim4(1, length), u32), UINT);
-    auto date = sort(dimDate.data(1),1);
+    auto date = sort(dimDate.data(0),1);
     date = date(0);
-    frame.add(tile(date, dim4(1, length)), DATE);
+    frame.add(tile(dehashDate(date, YYYYMMDD), dim4(1, length)), DATE);
     frame.add(tile(endDate(), dim4(1, length)), DATE);
     return frame;
 }
@@ -310,18 +306,10 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     strcat(file, "CashTransaction.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    Logger::startTimer("Ulong");
     frame.add(parser.asU64(0), U64);
-    Logger::logTime("Ulong");
-    Logger::startTimer("DateTime");
     frame.add(parser.asDateTime(1, true, YYYYMMDD), DATE);
-    Logger::logTime("DateTime");
-    Logger::startTimer("Double2");
     frame.add(parser.asDouble(2), DOUBLE);
-    Logger::logTime("Double2");
-    Logger::startTimer("String");
     frame.add(parser.asString(3), STRING);
-    Logger::logTime("String");
     return frame;
 }
 
@@ -333,7 +321,7 @@ AFDataFrame loadStagingWatches(char const* directory) {
     AFParser parser(file, '|', false);
     frame.add(parser.asU64(0), U64);
     frame.add(parser.asString(1), STRING);
-    frame.add(parser.asDateTime(2, YYYYMMDD), DATE);
+    frame.add(parser.asDateTime(2, true, YYYYMMDD), DATE);
     frame.add(parser.asString(3), STRING);
     return frame;
 }
@@ -362,7 +350,11 @@ inline void nameDimCompany(AFDataFrame &dimCompany) {
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
     auto dimCompany = s_Company.equiJoin(industry,5,0);
+    print(dimCompany.length());
+    return dimCompany;
+
     dimCompany = dimCompany.equiJoin(statusType, 4, 0);
+    print(dimCompany.length());
     {
         std::string order[15] = {
                 "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING","CEO_NAME", "ADDR_LINE_1",
@@ -443,19 +435,19 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
     auto tmp = dimCompany.project(columns, 4, "DC");
     auto fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) == '0'));
-    
     fin1.data("CO_NAME_OR_CIK") = stringToNum(fin1.data("CO_NAME_OR_CIK"), u64);
     fin1.types("CO_NAME_OR_CIK") = U64;
-    
+
     financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
     financial.remove("CO_NAME_OR_CIK");
-    
+
     columns[1] = "Name";
     tmp = dimCompany.project(columns, 4, "DC");
     fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) != '0'));
+
     fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
     fin1.remove("CO_NAME_OR_CIK");
-    if (!fin1.data(0).isempty()) financial.concatenate(fin1);
+    if (!fin1.data(0).isempty()) financial = financial.concatenate(fin1);
     af::sync();
     fin1.clear();
     tmp.clear();
@@ -517,19 +509,17 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         security1.name(s_Security.name());
         security1 = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
         security1.remove("CO_NAME_OR_CIK");
-        security.concatenate(security1);
+        security = security.concatenate(security1);
         columns[0] = "ST_ID";
         tmp = StatusType.project(columns, 1, "ST");
         security = security.equiJoin(tmp, "STATUS", "ST_ID");
     }
-
-    auto cond1 = dateHash(security.data("DC.EffectiveDate"))
-                 <= dateHash(security.data("PTS").rows(0, 2));
-    auto cond2 = dateHash(security.data("DC.EndDate"))
-                 > dateHash(security.data("PTS").rows(0, 2));
-
+    print(dimCompany.length());
+    print(security.length());
+    auto cond1 = dateHash(security.data("DC.EffectiveDate")) <= dateHash(security.data("PTS").rows(0, 2));
+    auto cond2 = dateHash(security.data("DC.EndDate")) > dateHash(security.data("PTS").rows(0, 2));
     security = security.select(where(cond1 && cond2));
-
+    print(security.length());
     {
         std::string order[11] = {
                 "SYMBOL","ISSUE_TYPE", "STATUS","NAME","EX_ID", "DC.SK_CompanyID",
@@ -538,10 +528,10 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         security = security.project(order, 11, "DimSecurity");
     }
 
-    security.data("PTS") = security.data("PTS")(range(dim4(3), 0, u32), span);
+    security.data("PTS") = security.data("PTS")(seq(3), span);
     security.types("PTS") = DATE;
     security.nameColumn("EffectiveDate", "PTS");
-    auto length = security.data(0).dims(1);
+    auto length = security.length();
     security.insert(range(dim4(1, length), 1, u64), U64, 0, "SK_SecurityID");
     security.insert(constant(1, dim4(1, length), b8), BOOL, security.data().size() - 1, "IsCurrent");
     security.insert(constant(1, dim4(1, length), u32), UINT, security.data().size() - 1, "BatchID");
@@ -550,6 +540,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     nameDimSecurity(security);
     std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
     auto s0 = security.project(order, 3, "S0");
+    print("HERE");
     s0.sortBy(order + 1, 2);
 
     auto s2 = s0.project(order + 1, 1, "S2");

@@ -9,7 +9,7 @@
 class Logger {
 private:
     Logger() = default;
-    std::vector<std::pair<std::string, double>> _times;
+    std::unordered_map<std::string, std::vector<double>> _times;
     std::unordered_map<std::string, af::timer> _timers;
 public:
     static Logger& instance();
