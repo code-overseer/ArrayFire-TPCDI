@@ -85,9 +85,9 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
 
     auto tmp = max(diff1(_indexer,0),1);
     tmp -= range(tmp.dims(), 0, u32) > 0;
-    _maxColumnWidths = tmp.host<uint64_t>();
+    _maxColumnWidths = tmp.host<ull>();
     tmp = accum(tmp, 0) + range(tmp.dims(), 0, u32);
-    _cumulativeMaxColumnWidths = tmp.host<uint64_t>();
+    _cumulativeMaxColumnWidths = tmp.host<ull>();
 }
 
 af::array AFParser::asTime(int column) const {

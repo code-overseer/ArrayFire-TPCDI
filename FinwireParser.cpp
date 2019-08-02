@@ -15,7 +15,7 @@ FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     row_end = moddims(row_end, dim4(1, row_end.elements()));
     auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
-    _maxRowWidth = max(diff1(_indexer, 0)).scalar<uint64_t>();
+    _maxRowWidth = max(diff1(_indexer, 0)).scalar<ull>();
 }
 
 af::array FinwireParser::_extract(af::array const &start, unsigned int const length) const {

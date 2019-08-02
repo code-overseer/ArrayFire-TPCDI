@@ -25,7 +25,7 @@ static void isExist(ull *result, ull const *input, ull const *set, ull *start, u
     }
 }
 
-static void isExist_single(ull &result, ull const &input, ull const *set,  ulli &start, ull const set_size) {
+static void isExist_single(ull &result, ull const &input, ull const *set,  ull &start, ull const set_size) {
     for (ull i = start; i < set_size; start = ++i) {
         if (set[i] > input) return;
         if (set[i] ^ input) continue;

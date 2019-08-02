@@ -50,22 +50,7 @@ int main(int argc, char *argv[]) {
     }
 
     Logger::startTimer();
-//    experiment();
-    print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
-
-    print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
-
-    print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
-
-    print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
-
-    print("DimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
-
+    experiment();
     Logger::logTime();
 //    Logger::sendToCSV();
 

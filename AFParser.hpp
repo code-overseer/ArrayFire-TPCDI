@@ -5,17 +5,21 @@
 #include <unordered_map>
 #include <iostream>
 #include "Enums.h"
+#ifndef ULL
+    #define ULL
+typedef unsigned long long ull;
+#endif
 
 class AFParser {
 private:
     af::array _data;
     af::array _indexer;
-    uint64_t _length;
-    uint64_t _width;
+    ull _length;
+    ull _width;
     /* Excluding commas */
-    uint64_t* _maxColumnWidths;
+    ull* _maxColumnWidths;
     /* Excluding comma after the column */
-    uint64_t* _cumulativeMaxColumnWidths;
+    ull* _cumulativeMaxColumnWidths;
     char const* _filename;
 
     void _generateIndexer(char delimiter, bool hasHeader);

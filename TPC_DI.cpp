@@ -431,7 +431,10 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     AFDataFrame financial;
     std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
     auto tmp = dimCompany.project(columns, 4, "DC");
+
     auto fin1 = s_Financial.select(where(s_Financial.data("CO_NAME_OR_CIK")(0,span) == '0'));
+    fin1.data("CO_NAME_OR_CIK") = fin1.data("CO_NAME_OR_CIK")(seq(11), span);
+    fin1.data("CO_NAME_OR_CIK")(end, span) = 0;
     fin1.data("CO_NAME_OR_CIK") = stringToNum(fin1.data("CO_NAME_OR_CIK"), u64);
     fin1.types("CO_NAME_OR_CIK") = U64;
 
@@ -495,6 +498,8 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         auto tmp = dimCompany.project(columns, 4, "DC");
         auto security1 = s_Security.select(where(s_Security.data("CO_NAME_OR_CIK")(0,span) == '0'));
         security1.name(s_Security.name());
+        security1.data("CO_NAME_OR_CIK") = security1.data("CO_NAME_OR_CIK")(seq(11), span);
+        security1.data("CO_NAME_OR_CIK")(end, span) = 0;
         security1.data("CO_NAME_OR_CIK") = stringToNum(security1.data("CO_NAME_OR_CIK"), u64);
         security1.types("CO_NAME_OR_CIK") = U64;
         security = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
