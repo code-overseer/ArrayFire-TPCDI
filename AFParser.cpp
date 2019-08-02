@@ -55,11 +55,11 @@ AFParser::~AFParser() {
 }
 
 void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
-    _indexer = where(_data == '\n');
+    _indexer = where64(_data == '\n');
     _indexer = flipdims(_indexer);
     _length = _indexer.elements();
     {
-        auto col_end = where(_data == delimiter);
+        auto col_end = where64(_data == delimiter);
         _width = col_end.elements() / _length;
         col_end = moddims(col_end, _width++, _length);
         col_end.eval();
@@ -67,14 +67,14 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
     }
 
     if (!_indexer.isempty()) {
-        auto row_start = constant(0, 1, u32);
+        auto row_start = constant(0, 1, _indexer.type());
         if (_length > 1) row_start = join(1, row_start, _indexer.row(end).cols(0, end - 1) + 1);
         row_start.eval();
         _indexer = join(0, row_start, _indexer);
     }
 
     if (hasHeader) {
-        _indexer = _indexer.dims(1) <= 1 ? array(1, 0, u32) : _indexer.cols(1, end);
+        _indexer = _indexer.dims(1) <= 1 ? array(1, 0, _indexer.type()) : _indexer.cols(1, end);
         _indexer.eval();
         --_length;
     }
@@ -84,10 +84,10 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
     if (!_length) return;
 
     auto tmp = max(diff1(_indexer,0),1);
-    tmp -= range(tmp.dims(), 0, u8) > 0;
-    _maxColumnWidths = tmp.host<uint32_t>();
+    tmp -= range(tmp.dims(), 0, u32) > 0;
+    _maxColumnWidths = tmp.host<uint64_t>();
     tmp = accum(tmp, 0) + range(tmp.dims(), 0, u32);
-    _cumulativeMaxColumnWidths = tmp.host<uint32_t>();
+    _cumulativeMaxColumnWidths = tmp.host<uint64_t>();
 }
 
 af::array AFParser::asTime(int column) const {
@@ -168,15 +168,16 @@ af::array AFParser::_makeUniform(int column) const {
     out = batchFunc(out, range(dim4(maximum), 0, u32), batchSub);
     // Removes the indices that do not point to part of the number (by pading these indices with UINT32_MAX)
 
-    out(where(batchFunc(out, _indexer.row(column + 1), batchGreater))) = UINT32_MAX;
-    out(where(batchFunc(out, _indexer.row(column) + i, batchLess))) = UINT32_MAX;
+    out(batchFunc(out, _indexer.row(column + 1), batchGreater)) = UINT64_MAX;
+    out(batchFunc(out, _indexer.row(column) + i, batchLess)) = UINT64_MAX;
     // Transpose then flatten the array so that it can be used to index _data
 
     out = flip(out, 0);
-    auto cond = out != UINT32_MAX;
-    out(cond) = _data(static_cast<array>(out(cond))).as(u32);
-    out(out == UINT32_MAX) = ' ';
+    auto cond = out != UINT64_MAX;
+    out(!cond) = ' ';
+    array idx = out(cond);
     out = out.as(u8);
+    out(cond) = _data(idx);
     out.row(end) = 0;
     out.eval();
     return out;
@@ -190,19 +191,14 @@ array AFParser::asString(int column) const {
     if (!maximum) return constant(0, 1, _length, u8);
 
     out = batchFunc(out, range(dim4(maximum + 1, 1), 0, u32), batchAdd);
-    out(batchFunc(out, _indexer.row(column + 1), batchGE)) = UINT32_MAX;
+    out(batchFunc(out, _indexer.row(column + 1), batchGE)) = UINT64_MAX;
     out = flat(out);
 
-    auto cond = out != UINT32_MAX;
-    array tmp = out(cond);
-    tmp = _data(tmp);
-    tmp = tmp.as(u8);
-    tmp.eval();
-
+    auto cond = out != UINT64_MAX;
     out(!cond) = 0;
+    array idx = out(cond);
     out = out.as(u8);
-    out(cond) = tmp;
-
+    out(cond) = _data(idx);
     out = moddims(out, dim4(maximum + 1, out.elements()/(maximum + 1)));
     out.eval();
 

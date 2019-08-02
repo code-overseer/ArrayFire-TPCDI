@@ -25,7 +25,6 @@ void experiment();
 
 int main(int argc, char *argv[]) {
     using namespace af;
-
     #if defined(USING_OPENCL)
         setBackend(AF_BACKEND_OPENCL);
     #elif defined(USING_CUDA)
@@ -42,9 +41,11 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[i],"-f")) {
             DIR::DIRECTORY = argv[++i];
         } else if (!strcmp(argv[i],"-d")) {
-            setDevice(atoi(argv[++i]));
+            setDevice(std::stoi(argv[++i]));
         } else if (!strcmp(argv[i],"-o")) {
             Logger::output() = argv[++i];
+        } else if (!strcmp(argv[i],"-I")) {
+            info();
         }
     }
 
@@ -65,8 +66,6 @@ int main(int argc, char *argv[]) {
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
 
-    print("DimSecurity");
-    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
     Logger::logTime();
 //    Logger::sendToCSV();
 

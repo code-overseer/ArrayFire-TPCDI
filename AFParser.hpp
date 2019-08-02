@@ -10,12 +10,12 @@ class AFParser {
 private:
     af::array _data;
     af::array _indexer;
-    unsigned long _length;
-    unsigned long _width;
+    uint64_t _length;
+    uint64_t _width;
     /* Excluding commas */
-    uint32_t* _maxColumnWidths;
+    uint64_t* _maxColumnWidths;
     /* Excluding comma after the column */
-    uint32_t* _cumulativeMaxColumnWidths;
+    uint64_t* _cumulativeMaxColumnWidths;
     char const* _filename;
 
     void _generateIndexer(char delimiter, bool hasHeader);

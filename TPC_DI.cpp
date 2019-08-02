@@ -285,7 +285,6 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
         frame.add(parser.asUint(1), UINT);
         for (int i = 2;  i <= 7; ++i) frame.add(parser.asString(i), STRING);
         auto idx = frame.stringMatch(5, "314");
-        print("HERE");
         frame = frame.select(idx);
         frame.remove(5);
     }
@@ -383,6 +382,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
 
     std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
     auto s0 = dimCompany.project(order, 3, "S0");
+    s0.select(flip(flat(seq(s0.length())),0));
     s0.sortBy(order + 1, 2);
 
     auto s2 = s0.project(order + 1, 1, "S2");

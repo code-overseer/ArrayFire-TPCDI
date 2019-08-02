@@ -68,7 +68,6 @@ public:
     inline void nameColumn(const std::string& name, const std::string &old) { nameColumn(name, _nameToIdx.at(old)); }
     inline std::string name() const { return _tableName; }
 private:
-    static af::array _subSort(af::array const &elements, af::array const &bucket, bool isAscending);
     inline af::array project(int column) const { return af::array(_deviceData[column]); }
     std::vector<af::array> _deviceData;
     std::vector<void*> _hostData;

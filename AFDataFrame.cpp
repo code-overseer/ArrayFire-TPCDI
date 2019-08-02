@@ -174,61 +174,21 @@ AFDataFrame AFDataFrame::concatenate(AFDataFrame &&frame) const {
 void AFDataFrame::sortBy(int column, bool isAscending) {
     array elements = hashColumn(column, true);
     auto const size = elements.dims(0);
+    if (!size) return;
     array sorting;
     array idx;
-    sort(sorting, idx, elements(0, span), 1, isAscending);
-    _flush(idx);
-    for (int j = 1; j < size; ++j) {
+    sort(sorting, idx, elements(end, span), 1, isAscending);
+    for (auto j = size - 2; j >= 0; --j) {
         elements = elements(span, idx);
-        idx = _subSort(elements(j, span), elements(j - 1, span), isAscending);
-        _flush(idx);
+        sort(sorting, idx, elements(j, span), 1, isAscending);
     }
-}
-
-array AFDataFrame::_subSort(array const &elements, array const &bucket, bool const isAscending) {
-    auto idx_output = flipdims(histogram(bucket, bucket.elements())).as(u64);
-    idx_output = idx_output(idx_output > 0);
-    if (idx_output.elements() == 1) {
-        idx_output = join(0, constant(0,dim4(1),idx_output.type()), accum(idx_output, 1) - 1);
-    } else {
-        idx_output = join(0, scan(idx_output, 1, AF_BINARY_ADD, false), accum(idx_output, 1) - 1);
-    }
-    idx_output.eval();
-    // max size of bucket
-    auto h = sum<unsigned int>(max(diff1(idx_output,0)).as(u64)) + 1;
-
-    auto idx = batchFunc(idx_output(0,span), range(dim4(h, idx_output.dims(1)), 0, u64), BatchFunctions::batchAdd);
-    auto idx_cpy = idx;
-    idx_cpy(where(batchFunc(idx_cpy, idx_output(1,span), BatchFunctions::batchGreater))) = UINT64_MAX;
-    {
-        auto nonNullIdx = where(idx_cpy != UINT64_MAX);
-        array nonNullData = idx_cpy(nonNullIdx);
-        nonNullData = elements(nonNullData);
-        nonNullData.eval();
-        idx_cpy(nonNullIdx) = flipdims(nonNullData);
-        idx_cpy.eval();
-    }
-    sort(idx_cpy, idx_output, idx_cpy, 0, isAscending);
-    idx_output += range(idx_output.dims(), 1, idx_output.type()) * idx_output.dims(0);
-    idx_output = idx_output(where(idx_cpy != UINT64_MAX));
-    idx_output = idx(idx_output);
-    idx_output.eval();
-    return idx_output;
+    _flush(idx);
 }
 
 void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
-    bool asc = isAscending ? isAscending[0] : true;
-    sortBy(columns[0], asc);
-    for (int i = 1; i < size; ++i) {
-        asc = isAscending ? isAscending[i] : true;
-        array elements = hashColumn(columns[i], true);
-        array buckets = hashColumn(columns[i - 1]);
-        auto subsize = elements.dims(0);
-        for (decltype(subsize) j = 0; j < subsize; ++j) {
-            array idx = _subSort(elements(j, span), j ? elements(j - 1, span) : buckets, asc);
-            _flush(idx);
-            elements = elements(span, idx);
-        }
+    for (auto i = size - 1; i >= 0; --i) {
+        auto asc = isAscending ? isAscending[i] : true;
+        sortBy(columns[i], asc);
     }
 }
 
@@ -242,16 +202,13 @@ array AFDataFrame::hashColumn(af::array const &column, DataType type, bool sorta
 }
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
-    AFDataFrame result;
-
     auto &leftType = _dataTypes[lhs_column];
     auto &rightType = rhs._dataTypes[rhs_column];
     if (leftType != rightType) throw std::runtime_error("Supplied column data types do not match");
     auto l = hashColumn(lhs_column);
     auto r = rhs.hashColumn(rhs_column);
-    if (_tableName == "S_Company") print(l.dims());
-    auto idx = setCompare(l, r);
 
+    auto idx = setCompare(l, r);
     if (_deviceData[lhs_column].dims(0) <= rhs._deviceData[rhs_column].dims(0)) {
         l = _deviceData[lhs_column](span, idx.first);
         r = rhs._deviceData[rhs_column](range(dim4(l.dims(0)),0,u32), idx.second);
@@ -261,7 +218,6 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         l = _deviceData[lhs_column](range(dim4(r.dims(0)),0,u32), idx.first);
         l = moddims(l, r.dims());
     }
-
     {
         /* Collision Check */
         auto tmp = where(allTrue(l == r, 0));
@@ -269,6 +225,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         idx.second = idx.second(tmp);
     }
 
+    AFDataFrame result;
     for (size_t i = 0; i < _deviceData.size(); i++) {
       result.add(_deviceData[i](span, idx.first), _dataTypes[i], _idxToName.at(i).c_str());
     }
@@ -293,16 +250,13 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     printf("LHS rows: %llu\n", left.elements());
     printf("RHS rows: %llu\n", right.elements());
     Logger::startTimer("Join");
-    auto lhs = join(0, left, range(left.dims(), 1, u64));
-    auto rhs = join(0, right, range(right.dims(), 1, u64));
-    {
-        array idx;
-        array tmp;
-        sort(tmp, idx, left, 1);
-        lhs = lhs(span, idx);
-        sort(tmp, idx, right, 1);
-        rhs = rhs(span, idx);
-    }
+    array lhs;
+    array rhs;
+    array idx;
+    sort(lhs, idx, left, 1);
+    lhs = join(0, lhs, idx.as(lhs.type()));
+    sort(rhs, idx, right, 1);
+    rhs = join(0, rhs, idx.as(rhs.type()));
 
     auto const equalSet = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
     bagSetIntersect(lhs, equalSet);

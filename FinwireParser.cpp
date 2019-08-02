@@ -1,7 +1,7 @@
 #include "FinwireParser.h"
 #include "BatchFunctions.h"
 #include "TPCDI_Utils.h"
-
+#include <fstream>
 using namespace af;
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
@@ -10,29 +10,20 @@ FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     auto text = collect(files);
     if (text.back() != '\n') text += '\n';
     _finwireData = array(text.size() + 1, text.c_str()).as(u8);
-    _finwireData = _finwireData(where(_finwireData != '\r'));
     _finwireData.eval();
-
-    auto row_end = where(_finwireData == '\n');
+    auto row_end = where64(_finwireData == '\n');
     row_end = moddims(row_end, dim4(1, row_end.elements()));
-    auto row_start = join(1, constant(0, 1, u32), row_end.cols(0, end - 1) + 1);
+    auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
-    _maxRowWidth = max(diff1(_indexer, 0)).scalar<uint32_t>();
+    _maxRowWidth = max(diff1(_indexer, 0)).scalar<uint64_t>();
 }
 
-af::array FinwireParser::_extract(af::array const &start, int const length) const {
+af::array FinwireParser::_extract(af::array const &start, unsigned int const length) const {
     array column;
-    column = batchFunc(start.row(0), range(dim4(length, 1), 0, u32), batchAdd);
-    column(where(batchFunc(column, start.row(1), batchGE))) = UINT32_MAX;
-    {
-        auto cond = where(column != UINT32_MAX);
-        array tmp = column(cond);
-        tmp = _finwireData(tmp).as(u32);
-        tmp.eval();
-        column(cond) = tmp;
-    }
-    column(where(column == UINT32_MAX)) = 0;
-    column = join(0, column.as(u8), constant(0, dim4(1, column.dims(1)), u8));
+    column = batchFunc(start, range(dim4(length), 0, u32), batchAdd);
+    auto dim = column.dims();
+    column = moddims(_finwireData(column).as(u8), dim);
+    column = join(0, column, constant(0, dim4(1, column.dims(1)), u8));
     column.eval();
     return column;
 }
@@ -41,21 +32,20 @@ AFDataFrame FinwireParser::extractData(RecordType const type) const {
     AFDataFrame output;
     array rows;
     {
-        auto recType = batchFunc(_indexer.row(0), range(dim4(3, 1), 0, u32) + 15, batchAdd);
+        auto recType = batchFunc(_indexer.row(0), range(dim4(3), 0, u64) + 15, batchAdd);
         array tmp = _finwireData(recType);
-
-        tmp = moddims(tmp, dim4(3, tmp.dims(0) / 3));
+        tmp = moddims(tmp, dim4(3, tmp.elements() / 3));
         tmp.eval();
 
-        rows = where(allTrue(batchFunc(tmp, array(3, 1, _search[type]), batchEqual), 0));
+        rows = where(allTrue(batchFunc(tmp, array(3, _search[type]), batchEqual), 0));
         if (rows.isempty()) {
             for (int i = 0; i < _widths[type]; ++i) output.add(array(1, 0, u8), STRING);
-            output.data(0) = _PTSToDatetime(output.data(0), false, MMDDYYYY);
+            output.data(0) = stringToDateTime(output.data(0), false, YYYYMMDD);
             output.types(0) = DATETIME;
             return output;
         }
     }
-    int const *lengths;
+    unsigned long long const *lengths;
     switch (type) {
         case CMP:
             lengths = _CMPLengths;
@@ -70,12 +60,12 @@ AFDataFrame FinwireParser::extractData(RecordType const type) const {
             throw std::runtime_error("Invalid type");
     }
 
-    array start = _indexer(span, rows);
-    for (; *lengths != -1; lengths++) {
+    array start = _indexer(0, rows);
+    for (; *lengths; ++lengths) {
         output.add(_extract(start, *lengths), STRING);
-        start(0, span) += *lengths;
+        start += *lengths;
     }
-    output.data(0) = _PTSToDatetime(output.data(0));
+    output.data(0) = stringToDateTime(output.data(0), false, YYYYMMDD);
     output.types(0) = DATETIME;
     return output;
 }
@@ -84,6 +74,7 @@ AFDataFrame FinwireParser::extractCmp() const {
     auto output = extractData(CMP);
     output.data(7) = stringToDate(output.data(7));
     output.types(7) = DATE;
+
     return output;
 }
 

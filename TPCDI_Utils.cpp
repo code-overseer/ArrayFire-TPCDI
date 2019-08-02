@@ -8,7 +8,7 @@
 using namespace af;
 using namespace BatchFunctions;
 
-void printStr(array str_array) {
+void printStr(array str_array, std::ostream &out) {
     str_array.row(end) = '\n';
     str_array = str_array(str_array > 0);
     str_array = join(0, flat(str_array), af::constant(0, 1, u8));
@@ -209,20 +209,6 @@ af::array TPCDI_Utils::polyHash(array const &column) {
     return hash;
 }
 
-af::array TPCDI_Utils::dateHash(const array &date) {
-    auto mult = flip(pow(100, range(dim4(3,1), 0, u32)), 0);
-    auto key = batchFunc(mult, date, batchMult);
-    key = sum(key, 0);
-    return key;
-}
-
-af::array TPCDI_Utils::datetimeHash(af::array const &datetime) {
-    auto mult = flip(pow(100U, range(dim4(6,1), 0, u64)), 0);
-    auto key = batchFunc(mult, datetime.as(u64), batchMult);
-    key = sum(key, 0);
-    return key;
-}
-
 af::array TPCDI_Utils::byteHash(const array &column) {
     if (column.type() != u8) throw std::invalid_argument("Unexpected array type, input must be unsigned char");
     auto const n = column.dims(0);
@@ -239,6 +225,26 @@ af::array TPCDI_Utils::byteHash(const array &column) {
     }
     out.eval();
     return out;
+}
+
+af::array TPCDI_Utils::dateHash(const array &date) {
+    auto mult = flip(pow(100, range(dim4(3,1), 0, u32)), 0);
+    auto key = batchFunc(mult, date, batchMult);
+    key = sum(key, 0);
+    return key;
+}
+
+af::array TPCDI_Utils::datetimeHash(af::array const &datetime) {
+    auto mult = flip(pow(100U, range(dim4(6,1), 0, u64)), 0);
+    auto key = batchFunc(mult, datetime.as(u64), batchMult);
+    key = sum(key, 0);
+    return key;
+}
+
+af::array TPCDI_Utils::where64(af::array const &input) {
+    auto b = flat(input > 0);
+    auto output = b * range(b.dims(), 0, u64);
+    return output(b);
 }
 
 void XML_Parser::fillBlanks(int &count, String fieldName, StrToInt &tracker, String &data, bool isAtt) {

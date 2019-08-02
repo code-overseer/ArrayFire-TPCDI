@@ -8,8 +8,8 @@
 #include "Enums.h"
 
 template<typename T>
-inline void print(T i) { af::sync(); std::cout << i << std::endl; }
-void printStr(af::array str_array);
+inline void print(T i, std::ostream &out = std::cout) { af::sync(); out << i << std::endl; }
+void printStr(af::array str_array, std::ostream &out = std::cout);
 
 namespace TPCDI_Utils {
     std::string loadFile(char const *filename);
@@ -33,6 +33,7 @@ namespace TPCDI_Utils {
     af::array datetimeHash(af::array const &datetime);
     af::array byteHash(af::array const &column);
     af::array polyHash(af::array const &column);
+    af::array where64(af::array const &input);
 }
 
 namespace XML_Parser {
