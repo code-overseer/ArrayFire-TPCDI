@@ -205,6 +205,7 @@ array AFParser::asString(int column) const {
     return out;
 }
 
+
 void AFParser::printData() const {
     auto c = _data.host<uint8_t>();
     print((char*)c);

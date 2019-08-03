@@ -38,7 +38,6 @@ AFDataFrame loadDimDate(char const *directory) {
         frame.add(parser.asString(i), STRING);
         frame.add(parser.asUint(i + 1), UINT);
     }
-
     frame.add(parser.asBoolean(17), BOOL);
     return frame;
 }

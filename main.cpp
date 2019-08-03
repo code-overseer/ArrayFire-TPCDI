@@ -50,7 +50,8 @@ int main(int argc, char *argv[]) {
     }
 
     Logger::startTimer();
-    experiment();
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
     Logger::logTime();
 //    Logger::sendToCSV();
 
@@ -89,16 +90,19 @@ void experiment() {
     
     print("Staging Prospect");
     auto s_prospect = loadStagingProspect(DIR::DIRECTORY);
-    
+
     print("Staging Cash Balnces");
     auto s_cash = loadStagingCashBalances(DIR::DIRECTORY);
-    
+    s_cash.flushToHost();
+
     print("Staging Watches");
     auto s_watches = loadStagingWatches(DIR::DIRECTORY);
-    
+    s_watches.flushToHost();
+
     print("Staging Customer");
     auto s_customer = loadStagingCustomer(DIR::DIRECTORY);
-    
+    s_customer.flushToHost();
+
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
@@ -109,7 +113,8 @@ void experiment() {
     
     print("DimSecurity");
     auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
-
+    af_print(dimCompany.data("CompanyID")(af::span, af::seq(10)))
+    af_print(dimCompany.data("EndDate")(af::span, af::seq(10)))
     dimSecurity.flushToHost();
     dimCompany.flushToHost();
     statusType.flushToHost();
