@@ -31,3 +31,19 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
     l[left] = il[i] + j;
     r[right] = ir[i] + k;
 }
+
+__kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,
+        ulong const out_length) {
+    ulong const id = get_global_id(0);
+    ulong const istart = idx[3 * id];
+    ulong const len = idx[3 * id + 1];
+    ulong const ostart = idx[3 * id + 2];
+    bool a = id < ROW_NUMS;
+    bool b;
+
+    #pragma unroll LOOP_LENGTH
+    for (ulong i = 0; i < LOOP_LENGTH; ++i) {
+        b = a && i < len;
+        output[b * (ostart + i) + !b * (out_length - 1)] = b * input[istart + b * i];
+    }
+}

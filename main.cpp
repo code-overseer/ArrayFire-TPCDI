@@ -3,9 +3,11 @@
 #include "BatchFunctions.h"
 #include "Logger.h"
 #include "TPC_DI.h"
+#ifdef USING_OPENCL
+    #include "OpenCL/opencl_kernels.h"
+#endif
 
 namespace DIR {
-    char const* HR = "/Users/bryanwong/Downloads/TPCData/HR3.csv";
     char const* DATE = "/Users/bryanwong/Downloads/TPCData/TestDate.csv";
     char const* UINT = "/Users/bryanwong/Downloads/TPCData/TestUint.csv";
     char const* UCHAR = "/Users/bryanwong/Downloads/TPCData/TestUchar.csv";
@@ -49,9 +51,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    print("FruitTest");
+    AFParser parser("/Users/bryanwong/Downloads/TPCData/fruits.txt", '|', false);
     Logger::startTimer();
-    print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto o = parser.asString2(1);
     Logger::logTime();
 //    Logger::sendToCSV();
 

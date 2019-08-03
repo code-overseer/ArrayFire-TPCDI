@@ -24,14 +24,14 @@ AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _deviceData(std::move(o
                                                          _dataTypes(std::move(other._dataTypes)),
                                                          _nameToIdx(std::move(other._nameToIdx)),
                                                          _idxToName(std::move(other._idxToName)),
-                                                         _tableName(std::move(other._tableName)) {
+                                                         _name(std::move(other._name)) {
 }
 
 AFDataFrame::AFDataFrame(AFDataFrame const &other) : _deviceData(other._deviceData),
-                                                    _dataTypes(other._dataTypes),
-                                                    _nameToIdx(other._nameToIdx),
-                                                    _idxToName(other._idxToName),
-                                                     _tableName(other._tableName) {
+                                                     _dataTypes(other._dataTypes),
+                                                     _nameToIdx(other._nameToIdx),
+                                                     _idxToName(other._idxToName),
+                                                     _name(other._name) {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
@@ -39,7 +39,7 @@ AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
     _dataTypes = std::move(other._dataTypes);
     _nameToIdx = std::move(other._nameToIdx);
     _idxToName = std::move(other._idxToName);
-    _tableName = std::move(other._tableName);
+    _name = std::move(other._name);
     return *this;
 }
 
@@ -47,7 +47,7 @@ AFDataFrame& AFDataFrame::operator=(AFDataFrame const &other) noexcept {
     _deviceData = other._deviceData;
     _dataTypes = other._dataTypes;
     _nameToIdx = other._nameToIdx;
-    _tableName = other._tableName;
+    _name = other._name;
     return *this;
 }
 
@@ -270,8 +270,8 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
 }
 
 std::string AFDataFrame::name(std::string const& str) {
-    _tableName = str;
-    return _tableName;
+    _name = str;
+    return _name;
 }
 
 void AFDataFrame::nameColumn(std::string const& name, int column) {
@@ -304,7 +304,7 @@ AFDataFrame::~AFDataFrame() {
 
 void AFDataFrame::clear() {
     _deviceData.clear();
-    _tableName.clear();
+    _name.clear();
     _idxToName.clear();
     _nameToIdx.clear();
     if (!_hostData.empty()) {

@@ -66,16 +66,16 @@ public:
     }
     inline uint64_t length() const { return _deviceData.empty() ? 0 : _deviceData[0].dims(1); }
     inline void nameColumn(const std::string& name, const std::string &old) { nameColumn(name, _nameToIdx.at(old)); }
-    inline std::string name() const { return _tableName; }
+    inline std::string name() const { return _name; }
 private:
     inline af::array project(int column) const { return af::array(_deviceData[column]); }
     std::vector<af::array> _deviceData;
     std::vector<void*> _hostData;
     std::vector<DataType> _dataTypes;
-    std::string _tableName;
+    std::vector<af::array>_strIdx;
+    std::string _name;
     std::unordered_map<std::string, unsigned int> _nameToIdx;
     std::unordered_map<unsigned int, std::string> _idxToName;
     void _flush(af::array const &idx);
-
 };
 #endif //ARRAYFIRE_TPCDI_AFDATAFRAME_H

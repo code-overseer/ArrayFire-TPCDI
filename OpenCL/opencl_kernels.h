@@ -99,6 +99,50 @@ void inline lauchJoinScatter(ull const *il, ull const *ir, ull const *cl, ull co
 
 }
 
+void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char *input, ull const loop_len, ull const output_size, ull const row_nums) {
+
+    static auto KERNELS = get_kernel_string();
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
+
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu -D ROW_NUMS=%llu", loop_len, row_nums);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_program(context, KERNELS, options);
+    cl_kernel kernel = create_kernel(program, "string_gather");
+
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &output_size);
+
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
+
+    auto num = row_nums;
+    // Set launch configuration parameters and launch kernel
+    size_t local  = 256;
+    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
+
+}
+
 void inline bagSetIntersect(af::array &bag, af::array const &set) {
     using namespace af;
     auto const bag_size = bag.row(0).elements();
@@ -115,8 +159,8 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     auto k = b * i + !b * bag_size;
     result(k) = 1;
 #else
-    auto set_ptr = set.device<ull>();
     auto result_ptr = result.device<ull>();
+    auto set_ptr = set.device<ull>();
     auto bag_ptr = bag.device<ull>();
     af::sync();
 
@@ -185,6 +229,25 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     rhs = rhs(1, right_out);
     lhs.eval();
     rhs.eval();
+}
+
+void inline stringGather(af::array &output, af::array const &input, af::array const &indexer) {
+    using namespace af;
+    auto const loop_length = sum<ull>(max(indexer.row(1), 1));
+    auto const out_length = sum<ull>(indexer.row(1));
+    auto const row_nums = indexer.elements() / 3;
+    output = array(out_length, u8);
+
+    auto out_ptr = output.device<unsigned char>();
+    auto in_ptr = input.device<unsigned char>();
+    auto idx_ptr = indexer.device<ull>();
+    af::sync();
+
+    launchStringGather(out_ptr, idx_ptr, in_ptr, loop_length, out_length, row_nums);
+
+    output.unlock();
+    input.unlock();
+    indexer.unlock();
 }
 
 #endif

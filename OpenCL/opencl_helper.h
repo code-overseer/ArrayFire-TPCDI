@@ -37,7 +37,21 @@ static cl_context get_context(cl_mem x) {
     return context;
 }
 
-static cl_program build_program(cl_context context, const std::string& kernel_string) {
+static void printProgramBuildError(cl_context context, cl_program program) {
+    size_t size;
+    auto err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &size);
+    auto devices = (cl_device_id*) malloc(size);
+    err = clGetContextInfo(context, CL_CONTEXT_DEVICES, size, devices, NULL);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
+    char* log = (char*) malloc(size);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, size, log, NULL);
+    puts(log);
+
+    free(log);
+    free(devices);
+}
+
+static cl_program build_program(cl_context context, const std::string& kernel_string, char const *options = nullptr) {
     static cl_context prev = nullptr;
     static cl_program program = nullptr;
     if (prev != context) prev = context;
@@ -52,9 +66,10 @@ static cl_program build_program(cl_context context, const std::string& kernel_st
         throw (err);
     }
 
-    err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+    err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to build program\n", err);
+        printProgramBuildError(context, program);
         throw (err);
     }
     return program;

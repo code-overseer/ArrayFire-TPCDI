@@ -46,6 +46,8 @@ public:
     af::array asDouble(int column) const;
     af::array asString(int column) const;
     af::array asTime(int column) const;
+
+    af::array asString2(int i) const;
 };
 
 

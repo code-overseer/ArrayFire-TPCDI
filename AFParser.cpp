@@ -12,7 +12,9 @@
 #include <sstream>
 #include <utility>
 #include "Logger.h"
-
+#ifdef USING_OPENCL
+    #include "OpenCL/opencl_kernels.h"
+#endif
 using namespace af;
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
@@ -70,6 +72,7 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
         auto row_start = constant(0, 1, _indexer.type());
         if (_length > 1) row_start = join(1, row_start, _indexer.row(end).cols(0, end - 1) + 1);
         row_start.eval();
+        _data(_indexer) = 0;
         _indexer = join(0, row_start, _indexer);
     }
 
@@ -88,6 +91,7 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
     _maxColumnWidths = tmp.host<ull>();
     tmp = accum(tmp, 0) + range(tmp.dims(), 0, u32);
     _cumulativeMaxColumnWidths = tmp.host<ull>();
+
 }
 
 af::array AFParser::asTime(int column) const {
@@ -205,6 +209,23 @@ array AFParser::asString(int column) const {
     return out;
 }
 
+af::array AFParser::asString2(int column) const {
+    if (!_length) return array(0, 0, u8);
+    unsigned int const i = column != 0;
+    auto const maximum = _maxColumnWidths[column];
+    if (!maximum) {
+        auto idx = range(dim4(1,_length), 1, u64);
+        idx = join(0, idx, idx);
+        idx.eval();
+        return constant(0, 1, _length, u8);
+    }
+    af::array idx = _indexer.row(column) + i;
+    idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
+    idx = join(0, idx, scan(idx.row(1),1, AF_BINARY_ADD, false));
+    af::array out;
+    stringGather(out, _data, idx);
+    return out;
+}
 
 void AFParser::printData() const {
     auto c = _data.host<uint8_t>();
@@ -225,6 +246,7 @@ af::array AFParser::_numParse(int column, af::dtype type) const {
     auto out = _makeUniform(column);
     return stringToNum(out, type);
 }
+
 
 
 
