@@ -14,6 +14,7 @@
 #include "Logger.h"
 #ifdef USING_OPENCL
     #include "OpenCL/opencl_kernels.h"
+    #include "OpenCL/opencl_parsers.h"
 #endif
 using namespace af;
 using namespace BatchFunctions;
@@ -227,13 +228,26 @@ af::array AFParser::asString2(int column) const {
     return out;
 }
 
+af::array AFParser::asFloat2(int column) const {
+    if (!_length) return array(0, 0, u8);
+    unsigned int const i = column != 0;
+    auto const maximum = _maxColumnWidths[column];
+    if (!maximum) {
+        return constant(0, 1, _length, f32);
+    }
+    af::array idx = _indexer.row(column) + i;
+    idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
+    af::array out;
+    numericParse<float>(out, _data, idx);
+    return out;
+}
+
 void AFParser::printData() const {
     auto c = _data.host<uint8_t>();
     print((char*)c);
     freeHost(c);
 }
 
-// TODO add nulls
 af::array AFParser::asBoolean(int column) const {
     if (!_length) return array(0, 0, b8);
     unsigned int const i = column != 0;

@@ -34,6 +34,7 @@ namespace TPCDI_Utils {
     af::array byteHash(af::array const &column);
     af::array polyHash(af::array const &column);
     af::array where64(af::array const &input);
+
 }
 
 namespace XML_Parser {

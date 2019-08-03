@@ -3,9 +3,6 @@
 #include "BatchFunctions.h"
 #include "Logger.h"
 #include "TPC_DI.h"
-#ifdef USING_OPENCL
-    #include "OpenCL/opencl_kernels.h"
-#endif
 
 namespace DIR {
     char const* DATE = "/Users/bryanwong/Downloads/TPCData/TestDate.csv";
@@ -38,7 +35,6 @@ int main(int argc, char *argv[]) {
         info();
         return 0;
     }
-
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i],"-f")) {
             DIR::DIRECTORY = argv[++i];
@@ -51,11 +47,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    print("FruitTest");
-    AFParser parser("/Users/bryanwong/Downloads/TPCData/fruits.txt", '|', false);
-    Logger::startTimer();
-    auto o = parser.asString2(1);
-    Logger::logTime();
+//    print("FruitTest");
+    AFParser parser(DIR::FLOAT, '|', false);
+    Logger::startTimer("2");
+    af_print(parser.asFloat2(0));
+    Logger::logTime("2");
+    Logger::startTimer("1");
+    af_print(parser.asFloat(0));
+    Logger::logTime("1");
 //    Logger::sendToCSV();
 
     return 0;
@@ -116,8 +115,6 @@ void experiment() {
     
     print("DimSecurity");
     auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
-    af_print(dimCompany.data("CompanyID")(af::span, af::seq(10)))
-    af_print(dimCompany.data("EndDate")(af::span, af::seq(10)))
     dimSecurity.flushToHost();
     dimCompany.flushToHost();
     statusType.flushToHost();

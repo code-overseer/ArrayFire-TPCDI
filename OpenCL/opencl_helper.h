@@ -7,7 +7,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
+#include <exception>
+#include "TPCDI_Utils.h"
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
 #else
@@ -15,15 +16,7 @@
 #endif
 
 static std::string& get_kernel_string() {
-    static std::string kernel;
-    if (!kernel.empty()) return kernel;
-    std::ifstream file(OCL_KERNEL_DIR"/opencl_kernels.cl");
-    std::string line;
-
-    while(std::getline(file, line)) {
-        kernel += line;
-        kernel += "\n";
-    }
+    static std::string kernel = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
     return kernel;
 }
 
@@ -52,10 +45,8 @@ static void printProgramBuildError(cl_context context, cl_program program) {
 }
 
 static cl_program build_program(cl_context context, const std::string& kernel_string, char const *options = nullptr) {
-    static cl_context prev = nullptr;
     static cl_program program = nullptr;
-    if (prev != context) prev = context;
-    else if (program) return program;
+    if (program) return program;
 
     cl_int err;
     const char *source = kernel_string.c_str();
@@ -63,14 +54,36 @@ static cl_program build_program(cl_context context, const std::string& kernel_st
     program = clCreateProgramWithSource(context, 1, &source, &length, &err);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to create program\n", err);
-        throw (err);
+        throw std::runtime_error("Terminated");
     }
 
     err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to build program\n", err);
         printProgramBuildError(context, program);
-        throw (err);
+        throw std::runtime_error("Terminated");
+    }
+    return program;
+}
+
+static cl_program build_parse_program(cl_context context, char const *options = nullptr) {
+    cl_program program;
+    cl_int err;
+    static std::string kernel_str = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_parsers.cl");
+    static const char *source = kernel_str.c_str();
+    static size_t length = kernel_str.size();
+
+    program = clCreateProgramWithSource(context, 1, &source, &length, &err);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to create program\n", err);
+        throw std::runtime_error("Terminated");
+    }
+
+    err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to build program\n", err);
+        printProgramBuildError(context, program);
+        throw std::runtime_error("Terminated");
     }
     return program;
 }
@@ -80,7 +93,7 @@ static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
     cl_kernel kernel = clCreateKernel(program, kernel_name, &err);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to create kernel %s\n", err, kernel_name);
-        throw (err);
+        throw std::runtime_error("Terminated");
     }
     return kernel;
 }
@@ -95,7 +108,7 @@ static cl_command_queue create_queue(cl_context context) {
     cl_int err = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &device, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to get device from context\n", err);
-        throw (err);
+        throw std::runtime_error("Terminated");
     }
 
     #ifdef IS_APPLE
@@ -105,7 +118,7 @@ static cl_command_queue create_queue(cl_context context) {
     #endif
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to command queue\n", err);
-        throw (err);
+        throw std::runtime_error("Terminated");
     }
     return queue;
 }

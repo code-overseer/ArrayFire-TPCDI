@@ -4,10 +4,9 @@
 #include "opencl_helper.h"
 #include <arrayfire.h>
 #ifndef ULL
-    #define ULL
-    typedef unsigned long long ull;
+#define ULL
+typedef unsigned long long ull;
 #endif
-
 
 void inline launchIntersect(ull *result, ull const *input, ull const *comparison, ull const bag_size, ull const set_size) {
     static auto KERNELS = get_kernel_string();
@@ -99,7 +98,7 @@ void inline lauchJoinScatter(ull const *il, ull const *ir, ull const *cl, ull co
 
 }
 
-void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char *input, ull const loop_len, ull const output_size, ull const row_nums) {
+void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const loop_len, ull const output_size, ull const row_num) {
 
     static auto KERNELS = get_kernel_string();
     // Get OpenCL context from memory buffer and create a Queue
@@ -107,7 +106,7 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     cl_command_queue queue = create_queue(context);
 
     char options[128];
-    sprintf(options, "-D LOOP_LENGTH=%llu -D ROW_NUMS=%llu", loop_len, row_nums);
+    sprintf(options, "-D LOOP_LENGTH=%llu", loop_len);
     // Build the OpenCL program and get the kernel
     cl_program program = build_program(context, KERNELS, options);
     cl_kernel kernel = create_kernel(program, "string_gather");
@@ -118,14 +117,15 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel, arg, sizeof(ull), &output_size);
+    err |= clSetKernelArg(kernel, arg++, sizeof(ull), &output_size);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &row_num);
 
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
         throw (err);
     }
 
-    auto num = row_nums;
+    auto num = row_num;
     // Set launch configuration parameters and launch kernel
     size_t local  = 256;
     size_t global = local * (num / local + ((num % local) ? 1 : 0));
@@ -249,5 +249,7 @@ void inline stringGather(af::array &output, af::array const &input, af::array co
     input.unlock();
     indexer.unlock();
 }
+
+
 
 #endif

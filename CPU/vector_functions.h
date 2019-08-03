@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <arrayfire.h>
 #include "TPCDI_Utils.h"
+#include "BatchFunctions.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
@@ -119,8 +120,6 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     left_out(b * (output_pos(i) + left_count(i) * k + j) + !b * output_size) = left_idx(i) + j;
     right_out(b * (output_pos(i) + right_count(i) * j + k) + !b * output_size) = right_idx(i) + k;
 
-    // TODO CPU version?
-
     left_out = left_out.cols(0, end - 1);
     right_out = right_out.cols(0, end - 1);
     lhs = lhs(1, left_out);
@@ -129,4 +128,25 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     rhs.eval();
 }
 
+void inline stringGather(af::array &output, af::array const &input, af::array const &indexer) {
+    using namespace af;
+    auto const out_length = sum<ull>(indexer.row(1));
+    auto const row_nums = indexer.elements() / 3;
+    output = array(out_length, u8);
+
+    auto out_ptr = output.device<unsigned char>();
+    auto in_ptr = input.device<unsigned char>();
+    auto idx_ptr = indexer.device<ull>();
+    af::sync();
+
+    for (ull i = 0; i < row_nums; ++i) {
+        for (ull j = 0; j < idx_ptr[3 * i + 1]; ++j) {
+            out_ptr[idx_ptr[3 * i + 2] + j] = in_ptr[idx_ptr[3 * i] + j];
+        }
+    }
+
+    output.unlock();
+    input.unlock();
+    indexer.unlock();
+}
 #endif //ARRAYFIRE_TPCDI_VECTOR_FUNCTIONS_H

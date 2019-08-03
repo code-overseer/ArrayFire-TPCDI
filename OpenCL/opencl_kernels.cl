@@ -33,12 +33,12 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
 }
 
 __kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,
-        ulong const out_length) {
+        ulong const out_length, ulong const row_num) {
     ulong const id = get_global_id(0);
-    ulong const istart = idx[3 * id];
-    ulong const len = idx[3 * id + 1];
-    ulong const ostart = idx[3 * id + 2];
-    bool a = id < ROW_NUMS;
+    bool a = id < row_num;
+    ulong const istart = idx[(3 * id) * a];
+    ulong const len = idx[(3 * id + 1) * a];
+    ulong const ostart = idx[(3 * id + 2) * a];
     bool b;
 
     #pragma unroll LOOP_LENGTH

@@ -577,8 +577,8 @@ inline array marketingNameplate(array const &networth, array const &income, arra
     idx(3, where(credit < 600 || income < 5000 || networth < 100000)) = 1;
     idx(4, where(cars > 3 || cards > 7)) = 1;
     idx(5, where(age > 25 || networth > 1000000)) = 1;
-    auto j = where(idx.row(0));
 
+    auto j = where(idx.row(0));
     out(seq(0,9,1), j) = tile(val(seq(0,9,1), 0), dim4(1, j.dims(0)));
     j = where(idx.row(1));
     out(seq(10,18,1), j) = tile(val(seq(0,8,1), 1), dim4(1, j.dims(0)));

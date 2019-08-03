@@ -9,12 +9,12 @@ using namespace af;
 using namespace BatchFunctions;
 
 void printStr(array str_array, std::ostream &out) {
-    str_array.row(end) = '\n';
-    str_array = str_array(str_array > 0);
+    str_array(str_array == 0) = ',';
     str_array = join(0, flat(str_array), af::constant(0, 1, u8));
     str_array.eval();
-    auto d = str_array.host<uint8_t>();
-    print((char*)d);
+    char *d = (char*) malloc(str_array.bytes());
+    str_array.host(d);
+    print(d);
     af::freeHost(d);
 }
 
