@@ -32,7 +32,7 @@ AFDataFrame loadDimDate(char const *directory) {
     strcat(file, "Date.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), ULONG);
+    frame.add(parser.asUlong(0), ULONG);
     frame.add(parser.asDate(1, true, YYYYMMDD), DATE);
     for (int i = 2;  i < 17; i += 2) {
         frame.add(parser.asString(i), STRING);
@@ -49,7 +49,7 @@ AFDataFrame loadDimTime(char const* directory) {
     AFDataFrame frame;
     AFParser parser(file, '|', false);
 
-    frame.add(parser.asU64(0), ULONG);
+    frame.add(parser.asUlong(0), ULONG);
     frame.add(parser.asTime(1), TIME);
 
     for (int i = 2;  i < 7; i += 2) {
@@ -230,7 +230,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
     for (int i = 0;  i < 12; ++i) frame.add(parser.asString(i), STRING);
 
-    frame.add(parser.asU64(12), ULONG);
+    frame.add(parser.asUlong(12), ULONG);
 
     for (int i = 13;  i < 15; ++i) frame.add(parser.asUchar(i), UCHAR);
 
@@ -241,7 +241,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
     for (int i = 18;  i < 20; ++i) frame.add(parser.asString(i), STRING);
 
     frame.add(parser.asUchar(20), UCHAR);
-    frame.add(parser.asU64(21), ULONG);
+    frame.add(parser.asUlong(21), ULONG);
 
     return frame;
 }
@@ -256,7 +256,7 @@ AFDataFrame loadStagingCustomer(char const* directory) {
 
     frame.add(parser.asDateTime(1, true, YYYYMMDD), DATETIME);
 
-    frame.add(parser.asU64(2), ULONG);
+    frame.add(parser.asUlong(2), ULONG);
 
     for (int i = 3; i < 5; ++i) frame.add(parser.asString(i), STRING);
 
@@ -265,9 +265,9 @@ AFDataFrame loadStagingCustomer(char const* directory) {
 
     for (int i = 7; i < 32; ++i) frame.add(parser.asString(i), STRING);
 
-    frame.add(parser.asU64(32), ULONG);
+    frame.add(parser.asUlong(32), ULONG);
     frame.add(parser.asUshort(33), USHORT);
-    frame.add(parser.asU64(34), ULONG);
+    frame.add(parser.asUlong(34), ULONG);
     frame.add(parser.asString(35), STRING);
 
     return frame;
@@ -304,7 +304,7 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     strcat(file, "CashTransaction.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), ULONG);
+    frame.add(parser.asUlong(0), ULONG);
     frame.add(parser.asDateTime(1, true, YYYYMMDD), DATE);
     frame.add(parser.asDouble(2), DOUBLE);
     frame.add(parser.asString(3), STRING);
@@ -317,7 +317,7 @@ AFDataFrame loadStagingWatches(char const* directory) {
     strcat(file, "WatchHistory.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), ULONG);
+    frame.add(parser.asUlong(0), ULONG);
     frame.add(parser.asString(1), STRING);
     frame.add(parser.asDateTime(2, true, YYYYMMDD), DATE);
     frame.add(parser.asString(3), STRING);
@@ -662,7 +662,7 @@ AFDataFrame loadStagingTrade(char const* directory) {
     strcat(file, "Trade.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), ULONG);
+    frame.add(parser.asUlong(0), ULONG);
     frame.add(parser.asDateTime(1, YYYYMMDD), DATETIME);
     frame.add(parser.asString(2), STRING);
     frame.add(parser.asString(3), STRING);
@@ -671,7 +671,7 @@ AFDataFrame loadStagingTrade(char const* directory) {
     frame.add(parser.asUint(6), UINT);
     frame.add(parser.asDouble(7), DOUBLE);
     frame.add(parser.asUint(8), UINT);
-    frame.add(parser.asU64(9), ULONG);
+    frame.add(parser.asUlong(9), ULONG);
     frame.add(parser.asDouble(10), DOUBLE);
     frame.add(parser.asDouble(11), DOUBLE);
     frame.add(parser.asDouble(12), DOUBLE);
@@ -685,7 +685,7 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
     strcat(file, "TradeHistory.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), ULONG);
+    frame.add(parser.asUlong(0), ULONG);
     frame.add(parser.asDateTime(1, YYYYMMDD), DATE);
     frame.add(parser.asString(2), STRING);
     return frame;

@@ -11,11 +11,8 @@
 #include "include/TPCDI_Utils.h"
 #include <sstream>
 #include <utility>
+#include <include/Column.h>
 #include "include/Logger.h"
-#ifdef USING_OPENCL
-    #include "include/OpenCL/opencl_kernels.h"
-    #include "include/OpenCL/opencl_parsers.h"
-#endif
 using namespace af;
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
@@ -95,150 +92,56 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
 
 }
 
-af::array AFParser::asTime(int column) const {
+Column AFParser::asTime(int column) const {
     auto out = _makeUniform(column);
     return stringToTime(out, true);
 }
 
-af::array AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
+Column AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
     auto out = _makeUniform(column);
     return stringToDate(out, isDelimited, inputFormat);
 }
 
-af::array AFParser::asDateTime(int column, bool isDelimited, DateFormat inputFormat) const {
+Column AFParser::asDateTime(int column, bool isDelimited, DateFormat inputFormat) const {
     auto out = _makeUniform(column);
     return stringToDateTime(out, isDelimited, inputFormat);
 }
 
-array AFParser::asUchar(int column) const {
-    auto out = _numParse(column, u8);
-    out.eval();
-    return out;
-}
-
-array AFParser::asUshort(int column) const {
-    auto out = _numParse(column, u16);
-    out.eval();
-    return out;
-}
-
-array AFParser::asShort(int column) const {
-    auto out = _numParse(column, s16);
-    out.eval();
-    return out;
-}
-
-array AFParser::asUint(int const column) const {
-    auto out = _numParse(column, u32);
-    out.eval();
-    return out;
-}
-
-array AFParser::asInt(int const column) const {
-    auto out = _numParse(column, s32);
-    out.eval();
-    return out;
-}
-
-array AFParser::asFloat(int const column) const {
-    auto out = _numParse(column, f32);
-    out.eval();
-    return out;
-}
-
-array AFParser::asU64(int const column) const {
-    auto out = _numParse(column, u64);
-    out.eval();
-    return out;
-}
-
-array AFParser::asS64(int const column) const {
-    auto out = _numParse(column, s64);
-    out.eval();
-    return out;
-}
-
-array AFParser::asDouble(int const column) const {
-    auto out = _numParse(column, f64);
-    out.eval();
-    return out;
-}
-
-af::array AFParser::_makeUniform(int column) const {
-    if (!_length || !_maxColumnWidths[column]) return array(0, 0, u8);
-    auto const maximum = _maxColumnWidths[column] + 1; // delimiter
-    unsigned int const i = column != 0;
-    auto out = static_cast<array>(_indexer.row(column + 1));
-    // Get the indices of the whole number
-    out = batchFunc(out, range(dim4(maximum), 0, u32), batchSub);
-    // Removes the indices that do not point to part of the number (by pading these indices with UINT32_MAX)
-
-    out(batchFunc(out, _indexer.row(column + 1), batchGreater)) = UINT64_MAX;
-    out(batchFunc(out, _indexer.row(column) + i, batchLess)) = UINT64_MAX;
-    // Transpose then flatten the array so that it can be used to index _data
-
-    out = flip(out, 0);
-    auto cond = out != UINT64_MAX;
-    out(!cond) = ' ';
-    array idx = out(cond);
-    out = out.as(u8);
-    out(cond) = _data(idx);
-    out.row(end) = 0;
-    out.eval();
-    return out;
-}
-
-array AFParser::asString(int column) const {
-    if (!_length) return array(0, 0, u8);
-    unsigned int const i = column != 0;
-    auto out = _indexer.row(column) + i;
-    auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return constant(0, 1, _length, u8);
-
-    out = batchFunc(out, range(dim4(maximum + 1, 1), 0, u32), batchAdd);
-    out(batchFunc(out, _indexer.row(column + 1), batchGE)) = UINT64_MAX;
-    out = flat(out);
-
-    auto cond = out != UINT64_MAX;
-    out(!cond) = 0;
-    array idx = out(cond);
-    out = out.as(u8);
-    out(cond) = _data(idx);
-    out = moddims(out, dim4(maximum + 1, out.elements()/(maximum + 1)));
-    out.eval();
-
-    return out;
-}
-
-af::array AFParser::asString2(int column) const {
-    if (!_length) return array(0, 0, u8);
+template<typename T>
+Column AFParser::numParse(int column) const {
+    if (!_length) return Column(array(0, GetAFType<T>().af_type),  GetAFType<T>().df_type);
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
-    if (!maximum) {
-        auto idx = range(dim4(1,_length), 1, u64);
-        idx = join(0, idx, idx);
-        idx.eval();
-        return constant(0, 1, _length, u8);
-    }
+    if (!maximum) return Column(af::constant(0, 1, _length), GetAFType<T>().df_type);
+
+    af::array idx = _indexer.row(column) + i;
+    idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
+    af::array out;
+    numericParse<T>(out, _data, idx);
+    return Column(std::move(out), GetAFType<T>().df_type);
+}
+template Column AFParser::numParse<unsigned char>(int column) const;
+template Column AFParser::numParse<short>(int column) const;
+template Column AFParser::numParse<unsigned short>(int column) const;
+template Column AFParser::numParse<int>(int column) const;
+template Column AFParser::numParse<unsigned int>(int column) const;
+template Column AFParser::numParse<long long>(int column) const;
+template Column AFParser::numParse<double>(int column) const;
+template Column AFParser::numParse<float>(int column) const;
+template Column AFParser::numParse<unsigned long long>(int column) const;
+
+Column AFParser::asString(int column) const {
+    if (!_length) return Column(array(0, u8), array(0,u64));
+    unsigned int const i = column != 0;
+    auto const maximum = _maxColumnWidths[column];
+    if (!maximum) return Column(constant(0, 1, _length, u8), range(dim4(1, _length), u64));
+
     af::array idx = _indexer.row(column) + i;
     idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
     idx = join(0, idx, scan(idx.row(1),1, AF_BINARY_ADD, false));
     af::array out;
     stringGather(out, _data, idx);
-    return out;
-}
-
-af::array AFParser::asFloat2(int column) const {
-    if (!_length) return array(0, 0, u8);
-    unsigned int const i = column != 0;
-    auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return constant(0, 1, _length, f32);
-
-    af::array idx = _indexer.row(column) + i;
-    idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
-    af::array out;
-    numericParse<float>(out, _data, idx);
-    return out;
+    return Column(std::move(out), std::move(idx));
 }
 
 void AFParser::printData() const {
@@ -247,18 +150,16 @@ void AFParser::printData() const {
     freeHost(c);
 }
 
-af::array AFParser::asBoolean(int column) const {
-    if (!_length) return array(0, 0, b8);
+Column AFParser::asBoolean(int column) const {
+    if (!_length) return Column(array(0, b8), BOOL);
     unsigned int const i = column != 0;
+    auto const maximum = _maxColumnWidths[column];
+    if (!maximum) return Column(af::constant(0, 1, _length), BOOL);
     auto out = _indexer.row(column) + i;
     out = _data(out);
-    return stringToBoolean(out);
+    return Column(stringToBoolean(out), BOOL);
 }
 
-af::array AFParser::_numParse(int column, af::dtype type) const {
-    auto out = _makeUniform(column);
-    return stringToNum(out, type);
-}
 
 
 

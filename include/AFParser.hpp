@@ -5,6 +5,12 @@
 #include <unordered_map>
 #include <iostream>
 #include "include/Enums.h"
+#include "Column.h"
+#ifdef USING_OPENCL
+    #include "include/OpenCL/opencl_kernels.h"
+    #include "include/OpenCL/opencl_parsers.h"
+#endif
+
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
@@ -23,8 +29,6 @@ private:
     char const* _filename;
 
     void _generateIndexer(char delimiter, bool hasHeader);
-    af::array _makeUniform(int column) const;
-    af::array _numParse(int column, af::dtype type) const;
 public:
     AFParser(char const *filename, char delimiter, bool hasHeader = false);
     AFParser(std::string const &text, char delimiter, bool hasHeader = false);
@@ -32,23 +36,14 @@ public:
     AFParser() = default;
     virtual ~AFParser();
     void printData() const;
-    af::array asBoolean(int column) const;
-    af::array asDate(int column, bool isDelimited = false, DateFormat inputFormat = YYYYMMDD) const;
-    af::array asDateTime(int column, bool isDelimited = false, DateFormat inputFormat = YYYYMMDD) const;
-    af::array asUchar(int column) const;
-    af::array asUshort(int column) const;
-    af::array asShort(int column) const;
-    af::array asUint(int column) const;
-    af::array asInt(int column) const;
-    af::array asFloat(int column) const;
-    af::array asU64(int column) const;
-    af::array asS64(int column) const;
-    af::array asDouble(int column) const;
-    af::array asString(int column) const;
-    af::array asTime(int column) const;
+    template <typename T>
+    Column numParse(int column) const;
 
-    af::array asFloat2(int column) const;
-    af::array asString2(int i) const;
+    Column asBoolean(int column) const;
+    Column asDate(int column, bool isDelimited = false, DateFormat inputFormat = YYYYMMDD) const;
+    Column asDateTime(int column, bool isDelimited = false, DateFormat inputFormat = YYYYMMDD) const;
+    Column asTime(int column) const;
+    Column asString(int column) const;
 };
 
 

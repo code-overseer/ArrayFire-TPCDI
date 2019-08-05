@@ -137,9 +137,34 @@ af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool const isDelim
         out = out(out >= 0 && out <= 9);
     }
     out = moddims(out, dim4(8, out.elements() / 8));
-    out = batchFunc(out, flip(pow(10, range(dim4(8, 1), 0, u32)), 0), batchMult);
-    out = sum(out, 0);
-    out = dehashDate(out, dateFormat);
+    auto th = flip(pow(10, range(dim4(4), 0, u16)), 0);
+    auto tens = flip(pow(10, range(dim4(2), 0, u16)), 0);
+
+    switch (dateFormat) {
+        case YYYYMMDD:
+            out = join(0, sum(batchFunc(out.rows(0, 3), th, batchMult), 0),
+                       sum(batchFunc(out.rows(4, 5), tens, batchMult), 0),
+                       sum(batchFunc(out.rows(6, 7), tens, batchMult), 0)).as(u16);
+            break;
+        case YYYYDDMM:
+            out = join(0, sum(batchFunc(out.rows(0, 3), th, batchMult), 0),
+                       sum(batchFunc(out.rows(6, 7), tens, batchMult), 0),
+                       sum(batchFunc(out.rows(4, 5), tens, batchMult), 0)).as(u16);
+            break;
+        case MMDDYYYY:
+            out = join(0, sum(batchFunc(out.rows(4, 7), th, batchMult), 0),
+                       sum(batchFunc(out.rows(0, 1), tens, batchMult), 0),
+                       sum(batchFunc(out.rows(2, 3), tens, batchMult), 0)).as(u16);
+            break;
+        case DDMMYYYY:
+            out = join(0, sum(batchFunc(out.rows(4, 7), th, batchMult), 0),
+                       sum(batchFunc(out.rows(2, 3), tens, batchMult), 0),
+                       sum(batchFunc(out.rows(0, 1), tens, batchMult), 0)).as(u16);
+            break;
+        default:
+            throw std::runtime_error("No such date format");
+    }
+
     out.eval();
 
     return out;
@@ -169,9 +194,10 @@ array TPCDI_Utils::stringToTime(af::array const &timestr, bool isDelimited) {
     if (isDelimited) out(seq(2, 5, 3), span) = 255;
     out = out(out >= 0 && out <= 9);
     out = moddims(out, dim4(6, out.elements() / 6));
-    out = batchFunc(out, flip(pow(10, range(dim4(6, 1), 0, u32)), 0), batchMult);
-    out = sum(out, 0);
-    out = join(0, out / 10000, out % 10000 / 100, out % 100).as(u16);
+    auto tens = flip(pow(10, range(dim4(2), 0, u16)), 0);
+    out = join(0, sum(batchFunc(out.rows(0, 1), tens, batchMult), 0),
+            sum(batchFunc(out.rows(2, 3), tens, batchMult), 0),
+            sum(batchFunc(out.rows(4, 5), tens, batchMult), 0)).as(u16);
     out.eval();
 
     return out;

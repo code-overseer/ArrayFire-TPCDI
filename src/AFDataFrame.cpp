@@ -20,23 +20,20 @@ using namespace TPCDI_Utils;
 using namespace af;
 
 
-AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _deviceData(std::move(other._deviceData)),
-                                                         _dataTypes(std::move(other._dataTypes)),
+AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _data(std::move(other._data)),
                                                          _nameToIdx(std::move(other._nameToIdx)),
                                                          _idxToName(std::move(other._idxToName)),
                                                          _name(std::move(other._name)) {
 }
 
-AFDataFrame::AFDataFrame(AFDataFrame const &other) : _deviceData(other._deviceData),
-                                                     _dataTypes(other._dataTypes),
+AFDataFrame::AFDataFrame(AFDataFrame const &other) : _data(other._data),
                                                      _nameToIdx(other._nameToIdx),
                                                      _idxToName(other._idxToName),
                                                      _name(other._name) {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
-    _deviceData = std::move(other._deviceData);
-    _dataTypes = std::move(other._dataTypes);
+    _data = std::move(other._data);
     _nameToIdx = std::move(other._nameToIdx);
     _idxToName = std::move(other._idxToName);
     _name = std::move(other._name);
@@ -44,29 +41,22 @@ AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame const &other) noexcept {
-    _deviceData = other._deviceData;
-    _dataTypes = other._dataTypes;
+    _data = other._data;
     _nameToIdx = other._nameToIdx;
     _name = other._name;
     return *this;
 }
 
-void AFDataFrame::add(array &column, DataType type, const char *name) {
-    add(std::move(column), type, name);
+void AFDataFrame::add(Column &column, const char *name) {
+    _data.emplace_back(column);
+    if (name) nameColumn(name, (int)(_data.size() - 1));
 }
 
-void AFDataFrame::add(array &&column, DataType type, const char *name) {
-    _deviceData.emplace_back(column);
-    _dataTypes.emplace_back(type);
-
-    if (name) nameColumn(name, _deviceData.size() - 1);
+void AFDataFrame::add(Column &&column, const char *name) {
+    add(column, name);
 }
 
-void AFDataFrame::insert(array &column, DataType type, int index, const char *name) {
-    insert(std::move(column), type, index, name);
-}
-
-void AFDataFrame::insert(array &&column, DataType type, int index, const char *name) {
+void AFDataFrame::insert(Column &column, int index, const char *name) {
     _idxToName.erase(index);
     for (auto &i : _nameToIdx) {
         if (i.second >= index) {
@@ -75,14 +65,16 @@ void AFDataFrame::insert(array &&column, DataType type, int index, const char *n
             _idxToName.insert(std::make_pair(i.second, i.first));
         }
     }
-    _deviceData.insert(_deviceData.begin() + index, column);
-    _dataTypes.insert(_dataTypes.begin() + index, type);
+    _data.insert(_data.begin() + index, column);
     if (name) nameColumn(name, index);
 }
 
+void AFDataFrame::insert(Column &&column, int index, const char *name) {
+    insert(column, index, name);
+}
+
 void AFDataFrame::remove(int index) {
-    _deviceData.erase(_deviceData.begin() + index);
-    _dataTypes.erase(_dataTypes.begin() + index);
+    _data.erase(_data.begin() + index);
     _nameToIdx.erase(_idxToName[index]);
     _idxToName.erase(index);
     for (auto &i : _nameToIdx) {
@@ -95,79 +87,67 @@ void AFDataFrame::remove(int index) {
 }
 
 void AFDataFrame::_flush(af::array const &idx) {
-    for (auto &i : _deviceData) {
-        i = i(span, idx);
-        i.eval();
+    for (auto &i : _data) {
+        i = Column(i(span, idx), i.index(span, idx), i.type());
     }
+    //todo
 }
 
 af::array AFDataFrame::stringMatch(int column, char const *str) const {
-    if (_dataTypes[column] != STRING) throw std::runtime_error("Invalid column type");
+    if (_data[column].type() != STRING) throw std::runtime_error("Invalid column type");
     auto length = strlen(str) + 1;
-    if (_deviceData[column].dims(0) < length) return constant(0, dim4(1, _deviceData[column].dims(1)), b8);
+    if (_data[column].dims(0) < length) return constant(0, dim4(1, _data[column].dims(1)), b8);
 
     auto match = array(length, str);
-    auto idx = allTrue(batchFunc(_deviceData[column].rows(0, --length), match, batchEqual), 0);
+    auto idx = allTrue(batchFunc(_data[column].rows(0, --length), match, batchEqual), 0);
     idx.eval();
     return idx;
 }
 
 AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const &name) const {
     AFDataFrame output;
-    output.name(name);
+    output.name(name.empty() ? _name : name);
     for (int i = 0; i < size; i++) {
         int n = columns[i];
-        output.add(project(n), _dataTypes[n]);
+        output.add(project(n));
         if (_idxToName.count(n)) output.nameColumn(_idxToName.at(n), i);
     }
     return output;
 }
 
-AFDataFrame AFDataFrame::select(af::array const &index) const {
+AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name) const {
     AFDataFrame out(*this);
-    out._flush(index);
+    if (!name.empty()) out.name(name);
+    for (auto &a : out._data) a.select(index, true);
     return out;
 }
 
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
-    for (int i = 0; i < size; i++) {
+
+    for (int i = 0; i < size; i++)
         columns[i] = _nameToIdx.at(names[i]);
-    }
+
     return project(columns, size, name);
 }
 
-AFDataFrame AFDataFrame::zip(AFDataFrame &&rhs) const {
+AFDataFrame AFDataFrame::zip(AFDataFrame &rhs) const {
     if (length() != rhs.length()) throw std::runtime_error("Left and Right tables do not have the same length");
     AFDataFrame output = *this;
 
-    for (size_t i = 0; i < rhs._deviceData.size(); ++i) {
-        output.add(rhs._deviceData[i], rhs._dataTypes[i], (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
-    }
+    for (size_t i = 0; i < rhs._data.size(); ++i)
+        output.add(rhs._data[i], (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+
     return output;
 }
 
-AFDataFrame AFDataFrame::concatenate(AFDataFrame &&frame) const {
-    if (_dataTypes.size() != frame._dataTypes.size()) throw std::runtime_error("Number of attributes do not match");
-    for (size_t i = 0; i < _dataTypes.size(); i++) {
-        if (frame._dataTypes[i] != _dataTypes[i])
-            throw std::runtime_error("Attribute types do not match");
-    }
-    auto out = *this;
-    for (size_t i = 0; i < out._deviceData.size(); ++i) {
-        if (out._dataTypes[i] == STRING) {
-            auto delta = out._deviceData[i].dims(0) - frame._deviceData[i].dims(0);
-            if (delta > 0) {
-                auto back = constant(0, delta, frame._deviceData[i].dims(1), u8);
-                frame._deviceData[i] = join(0, frame._deviceData[i], back);
-            } else if (delta < 0) {
-                delta = -delta;
-                auto back = constant(0, delta, out._deviceData[i].dims(1), u8);
-                out._deviceData[i] = join(0, out._deviceData[i], back);
-            }
-        }
-        out._deviceData[i] = join(1, out._deviceData[i], frame._deviceData[i]);
-    }
+AFDataFrame AFDataFrame::unionize(AFDataFrame &frame) const {
+    if (_data.size() != frame._data.size()) throw std::runtime_error("Number of attributes do not match");
+
+    auto out(*this);
+    for (size_t i = 0; i < out._data.size(); ++i)
+        out._data[i] = out._data[i].concatenate(frame._data[i]);
+
     return out;
 }
 
@@ -192,48 +172,39 @@ void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
     }
 }
 
-array AFDataFrame::hashColumn(af::array const &column, DataType type, bool sortable) {
-    if (type == STRING) return sortable ? byteHash(column) : polyHash(byteHash(column));
-    if (type == DATE) return dateHash(column).as(u64);
-    if (type == TIME) return timeHash(column).as(u64);
-    if (type == DATETIME) return datetimeHash(column).as(u64);
-
-    return array(column).as(u64);
-}
-
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
-    auto &leftType = _dataTypes[lhs_column];
-    auto &rightType = rhs._dataTypes[rhs_column];
-    if (leftType != rightType) throw std::runtime_error("Supplied column data types do not match");
+    if (_data[lhs_column].type() != rhs._data[lhs_column].type())
+        throw std::runtime_error("Supplied column data types do not match");
+    // TODO keep bytehash
     auto l = hashColumn(lhs_column);
     auto r = rhs.hashColumn(rhs_column);
 
     auto idx = setCompare(l, r);
-    if (_deviceData[lhs_column].dims(0) <= rhs._deviceData[rhs_column].dims(0)) {
-        l = _deviceData[lhs_column](span, idx.first);
-        r = rhs._deviceData[rhs_column](range(dim4(l.dims(0)),0,u32), idx.second);
+    if (_data[lhs_column].dims(0) <= rhs._data[rhs_column].dims(0)) {
+        l = _data[lhs_column](span, idx.first);
+        r = rhs._data[rhs_column](range(dim4(l.dims(0)), 0, u32), idx.second);
         r = moddims(r, l.dims());
     } else {
-        r = rhs._deviceData[rhs_column](span, idx.second);
-        l = _deviceData[lhs_column](range(dim4(r.dims(0)),0,u32), idx.first);
+        r = rhs._data[rhs_column](span, idx.second);
+        l = _data[lhs_column](range(dim4(r.dims(0)), 0, u32), idx.first);
         l = moddims(l, r.dims());
     }
-    {
-        /* Collision Check */
-        auto tmp = where(allTrue(l == r, 0));
+    // TODO collision check use byte hash
+    if (_data[lhs_column].type() == STRING) {
+        auto tmp = allTrue(l == r, 0);
         idx.first = idx.first(tmp);
         idx.second = idx.second(tmp);
     }
 
     AFDataFrame result;
-    for (size_t i = 0; i < _deviceData.size(); i++) {
-      result.add(_deviceData[i](span, idx.first), _dataTypes[i], _idxToName.at(i).c_str());
+    for (size_t i = 0; i < _data.size(); i++) {
+      result.add(_data[i].select(idx.first), _idxToName.at(i).c_str());
     }
 
-    for (size_t i = 0; i < rhs._deviceData.size(); i++) {
+    for (size_t i = 0; i < rhs._data.size(); i++) {
         if (i == rhs_column) continue;
-        result.add(rhs._deviceData[i](span, idx.second), rhs._dataTypes[i],
-		   (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+        result.add(rhs._data[i].select(idx.second),
+                   (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
     }
 
     return result;
@@ -267,44 +238,22 @@ std::string AFDataFrame::name(std::string const& str) {
     return _name;
 }
 
-void AFDataFrame::nameColumn(std::string const& name, int column) {
+void AFDataFrame::nameColumn(std::string const& name, unsigned int column) {
     if (_idxToName.count(column)) _nameToIdx.erase(_idxToName.at(column));
     _nameToIdx[name] = column;
     _idxToName[column] = name;
 }
 
 void AFDataFrame::flushToHost() {
-    af::sync();
-    if (_deviceData.empty()) return;
-    for (auto const &a : _deviceData) {
-        if (a.bytes()) {
-            auto tmp = malloc(a.bytes());
-            a.host(tmp);
-            _hostData.emplace_back(tmp);
-        } else {
-            _hostData.emplace_back(nullptr);
-        }
-    }
-    _deviceData.clear();
-}
-
-AFDataFrame::~AFDataFrame() {
-    if (_hostData.empty()) return;
-    auto i = (uint64_t*) _hostData[0];
-    for (auto &dat : _hostData) freeHost(dat);
-    _dataTypes.clear();
+    if (_data.empty()) return;
+    for (auto &a : _data) a.toHost(true);
 }
 
 void AFDataFrame::clear() {
-    _deviceData.clear();
+    _data.clear();
     _name.clear();
     _idxToName.clear();
     _nameToIdx.clear();
-    if (!_hostData.empty()) {
-        for (auto &dat : _hostData) freeHost(dat);
-    }
-    _hostData.clear();
-    _dataTypes.clear();
 }
 
 

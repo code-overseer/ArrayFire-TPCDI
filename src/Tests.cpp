@@ -52,14 +52,14 @@ void test_Double(char const *filepath) {
 
 void test_UnsignedLong(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asU64(0);
+    auto result = test.asUlong(0);
     af_print(result)
     af::sync();
 }
 
 void test_SignedLong(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
-    auto result = test.asS64(0);
+    auto result = test.asLong(0);
     af_print(result)
     af::sync();
 }
