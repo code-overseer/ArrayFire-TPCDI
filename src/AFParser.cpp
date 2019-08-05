@@ -13,8 +13,8 @@
 #include <utility>
 #include "include/Logger.h"
 #ifdef USING_OPENCL
-    #include "OpenCL/opencl_kernels.h"
-    #include "OpenCL/opencl_parsers.h"
+    #include "include/OpenCL/opencl_kernels.h"
+    #include "include/OpenCL/opencl_parsers.h"
 #endif
 using namespace af;
 using namespace BatchFunctions;

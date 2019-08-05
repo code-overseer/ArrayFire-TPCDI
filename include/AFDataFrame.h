@@ -13,6 +13,7 @@
 #include "Enums.h"
 #include "AFParser.hpp"
 #include "BatchFunctions.h"
+#include "Column.h"
 
 class AFDataFrame {
 public:

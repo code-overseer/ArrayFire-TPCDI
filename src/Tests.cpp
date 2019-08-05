@@ -3,7 +3,7 @@
 #include <memory>
 #include "include/TPCDI_Utils.h"
 #if defined(USING_OPENCL)
-#include "OpenCL/opencl_kernels.h"
+#include "include/OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
 #include "CUDA/cuda_kernels.h"
 #else

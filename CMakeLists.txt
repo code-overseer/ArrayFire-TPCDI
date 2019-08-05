@@ -36,23 +36,23 @@ add_executable(ArrayFire-TPCDI
         rapidxml/rapidxml_iterators.hpp
         rapidxml/rapidxml_print.hpp
         rapidxml/rapidxml_utils.hpp
-        include/main.cpp
-        include/AFParser.cpp
+        src/main.cpp
+        src/AFParser.cpp
         include/AFParser.hpp
         include/Enums.h
-        include/BatchFunctions.cpp
+        src/BatchFunctions.cpp
         include/BatchFunctions.h
-        include/Tests.cpp
+        src/Tests.cpp
         include/Tests.h
-        include/AFDataFrame.cpp
+        src/AFDataFrame.cpp
         include/AFDataFrame.h
-        include/TPC_DI.cpp
+        src/TPC_DI.cpp
         include/TPC_DI.h
-        include/FinwireParser.cpp
-        include/FinwireParser.h include/TPCDI_Utils.cpp include/TPCDI_Utils.h include/Logger.cpp include/Logger.h include/CPU/vector_functions.h include/AFTypes.h include/OpenCL/opencl_parsers.h include/Column.cpp include/Column.h)
+        src/FinwireParser.cpp
+        include/FinwireParser.h src/TPCDI_Utils.cpp include/TPCDI_Utils.h src/Logger.cpp include/Logger.h include/CPU/vector_functions.h include/AFTypes.h include/OpenCL/opencl_parsers.h src/Column.cpp include/Column.h)
 
 if (USING_CUDA)
-    set_source_files_properties(include/AFDataFrame.cpp include/Tests.cpp include/main.cpp include/CUDA/cuda_kernels.h PROPERTIES LANGUAGE include/CUDA)
+    set_source_files_properties(src/AFDataFrame.cpp src/Tests.cpp src/main.cpp include/CUDA/cuda_kernels.h PROPERTIES LANGUAGE include/CUDA)
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE include/CUDA/cuda_kernels.h)
     set_property(TARGET ArrayFire-TPCDI PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 elseif(USING_OPENCL)
