@@ -2,9 +2,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 #include <rapidxml.hpp>
-#include "TPC_DI.h"
-#include "BatchFunctions.h"
-#include "Logger.h"
+#include "include/TPC_DI.h"
+#include "include/BatchFunctions.h"
+#include "include/Logger.h"
 
 namespace fs = boost::filesystem;
 namespace xml = rapidxml;
@@ -32,7 +32,7 @@ AFDataFrame loadDimDate(char const *directory) {
     strcat(file, "Date.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asU64(0), ULONG);
     frame.add(parser.asDate(1, true, YYYYMMDD), DATE);
     for (int i = 2;  i < 17; i += 2) {
         frame.add(parser.asString(i), STRING);
@@ -49,7 +49,7 @@ AFDataFrame loadDimTime(char const* directory) {
     AFDataFrame frame;
     AFParser parser(file, '|', false);
 
-    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asU64(0), ULONG);
     frame.add(parser.asTime(1), TIME);
 
     for (int i = 2;  i < 7; i += 2) {
@@ -230,7 +230,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
     for (int i = 0;  i < 12; ++i) frame.add(parser.asString(i), STRING);
 
-    frame.add(parser.asU64(12), U64);
+    frame.add(parser.asU64(12), ULONG);
 
     for (int i = 13;  i < 15; ++i) frame.add(parser.asUchar(i), UCHAR);
 
@@ -241,7 +241,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
     for (int i = 18;  i < 20; ++i) frame.add(parser.asString(i), STRING);
 
     frame.add(parser.asUchar(20), UCHAR);
-    frame.add(parser.asU64(21), U64);
+    frame.add(parser.asU64(21), ULONG);
 
     return frame;
 }
@@ -256,7 +256,7 @@ AFDataFrame loadStagingCustomer(char const* directory) {
 
     frame.add(parser.asDateTime(1, true, YYYYMMDD), DATETIME);
 
-    frame.add(parser.asU64(2), U64);
+    frame.add(parser.asU64(2), ULONG);
 
     for (int i = 3; i < 5; ++i) frame.add(parser.asString(i), STRING);
 
@@ -265,9 +265,9 @@ AFDataFrame loadStagingCustomer(char const* directory) {
 
     for (int i = 7; i < 32; ++i) frame.add(parser.asString(i), STRING);
 
-    frame.add(parser.asU64(32), U64);
+    frame.add(parser.asU64(32), ULONG);
     frame.add(parser.asUshort(33), USHORT);
-    frame.add(parser.asU64(34), U64);
+    frame.add(parser.asU64(34), ULONG);
     frame.add(parser.asString(35), STRING);
 
     return frame;
@@ -288,7 +288,7 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
         frame.remove(5);
     }
     auto length = frame.data()[0].dims(1);
-    frame.insert(range(dim4(1, length), 1, u64), U64, 0);
+    frame.insert(range(dim4(1, length), 1, u64), ULONG, 0);
     frame.add(constant(1, dim4(1, length), b8), BOOL);
     frame.add(constant(1, dim4(1, length), u32), UINT);
     auto date = sort(dimDate.data(0),1);
@@ -304,7 +304,7 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     strcat(file, "CashTransaction.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asU64(0), ULONG);
     frame.add(parser.asDateTime(1, true, YYYYMMDD), DATE);
     frame.add(parser.asDouble(2), DOUBLE);
     frame.add(parser.asString(3), STRING);
@@ -317,7 +317,7 @@ AFDataFrame loadStagingWatches(char const* directory) {
     strcat(file, "WatchHistory.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asU64(0), ULONG);
     frame.add(parser.asString(1), STRING);
     frame.add(parser.asDateTime(2, true, YYYYMMDD), DATE);
     frame.add(parser.asString(3), STRING);
@@ -362,7 +362,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.types("PTS") = DATE;
     dimCompany.nameColumn("EffectiveDate", "PTS");
 
-    dimCompany.insert(range(dim4(1, dimCompany.length()), 1, u64), U64, 0, "SK_CompanyID");
+    dimCompany.insert(range(dim4(1, dimCompany.length()), 1, u64), ULONG, 0, "SK_CompanyID");
     dimCompany.insert(constant(1, dim4(1, dimCompany.length()), b8), BOOL, dimCompany.data().size() - 1, "IsCurrent");
     dimCompany.insert(constant(1, dim4(1, dimCompany.length()), u32), UINT, dimCompany.data().size() - 1, "BatchID");
     dimCompany.add(tile(endDate(), dim4(1, dimCompany.length())), DATE, "EndDate");
@@ -377,7 +377,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
 
     nameDimCompany(dimCompany);
     dimCompany.data("CompanyID") = stringToNum(dimCompany.data("CompanyID"), u64);
-    dimCompany.types("CompanyID") = U64;
+    dimCompany.types("CompanyID") = ULONG;
 
     std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
     auto s0 = dimCompany.project(order, 3, "S0");
@@ -435,7 +435,7 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     fin1.data("CO_NAME_OR_CIK") = fin1.data("CO_NAME_OR_CIK")(seq(11), span);
     fin1.data("CO_NAME_OR_CIK")(end, span) = 0;
     fin1.data("CO_NAME_OR_CIK") = stringToNum(fin1.data("CO_NAME_OR_CIK"), u64);
-    fin1.types("CO_NAME_OR_CIK") = U64;
+    fin1.types("CO_NAME_OR_CIK") = ULONG;
 
     financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
     financial.remove("CO_NAME_OR_CIK");
@@ -500,7 +500,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         security1.data("CO_NAME_OR_CIK") = security1.data("CO_NAME_OR_CIK")(seq(11), span);
         security1.data("CO_NAME_OR_CIK")(end, span) = 0;
         security1.data("CO_NAME_OR_CIK") = stringToNum(security1.data("CO_NAME_OR_CIK"), u64);
-        security1.types("CO_NAME_OR_CIK") = U64;
+        security1.types("CO_NAME_OR_CIK") = ULONG;
         security = security1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
         security.remove("CO_NAME_OR_CIK");
 
@@ -531,7 +531,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     security.types("PTS") = DATE;
     security.nameColumn("EffectiveDate", "PTS");
     auto length = security.length();
-    security.insert(range(dim4(1, length), 1, u64), U64, 0, "SK_SecurityID");
+    security.insert(range(dim4(1, length), 1, u64), ULONG, 0, "SK_SecurityID");
     security.insert(constant(1, dim4(1, length), b8), BOOL, security.data().size() - 1, "IsCurrent");
     security.insert(constant(1, dim4(1, length), u32), UINT, security.data().size() - 1, "BatchID");
     security.add(tile(endDate(), dim4(1, length)), DATE, "EndDate");
@@ -662,7 +662,7 @@ AFDataFrame loadStagingTrade(char const* directory) {
     strcat(file, "Trade.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asU64(0), ULONG);
     frame.add(parser.asDateTime(1, YYYYMMDD), DATETIME);
     frame.add(parser.asString(2), STRING);
     frame.add(parser.asString(3), STRING);
@@ -671,7 +671,7 @@ AFDataFrame loadStagingTrade(char const* directory) {
     frame.add(parser.asUint(6), UINT);
     frame.add(parser.asDouble(7), DOUBLE);
     frame.add(parser.asUint(8), UINT);
-    frame.add(parser.asU64(9), U64);
+    frame.add(parser.asU64(9), ULONG);
     frame.add(parser.asDouble(10), DOUBLE);
     frame.add(parser.asDouble(11), DOUBLE);
     frame.add(parser.asDouble(12), DOUBLE);
@@ -685,7 +685,7 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
     strcat(file, "TradeHistory.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
-    frame.add(parser.asU64(0), U64);
+    frame.add(parser.asU64(0), ULONG);
     frame.add(parser.asDateTime(1, YYYYMMDD), DATE);
     frame.add(parser.asString(2), STRING);
     return frame;

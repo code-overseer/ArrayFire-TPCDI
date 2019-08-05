@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include "TPCDI_Utils.h"
+#include "include/TPCDI_Utils.h"
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
 #else

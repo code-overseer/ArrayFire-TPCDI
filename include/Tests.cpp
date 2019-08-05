@@ -1,7 +1,7 @@
-#include "Tests.h"
-#include "AFDataFrame.h"
+#include "include/Tests.h"
+#include "include/AFDataFrame.h"
 #include <memory>
-#include "TPCDI_Utils.h"
+#include "include/TPCDI_Utils.h"
 #if defined(USING_OPENCL)
 #include "OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
@@ -111,7 +111,7 @@ void test_StringMatch(char const *filepath) {
     frame = frame.select(idx);
     frame.remove(5);
     auto lval = af::range(af::dim4(frame.data()[0].dims(0)), 0, u64);
-    frame.insert(lval, U64, 0);
+    frame.insert(lval, ULONG, 0);
     lval = af::constant(1, af::dim4(frame.data()[0].dims(0)), b8);
     frame.add(lval, BOOL);
     lval = af::constant(19500101, af::dim4(frame.data()[0].dims(0)), u32);

@@ -1,3 +1,6 @@
+#ifndef PARSE_TYPE
+#define PARSE_TYPE float
+#endif
 __kernel void parser(__global PARSE_TYPE *output, __global ulong const *idx, __global uchar const *input,
         ulong const row_num) {
     ulong const id = get_global_id(0);

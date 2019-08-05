@@ -5,9 +5,9 @@
 #ifndef ARRAYFIRE_TPCDI_OPENCL_PARSERS_H
 #define ARRAYFIRE_TPCDI_OPENCL_PARSERS_H
 #include <arrayfire.h>
-#include <AFTypes.h>
+#include <include/AFTypes.h>
 #include "opencl_helper.h"
-#include "TPCDI_Utils.h"
+#include "include/TPCDI_Utils.h"
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
 #else
@@ -66,7 +66,7 @@ void inline numericParse(af::array &output, af::array const &input, af::array co
 
     auto const loop_length = sum<ull>(max(indexer.row(1), 1));
     auto const row_nums = indexer.elements() / 2;
-    output = array(1, row_nums + 1, GetAFType<T>().value);
+    output = array(1, row_nums + 1, GetAFType<T>().af_type);
     auto out_ptr = output.device<T>();
     auto idx_ptr = indexer.device<ull>();
     auto in_ptr = input.device<unsigned char>();

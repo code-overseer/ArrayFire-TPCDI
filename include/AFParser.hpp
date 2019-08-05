@@ -4,7 +4,7 @@
 #include <arrayfire.h>
 #include <unordered_map>
 #include <iostream>
-#include "Enums.h"
+#include "include/Enums.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;

@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include <stdio.h>
 #include <arrayfire.h>
-#include "TPCDI_Utils.h"
+#include "include/TPCDI_Utils.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;

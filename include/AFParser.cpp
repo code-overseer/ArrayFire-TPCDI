@@ -6,12 +6,12 @@
 //  Copyright © 2019 Bryan Wong. All rights reserved.
 //
 
-#include "AFParser.hpp"
-#include "BatchFunctions.h"
-#include "TPCDI_Utils.h"
+#include "include/AFParser.hpp"
+#include "include/BatchFunctions.h"
+#include "include/TPCDI_Utils.h"
 #include <sstream>
 #include <utility>
-#include "Logger.h"
+#include "include/Logger.h"
 #ifdef USING_OPENCL
     #include "OpenCL/opencl_kernels.h"
     #include "OpenCL/opencl_parsers.h"

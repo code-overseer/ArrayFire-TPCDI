@@ -1,8 +1,8 @@
 #include <cstring>
 #include <string>
-#include "BatchFunctions.h"
-#include "Logger.h"
-#include "TPC_DI.h"
+#include "include/BatchFunctions.h"
+#include "include/Logger.h"
+#include "include/TPC_DI.h"
 
 namespace DIR {
     char const* DATE = "/Users/bryanwong/Downloads/TPCData/TestDate.csv";

@@ -1,6 +1,6 @@
-#include "FinwireParser.h"
-#include "BatchFunctions.h"
-#include "TPCDI_Utils.h"
+#include "include/FinwireParser.h"
+#include "include/BatchFunctions.h"
+#include "include/TPCDI_Utils.h"
 #include <fstream>
 using namespace af;
 using namespace BatchFunctions;
@@ -106,9 +106,9 @@ AFDataFrame FinwireParser::extractFin() const {
     output.data(13) = stringToNum(output.data(13), f64);
     output.types(13) = DOUBLE;
     output.data(14) = stringToNum(output.data(14), u64);
-    output.types(14) = U64;
+    output.types(14) = ULONG;
     output.data(15) = stringToNum(output.data(15), u64);
-    output.types(15) = U64;
+    output.types(15) = ULONG;
 
     return output;
 }
@@ -117,7 +117,7 @@ AFDataFrame FinwireParser::extractSec() const {
     auto output = extractData(SEC);
 
     output.data(7) = stringToNum(output.data(7), u64);
-    output.types(7) = U64;
+    output.types(7) = ULONG;
     output.data(8) = stringToDate(output.data(8));
     output.types(8) = DATE;
     output.data(9) = stringToDate(output.data(9));

@@ -34,7 +34,7 @@ public:
     AFDataFrame concatenate(AFDataFrame &&frame) const;
     AFDataFrame zip(AFDataFrame &&rhs) const;
     static af::array hashColumn(af::array const &column, DataType type, bool sortable = false);
-    static std::pair<af::array, af::array> crossCompare(af::array const &lhs, af::array const &rhs);
+
     static std::pair<af::array, af::array> setCompare(af::array const &lhs, af::array const &rhs);
     void sortBy(int column, bool isAscending = true);
     void sortBy(int *columns, int size, const bool *isAscending = nullptr);

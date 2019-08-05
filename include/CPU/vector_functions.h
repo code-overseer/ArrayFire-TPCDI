@@ -9,8 +9,8 @@
 #include <cstdio>
 #include <algorithm>
 #include <arrayfire.h>
-#include "TPCDI_Utils.h"
-#include "BatchFunctions.h"
+#include "include/TPCDI_Utils.h"
+#include "include/BatchFunctions.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;

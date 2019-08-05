@@ -1,9 +1,9 @@
-#include "AFDataFrame.h"
-#include "BatchFunctions.h"
-#include "TPCDI_Utils.h"
-#include "Enums.h"
+#include "include/AFDataFrame.h"
+#include "include/BatchFunctions.h"
+#include "include/TPCDI_Utils.h"
+#include "include/Enums.h"
 #include <cstring>
-#include "Logger.h"
+#include "include/Logger.h"
 #if defined(USING_OPENCL)
 #include "OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
@@ -237,13 +237,6 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     }
 
     return result;
-}
-
-std::pair<af::array, af::array> AFDataFrame::crossCompare(af::array const &lhs, af::array const &rhs) {
-    auto r = where(batchFunc(flipdims(rhs), lhs, BatchFunctions::batchEqual));
-    auto l = r / rhs.dims(1);
-    r = r % rhs.dims(1);
-    return { l, r };
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
