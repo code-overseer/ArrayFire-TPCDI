@@ -52,9 +52,9 @@ int main(int argc, char *argv[]) {
     Logger::startTimer("2");
     af_print(parser.asFloat2(0));
     Logger::logTime("2");
-    Logger::startTimer("1");
-    af_print(parser.asFloat(0));
-    Logger::logTime("1");
+//    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+//    auto industry = loadIndustry(DIR::DIRECTORY);
+//    auto dimCompany = finwire.company.equiJoin(industry,5,0);
 //    Logger::sendToCSV();
 
     return 0;

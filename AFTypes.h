@@ -8,7 +8,7 @@
 #include <string>
 
 template<af::dtype> struct GetType;
-template<> struct GetType<b8> { static constexpr bool value = 0; };
+template<> struct GetType<b8> { static constexpr bool value = false; };
 template<> struct GetType<u8> { static constexpr unsigned char value = 0; };
 template<> struct GetType<f32> { static constexpr float value = 0; };
 template<> struct GetType<f64> { static constexpr double value = 0;};

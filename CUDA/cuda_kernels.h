@@ -16,9 +16,7 @@ static void IsExists(ull *result, ull const *bag, ull const *set, ull const bag_
 	 ull i = id / set_size;
 	 ull j = id % set_size;
 	 bool b = id < bag_size * set_size && set[j] == bag[2 * i];
-	 ull k = b * i + !b * bag_size;
-
-	 result[k] = 1;
+	 if (b) result[k] = 1;
 }
 void inline bagSetIntersect(af::array &bag, af::array const &set) {
     using namespace af;
@@ -70,23 +68,13 @@ static void index_scatter(ull const *il, ull const *ir, ull const *cl, ull const
     ull pos = outpos[i];
 
     b = b && !(j / left) && !(k / right);
-    left = b * (pos + left * k + j) + !b * dump;
-    right = b * (pos + right * j + k) + !b * dump;
+    if (b) {
+        left = pos + left * k + j;
+        right = pos + right * j + k;
 
-    l[left] = il[i] + j;
-    r[right] = ir[i] + k;
-}
-
-void inline launch_IndexScatter(ull const *il, ull const *ir, ull const *cl, ull const *cr, ull const *outpos,
-        ull  *l, ull *r, ull const x, ull const y, ull const z, ull const dump) {
-    ull const threadLimit = 1024;
-    ull const threadCount = x * y * z;
-    ull const blocks = (threadCount/threadLimit) + 1;
-
-    dim3 grid(blocks, 1, 1);
-    dim3 block(threadLimit, 1, 1);
-
-    index_scatter<<<grid, block>>>(il, ir, cl, cr, outpos, l, r, x, y, z, dump);
+        l[left] = il[i] + j;
+        r[right] = ir[i] + k;
+    }
 }
 
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {

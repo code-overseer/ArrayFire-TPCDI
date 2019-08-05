@@ -232,9 +232,8 @@ af::array AFParser::asFloat2(int column) const {
     if (!_length) return array(0, 0, u8);
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
-    if (!maximum) {
-        return constant(0, 1, _length, f32);
-    }
+    if (!maximum) return constant(0, 1, _length, f32);
+
     af::array idx = _indexer.row(column) + i;
     idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
     af::array out;
