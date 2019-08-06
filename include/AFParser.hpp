@@ -36,14 +36,10 @@ public:
     AFParser() = default;
     virtual ~AFParser();
     void printData() const;
-    template <typename T>
-    Column numParse(int column) const;
-
-    Column asBoolean(int column) const;
+    template <typename T> Column parse(int column) const;
     Column asDate(int column, bool isDelimited = false, DateFormat inputFormat = YYYYMMDD) const;
     Column asDateTime(int column, bool isDelimited = false, DateFormat inputFormat = YYYYMMDD) const;
-    Column asTime(int column) const;
-    Column asString(int column) const;
+    Column asTime(int column, bool isDelimited) const;
 };
 
 

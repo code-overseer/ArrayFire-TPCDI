@@ -92,23 +92,8 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
 
 }
 
-Column AFParser::asTime(int column) const {
-    auto out = _makeUniform(column);
-    return stringToTime(out, true);
-}
-
-Column AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
-    auto out = _makeUniform(column);
-    return stringToDate(out, isDelimited, inputFormat);
-}
-
-Column AFParser::asDateTime(int column, bool isDelimited, DateFormat inputFormat) const {
-    auto out = _makeUniform(column);
-    return stringToDateTime(out, isDelimited, inputFormat);
-}
-
 template<typename T>
-Column AFParser::numParse(int column) const {
+Column AFParser::parse(int column) const {
     if (!_length) return Column(array(0, GetAFType<T>().af_type),  GetAFType<T>().df_type);
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
@@ -120,17 +105,16 @@ Column AFParser::numParse(int column) const {
     numericParse<T>(out, _data, idx);
     return Column(std::move(out), GetAFType<T>().df_type);
 }
-template Column AFParser::numParse<unsigned char>(int column) const;
-template Column AFParser::numParse<short>(int column) const;
-template Column AFParser::numParse<unsigned short>(int column) const;
-template Column AFParser::numParse<int>(int column) const;
-template Column AFParser::numParse<unsigned int>(int column) const;
-template Column AFParser::numParse<long long>(int column) const;
-template Column AFParser::numParse<double>(int column) const;
-template Column AFParser::numParse<float>(int column) const;
-template Column AFParser::numParse<unsigned long long>(int column) const;
-
-Column AFParser::asString(int column) const {
+template Column AFParser::parse<unsigned char>(int column) const;
+template Column AFParser::parse<short>(int column) const;
+template Column AFParser::parse<unsigned short>(int column) const;
+template Column AFParser::parse<int>(int column) const;
+template Column AFParser::parse<unsigned int>(int column) const;
+template Column AFParser::parse<long long>(int column) const;
+template Column AFParser::parse<double>(int column) const;
+template Column AFParser::parse<float>(int column) const;
+template Column AFParser::parse<unsigned long long>(int column) const;
+template<> Column AFParser::parse<char*>(int column) const {
     if (!_length) return Column(array(0, u8), array(0,u64));
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
@@ -138,26 +122,47 @@ Column AFParser::asString(int column) const {
 
     af::array idx = _indexer.row(column) + i;
     idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
-    idx = join(0, idx, scan(idx.row(1),1, AF_BINARY_ADD, false));
-    af::array out;
-    stringGather(out, _data, idx);
+    auto out = stringGather(_data, idx);
     return Column(std::move(out), std::move(idx));
 }
-
-void AFParser::printData() const {
-    auto c = _data.host<uint8_t>();
-    print((char*)c);
-    freeHost(c);
-}
-
-Column AFParser::asBoolean(int column) const {
+template<> Column AFParser::parse<bool>(int column) const {
     if (!_length) return Column(array(0, b8), BOOL);
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
     if (!maximum) return Column(af::constant(0, 1, _length), BOOL);
     auto out = _indexer.row(column) + i;
     out = _data(out);
-    return Column(stringToBoolean(out), BOOL);
+    if (!out.dims(1)) return Column(array(0, b8), BOOL);
+    out = out.row(0);
+    out(out == 'T' || out == 't' || out == '1' || out =='Y' || out == 'y' || out != 0) = 1;
+    out(out != 1) = 0;
+    out = moddims(out, dim4(out.dims(1), out.dims(0))).as(b8);
+    out.eval();
+    return Column(std::move(out), BOOL);
+}
+
+Column AFParser::asTime(int column, bool const isDelimited) const {
+    auto out = parse<char*>(column);
+    out.toTime(isDelimited);
+    return out;
+}
+
+Column AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
+    auto out = parse<char*>(column);
+    out.toDate(isDelimited, inputFormat);
+    return out;
+}
+
+Column AFParser::asDateTime(int column, bool isDelimited, DateFormat inputFormat) const {
+    auto out = parse<char*>(column);
+    out.toDateTime(isDelimited, inputFormat);
+    return out;
+}
+
+void AFParser::printData() const {
+    auto c = _data.host<uint8_t>();
+    print((char*)c);
+    freeHost(c);
 }
 
 

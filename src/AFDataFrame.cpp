@@ -86,13 +86,6 @@ void AFDataFrame::remove(int index) {
     }
 }
 
-void AFDataFrame::_flush(af::array const &idx) {
-    for (auto &i : _data) {
-        i = Column(i(span, idx), i.index(span, idx), i.type());
-    }
-    //todo
-}
-
 af::array AFDataFrame::stringMatch(int column, char const *str) const {
     if (_data[column].type() != STRING) throw std::runtime_error("Invalid column type");
     auto length = strlen(str) + 1;
@@ -118,7 +111,7 @@ AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const
 AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name) const {
     AFDataFrame out(*this);
     if (!name.empty()) out.name(name);
-    for (auto &a : out._data) a.select(index, true);
+    for (auto &a : out._data) a.select(index);
     return out;
 }
 
@@ -162,7 +155,7 @@ void AFDataFrame::sortBy(int column, bool isAscending) {
         elements = elements(span, idx);
         sort(sorting, idx, elements(j, span), 1, isAscending);
     }
-    _flush(idx);
+    for (auto &i : _data) i = i.select(idx);
 }
 
 void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
@@ -173,27 +166,23 @@ void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
 }
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
-    if (_data[lhs_column].type() != rhs._data[lhs_column].type())
-        throw std::runtime_error("Supplied column data types do not match");
-    // TODO keep bytehash
-    auto l = hashColumn(lhs_column);
-    auto r = rhs.hashColumn(rhs_column);
+    auto &left = _data[lhs_column];
+    auto &right = rhs._data[rhs_column];
 
+    if (left.type() != right.type())
+        throw std::runtime_error("Supplied column data types do not match");
+
+    auto l = left.hash(false);
+    auto r = right.hash(false);
     auto idx = setCompare(l, r);
-    if (_data[lhs_column].dims(0) <= rhs._data[rhs_column].dims(0)) {
-        l = _data[lhs_column](span, idx.first);
-        r = rhs._data[rhs_column](range(dim4(l.dims(0)), 0, u32), idx.second);
-        r = moddims(r, l.dims());
-    } else {
-        r = rhs._data[rhs_column](span, idx.second);
-        l = _data[lhs_column](range(dim4(r.dims(0)), 0, u32), idx.first);
-        l = moddims(l, r.dims());
-    }
-    // TODO collision check use byte hash
-    if (_data[lhs_column].type() == STRING) {
-        auto tmp = allTrue(l == r, 0);
-        idx.first = idx.first(tmp);
-        idx.second = idx.second(tmp);
+
+    if (left.type() == STRING) {
+        // TODO collision check
+        l = left.index(af::span, idx.first);
+        r = right.index(af::span, idx.second);
+        auto keep = stringComp(left.data_(), right.data_(), l, r);
+        idx.first = idx.first(keep);
+        idx.second = idx.second(keep);
     }
 
     AFDataFrame result;
@@ -208,6 +197,10 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     }
 
     return result;
+}
+
+std::pair<af::array, af::array> AFDataFrame::setCompare(Column const &lhs, Column const &rhs) {
+    return setCompare(lhs.data_(), rhs.data_());
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {

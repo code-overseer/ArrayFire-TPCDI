@@ -49,9 +49,9 @@ int main(int argc, char *argv[]) {
 
 //    print("FruitTest");
     AFParser parser(DIR::FLOAT, '|', false);
-    Logger::startTimer("2");
-    af_print(parser.asFloat2(0));
-    Logger::logTime("2");
+//    Logger::startTimer("2");
+//
+//    Logger::logTime("2");
 //    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
 //    auto industry = loadIndustry(DIR::DIRECTORY);
 //    auto dimCompany = finwire.company.equiJoin(industry,5,0);

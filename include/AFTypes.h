@@ -18,7 +18,9 @@ template<> struct GetType<u32> { static constexpr unsigned int value = 0; };
 template<> struct GetType<s32> { static constexpr int value = 0; };
 template<> struct GetType<u64> { static constexpr unsigned long long value = 0; };
 template<> struct GetType<s64> { static constexpr long long value = 0; };
-
+struct Time;
+struct Date;
+struct DateTime;
 template<typename T> struct GetAFType;
 template<> struct GetAFType<bool> {
     static constexpr af::dtype af_type = b8;
@@ -69,6 +71,21 @@ template<> struct GetAFType<long long> {
     static constexpr af::dtype af_type = s64;
     static constexpr DataType df_type = DataType::LONG;
     static constexpr char const *str = "long";
+};
+template<> struct GetAFType<Time> {
+    static constexpr af::dtype af_type = u16;
+    static constexpr DataType df_type = DataType::TIME;
+    static constexpr char const *str = "time";
+};
+template<> struct GetAFType<Date> {
+    static constexpr af::dtype af_type = u16;
+    static constexpr DataType df_type = DataType::DATE;
+    static constexpr char const *str = "date";
+};
+template<> struct GetAFType<DateTime> {
+    static constexpr af::dtype af_type = u16;
+    static constexpr DataType df_type = DataType::DATETIME;
+    static constexpr char const *str = "datetime";
 };
 
 #endif //ARRAYFIRE_TPCDI_AFTYPES_H

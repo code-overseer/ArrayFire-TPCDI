@@ -14,24 +14,43 @@ class Column {
     void* _host = nullptr;
     unsigned long long* _host_idx = nullptr;
     DataType _type = FLOAT;
+
 public:
     Column(af::array const &data, DataType const type) : _device(data), _idx(af::array(0,u64)), _type(type) {}
     Column(af::array &&data, DataType const type) : _device(std::move(data)), _idx(af::array(0,u64)), _type(type) {}
     Column(af::array const &data, af::array const &index) : _device(data), _idx(index), _type(STRING) {}
     Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)), _type(STRING) {}
-    Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
-    _type(other._type), _host(other._host), _host_idx(other._host_idx) {}
+    Column(Column &&other) noexcept;
     Column(Proxy &&data, Proxy &&idx, DataType type);
     Column(Proxy const &data, Proxy const &idx, DataType type);
     Column(Column const &other) = default;
+    virtual ~Column() { if (_host) free(_host); if (_host_idx) free(_host_idx); }
     Column& operator=(Column &&other) noexcept;
     Column& operator=(Column const &other) = default;
     Column concatenate(Column &bottom);
-    Column select(af::array const &idx, bool flush = false) const;
+    Column select(af::array const &idx) const;
     void flush();
-    virtual ~Column() { if (_host) free(_host); if (_host_idx) free(_host_idx); }
+    void toDate();
+    void toDate(bool isDelimited, DateFormat dateFormat = YYYYMMDD);
+    void toTime(bool isDelimited);
+    void toTime();
+    void toDateTime(bool isDelimited, DateFormat dateFormat = YYYYMMDD);
+    af::array hash(bool sortable = false) const;
+    void toHost(bool clear = false);
+    void clearDevice();
+    void print();
+    static af::array endDate() {
+        return join(0, af::constant(9999, 1, u16), af::constant(12, 1, u16), af::constant(31, 1, u16));
+    }
+    af::array left(unsigned int length);
+    af::array right(unsigned int length);
+    Column trim(unsigned int start, unsigned int length);
+    template<typename T> void cast();
+
     inline af::array& index() { return _idx; }
-    inline af::array& array() { return _device; }
+    inline af::array const& index_() const { return _idx; }
+    inline af::array& data() { return _device; }
+    inline af::array const& data_() const { return _device; }
     inline af::dim4 dims() const { return _device.dims(); }
     inline bool isempty() const { return _device.isempty(); }
     inline dim_t dims(unsigned int const i) const { return _device.dims(i); }
@@ -41,11 +60,10 @@ public:
     inline Proxy col(int i) const { return _device.col(i); }
     inline Proxy rows(int i, int j) const { return _device.rows(i, j); }
     inline Proxy cols(int i, int j) const { return _device.cols(i, j); }
+    inline Proxy index(af::index const &x) const { return _idx(x); }
     inline Proxy index(af::index const &x, af::index const &y) const { return _idx(x, y); }
+    inline Proxy operator()(af::index const &x) const { return _device(x); }
     inline Proxy operator()(af::index const &x, af::index const &y) const { return _device(x, y); }
-    af::array hash(bool sortable = false) const;
-    void toHost(bool clear = false);
-    void clearDevice();
 
     #define ASSIGN(OP) \
     af::array operator OP(Column const &other); \
@@ -58,6 +76,7 @@ public:
     ASSIGN(>)
     ASSIGN(<)
     #undef ASSIGN
+    af::array operator ==(char const *other);
 
 };
 

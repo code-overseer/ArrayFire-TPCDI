@@ -43,3 +43,16 @@ __kernel void string_gather(__global uchar *output, __global ulong const *idx, _
         output[b * (ostart + i) + !b * (out_length - 1)] = b * input[istart + b * i];
     }
 }
+
+__kernel void string_comp(__global bool const *out, __global uchar const *left, __global uchar const *right,
+        __global ulong const *idx, ulong const rows) {
+    ulong const id = get_global_id(0);
+    bool a = id < rows;
+    ulong const istart = idx[(2 * id) * a];
+    ulong const len = idx[(2 * id + 1) * a];
+
+    #pragma unroll LOOP_LENGTH
+    for (ulong i = 0; i < LOOP_LENGTH; ++i) {
+        output[a * id + !a * rows] &= (i >= len || left[i] == right[i]);
+    }
+}

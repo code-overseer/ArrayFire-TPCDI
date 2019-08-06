@@ -3,138 +3,103 @@
 #include "include/TPCDI_Utils.h"
 #include <fstream>
 using namespace af;
-using namespace BatchFunctions;
 using namespace TPCDI_Utils;
 
 FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     auto text = collect(files);
     if (text.back() != '\n') text += '\n';
-    _finwireData = array(text.size() + 1, text.c_str()).as(u8);
-    _finwireData.eval();
-    auto row_end = where64(_finwireData == '\n');
+    _data = array(text.size() + 1, text.c_str()).as(u8);
+    _data.eval();
+    auto row_end = where64(_data == '\n');
     row_end = moddims(row_end, dim4(1, row_end.elements()));
     auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
-    _maxRowWidth = max(diff1(_indexer, 0)).scalar<ull>();
+    max(diff1(_indexer, 0)).scalar<ull>();
 }
 
-af::array FinwireParser::_extract(af::array const &start, unsigned int const length) const {
-    array column;
-    column = batchFunc(start, range(dim4(length), 0, u32), batchAdd);
-    auto dim = column.dims();
-    column = moddims(_finwireData(column).as(u8), dim);
-    column = join(0, column, constant(0, dim4(1, column.dims(1)), u8));
-    column.eval();
-    return column;
+template<> Column FinwireParser::parse<char*>(array &start, unsigned int const length) const {
+    auto idx = join(0, start, constant(length + 1, start.dims(), start.type()));
+    auto out = stringGather(_data, idx);
+    start += length;
+    out(accum(idx.row(1), 1) - 1) = 0; // finwire files have no delimiter, need to add manually
+    af::eval(start, idx, out);
+    return Column(std::move(out), std::move(idx));
 }
-
-AFDataFrame FinwireParser::extractData(RecordType const type) const {
-    AFDataFrame output;
-    array rows;
-    {
-        auto recType = batchFunc(_indexer.row(0), range(dim4(3), 0, u64) + 15, batchAdd);
-        array tmp = _finwireData(recType);
-        tmp = moddims(tmp, dim4(3, tmp.elements() / 3));
-        tmp.eval();
-
-        rows = where(allTrue(batchFunc(tmp, array(3, _search[type]), batchEqual), 0));
-        if (rows.isempty()) {
-            for (int i = 0; i < _widths[type]; ++i) output.add(array(1, 0, u8), STRING);
-            output.data(0) = stringToDateTime(output.data(0), false, YYYYMMDD);
-            output.types(0) = DATETIME;
-            return output;
-        }
-    }
-    unsigned long long const *lengths;
-    switch (type) {
-        case CMP:
-            lengths = _CMPLengths;
-            break;
-        case FIN:
-            lengths = _FINLengths;
-            break;
-        case SEC:
-            lengths = _SECLengths;
-            break;
-        default:
-            throw std::runtime_error("Invalid type");
-    }
-
-    array start = _indexer(0, rows);
-    for (; *lengths; ++lengths) {
-        output.add(_extract(start, *lengths), STRING);
-        start += *lengths;
-    }
-    output.data(0) = stringToDateTime(output.data(0), false, YYYYMMDD);
-    output.types(0) = DATETIME;
+template<typename T>
+Column FinwireParser::parse(array &start, unsigned int const length) const {
+    Column output = parse<char*>(start, length);
+    output.cast<T>();
     return output;
+}
+template Column FinwireParser::parse<unsigned char>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<short>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<unsigned short>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<int>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<unsigned int>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<long long>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<double>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<float>(array &start, unsigned int const length) const;
+template Column FinwireParser::parse<unsigned long long>(array &start, unsigned int const length) const;
+
+af::array FinwireParser::filterRowsByCategory(const FinwireParser::RecordType &type) const {
+    using namespace BatchFunctions;
+    auto recType = af::batchFunc(_indexer.row(0), range(dim4(3), 0, u64) + 15, batchAdd);
+    af::array tmp = _data(recType);
+    tmp = moddims(tmp, dim4(3, tmp.elements() / 3));
+    tmp.eval();
+    return allTrue(batchFunc(tmp, array(3, _search[type]), batchEqual), 0);
 }
 
 AFDataFrame FinwireParser::extractCmp() const {
-    auto output = extractData(CMP);
-    output.data(7) = stringToDate(output.data(7));
-    output.types(7) = DATE;
+    auto rows = filterRowsByCategory(CMP);
+    af::array start = _indexer(0, rows);
+    AFDataFrame output;
+    ull const *lengths = _CMPLengths;
 
+    for (int i = 0; i < _widths[CMP]; ++i) {
+        if (i == 3) output.add(parse<unsigned long long>(start, *lengths));
+        else output.add(parse<char*>(start, *lengths));
+    }
+
+    output.column(7).toDate(false, YYYYMMDD);
+    output.column(0).toDateTime(false, YYYYMMDD);
     return output;
 }
 
 AFDataFrame FinwireParser::extractFin() const {
-    auto output = extractData(FIN);
+    auto rows = filterRowsByCategory(FIN);
+    af::array start = _indexer(0, rows);
+    AFDataFrame output;
+    ull const *lengths = _FINLengths;
+    output.add(parse<char*>(start, *lengths));
+    output.add(parse<char*>(start, *lengths));
+    output.add(parse<unsigned short>(start, *lengths));
+    output.add(parse<unsigned char>(start, *lengths));
+    output.add(parse<char*>(start, *lengths));
+    output.add(parse<char*>(start, *lengths));
+    for (int i = 0; i < 8; ++i) output.add(parse<double>(start, *lengths));
+    output.add(parse<unsigned long long>(start, *lengths));
+    output.add(parse<unsigned long long>(start, *lengths));
 
-    output.data(2) = stringToNum(output.data(2), u16);
-    output.types(2) = USHORT;
-    output.data(3) = stringToNum(output.data(3), u8);
-    output.types(3) = UCHAR;
-    output.data(4) = stringToDate(output.data(4));
-    output.types(4) = DATE;
-    output.data(5) = stringToDate(output.data(5));
-    output.types(5) = DATE;
-    output.data(6) = stringToNum(output.data(6), f64);
-    output.types(6) = DOUBLE;
-    output.data(7) = stringToNum(output.data(7), f64);
-    output.types(7) = DOUBLE;
-    output.data(8) = stringToNum(output.data(8), f64);
-    output.types(8) = DOUBLE;
-    output.data(9) = stringToNum(output.data(9), f64);
-    output.types(9) = DOUBLE;
-    output.data(10) = stringToNum(output.data(10), f64);
-    output.types(10) = DOUBLE;
-    output.data(11) = stringToNum(output.data(11), f64);
-    output.types(11) = DOUBLE;
-    output.data(12) = stringToNum(output.data(12), f64);
-    output.types(12) = DOUBLE;
-    output.data(13) = stringToNum(output.data(13), f64);
-    output.types(13) = DOUBLE;
-    output.data(14) = stringToNum(output.data(14), u64);
-    output.types(14) = ULONG;
-    output.data(15) = stringToNum(output.data(15), u64);
-    output.types(15) = ULONG;
-
+    output.column(4).toDate(false, YYYYMMDD);
+    output.column(5).toDate(false, YYYYMMDD);
+    output.column(0).toDateTime(false, YYYYMMDD);
     return output;
 }
 
 AFDataFrame FinwireParser::extractSec() const {
-    auto output = extractData(SEC);
+    auto rows = filterRowsByCategory(SEC);
+    af::array start = _indexer(0, rows);
+    AFDataFrame output;
+    ull const *lengths = _SECLengths;
+    for (int i = 0; i < 7; ++i) output.add(parse<double>(start, *lengths));
+    output.add(parse<unsigned long long>(start, *lengths));
+    output.add(parse<char*>(start, *lengths));
+    output.add(parse<char*>(start, *lengths));
+    output.add(parse<double>(start, *lengths));
 
-    output.data(7) = stringToNum(output.data(7), u64);
-    output.types(7) = ULONG;
-    output.data(8) = stringToDate(output.data(8));
-    output.types(8) = DATE;
-    output.data(9) = stringToDate(output.data(9));
-    output.types(9) = DATE;
-    output.data(10) = stringToNum(output.data(10), f64);
-    output.types(10) = DOUBLE;
+    output.column(8).toDate(false, YYYYMMDD);
+    output.column(9).toDate(false, YYYYMMDD);
+    output.column(0).toDateTime(false, YYYYMMDD);
     return output;
-}
-
-af::array FinwireParser::_PTSToDatetime(af::array &PTS, bool isDelimited, DateFormat inputFormat) {
-    if (!PTS.dims(1)) return array(6, 0, u16);
-
-    af::array date = PTS.rows(0, isDelimited ? 10 : 8);
-    date = stringToDate(date, isDelimited, inputFormat);
-
-    af::array time = PTS.rows(end - (isDelimited ? 8 : 6), end);
-    time = stringToTime(time, isDelimited);
-
-    return join(0, date, time);
 }

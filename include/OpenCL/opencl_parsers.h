@@ -125,13 +125,21 @@ static void launchStringGather(unsigned char *output, ull const *idx, unsigned c
     }
 }
 
-void inline stringGather(af::array &output, af::array const &input, af::array const &indexer) {
+af::array inline stringGather(af::array const &input, af::array &indexer) {
     using namespace af;
+    indexer = join(0, indexer, scan(indexer.row(1), 1, AF_BINARY_ADD, false));
     auto const loop_length = sum<ull>(max(indexer.row(1), 1));
     auto const out_length = sum<ull>(indexer.row(1));
-    auto const row_nums = indexer.elements() / 3;
-    output = array(out_length, u8);
+    auto output = array(out_length, u8);
 
+    #ifdef USING_AF
+    for (ull i = 0; i < loop_length; ++i) {
+        auto tmp = indexer(seq(0,2,2), indexer.row(1) > i);
+        output(flat(tmp.row(1))) = input(flat(tmp.row(0)));
+    }
+    output.eval();
+    #else
+    auto const row_nums = indexer.elements() / 3;
     auto out_ptr = output.device<unsigned char>();
     auto in_ptr = input.device<unsigned char>();
     auto idx_ptr = indexer.device<ull>();
@@ -142,6 +150,25 @@ void inline stringGather(af::array &output, af::array const &input, af::array co
     output.unlock();
     input.unlock();
     indexer.unlock();
+    #endif
+    indexer.row(0) = (array)indexer.row(2);
+    indexer = indexer.rows(0, 1);
+    indexer.eval();
+    return output;
+}
+
+af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const & l_idx, af::array const & r_idx) {
+    using namespace af;
+    auto out = l_idx.row(1) == r_idx.row(1);
+    auto loop_length = sum<ull>(max(l_idx(1, out)));
+
+    for (ull i = 0; i < loop_length; ++i) {
+        out = out && ( moddims(i >= l_idx, out.dims()) ||
+                moddims(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i), out.dims()) );
+    }
+    out.eval();
+
+    return out;
 }
 
 #endif //ARRAYFIRE_TPCDI_OPENCL_PARSERS_H

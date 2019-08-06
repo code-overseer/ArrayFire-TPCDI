@@ -102,7 +102,7 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     using namespace af;
     auto const bag_size = bag.row(0).elements();
     auto const set_size = set.elements();
-    auto result = constant(0, dim4(1, bag_size + 1), u64);
+    auto result = constant(0, dim4(1, bag_size), u64);
 #ifdef USING_AF
     auto id = range(dim4(1, bag_size * set_size), 1, u64);
     auto i = id / set_size;
@@ -125,7 +125,6 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     set.unlock();
     result.unlock();
 #endif
-    result = result.cols(0, end - 1);
     bag = bag(span, where(result));
     bag.eval();
 }
@@ -148,9 +147,9 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     auto output_pos = right_count * left_count;
     auto output_size = sum<ull>(output_pos);
     output_pos = scan(output_pos, 1, AF_BINARY_ADD, false);
+#ifdef USING_AF
     array left_out(1, output_size + 1, u64);
     array right_out(1, output_size + 1, u64);
-#ifdef USING_AF
     auto i = range(dim4(1, equals * left_max * right_max), 1, u64);
     auto j = i / right_max % left_max;
     auto k = i % right_max;
@@ -158,7 +157,11 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     auto b = !(j / left_count(i)) && !(k / right_count(i));
     left_out(b * (output_pos(i) + left_count(i) * k + j) + !b * output_size) = left_idx(i) + j;
     right_out(b * (output_pos(i) + right_count(i) * j + k) + !b * output_size) = right_idx(i) + k;
+    left_out = left_out.cols(0, end - 1);
+    right_out = right_out.cols(0, end - 1);
 #else
+    array left_out(1, output_size, u64);
+    array right_out(1, output_size, u64);
     auto idx_l = left_idx.device<ull>();
     auto idx_r = right_idx.device<ull>();
     auto count_l = left_count.device<ull>();
@@ -178,8 +181,6 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     left_out.unlock();
     right_out.unlock();
 #endif
-    left_out = left_out.cols(0, end - 1);
-    right_out = right_out.cols(0, end - 1);
     lhs = lhs(1, left_out);
     rhs = rhs(1, right_out);
     lhs.eval();

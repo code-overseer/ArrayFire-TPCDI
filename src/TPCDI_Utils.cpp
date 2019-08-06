@@ -66,76 +66,22 @@ std::string TPCDI_Utils::collect(std::vector<std::string> const &files, bool con
     return output;
 }
 
-inline af::array getNegatives(af::array &str, unsigned int maximum) {
-    auto cond = where(str == '-');
-    auto negatives = cond / maximum;
-    negatives = moddims(negatives, dim4(1, negatives.dims(0)));
-    str(cond) = 255;
-    return negatives;
-}
-
-inline af::array getDecimal(af::array &str, unsigned int maximum) {
-    auto cond = where(str == '.');
-    auto points = constant(0, 1, str.elements() / maximum, s32);
-    points(cond / maximum) = (maximum - cond % maximum).as(s32);
-    str(cond) = 255;
-    return points;
-}
-
-inline void digitsToNumber(af::array &output, af::array const &numLengths, af::array const &points, af::dtype type, unsigned int maximum) {
-
-    auto exponent = batchFunc(flip(range(dim4(maximum), 0, s32), 0) - maximum, numLengths, batchAdd).as(s32);
-    exponent = batchFunc(exponent, points, batchSub);
-    {
-        auto tmp = where(exponent < 0);
-        if (!tmp.isempty()) exponent(tmp) += 1;
-    }
-    exponent = pow(10, exponent.as(type));
-    exponent.eval();
-    output(output == 255) = 0;
-    output *= exponent;
-    output = sum(output, 0).as(type);
-}
-
-af::array TPCDI_Utils::stringToNum(af::array &numstr, af::dtype type) {
-    if (!numstr.dims(1)) return array(0, 0, type);
-    auto lengths = numstr;
-    lengths(where(lengths)) = 255;
-    auto idx = where(lengths == 0);
-    lengths(idx) = (idx % lengths.dims(0)).as(u8);
-    lengths = min(lengths, 0);
-
-    af::array output = numstr.rows(0, end - 1); // removes delimiter
-    output(where(output == ' ')) = '0';
-    auto const maximum = output.dims(0);
-    if (!maximum) return constant(0, numstr.dims(1), type);
-
-    auto negatives = getNegatives(output, maximum);
-    auto points = getDecimal(output, maximum);
-    output(where(output >= '0' && output <= '9')) -= '0';
-
-    digitsToNumber(output, lengths, points, type, maximum);
-    if (!negatives.isempty()) output(negatives) *= -1;
-
-    output.eval();
-    return output;
-}
-
 af::array TPCDI_Utils::flipdims(af::array const &arr) {
     return moddims(arr, af::dim4(arr.dims(1), arr.dims(0)));
 }
 
 af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool const isDelimited, DateFormat dateFormat) {
-    if (!datestr.dims(1)) return array(3, 0, u16);
+    if (!datestr.isempty()) return array(3, 0, u16);
 
-    af::array out = datestr.rows(0, end - 1);
+    auto out = (isDelimited) ?
+              moddims(datestr, dim4(11, datestr.elements() / 11)) :
+              moddims(datestr, dim4(9, datestr.elements() / 9));
+    out = out.rows(0, end - 1);
     out(span, where(allTrue(out == ' ', 0))) = '0';
     out(where(out >= '0' && out <='9')) -= '0';
-    if (isDelimited) {
-        auto delims = dateDelimIndices(dateFormat);
-        out(seq(delims.first, delims.second, delims.second - delims.first), span) = 255;
-        out = out(out >= 0 && out <= 9);
-    }
+
+    if (isDelimited) out = out(out >= 0 && out <= 9);
+
     out = moddims(out, dim4(8, out.elements() / 8));
     auto th = flip(pow(10, range(dim4(4), 0, u16)), 0);
     auto tens = flip(pow(10, range(dim4(2), 0, u16)), 0);
@@ -170,25 +116,12 @@ af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool const isDelim
     return out;
 }
 
-af::array TPCDI_Utils::dehashDate(af::array const &dateHash, DateFormat format) {
-    switch (format) {
-        case YYYYMMDD:
-            return join(0, dateHash / 10000, dateHash % 10000 / 100, dateHash % 100).as(u16);
-        case YYYYDDMM:
-            return join(0, dateHash / 10000, dateHash % 100, dateHash % 10000 / 100).as(u16);
-        case MMDDYYYY:
-            return join(0, dateHash % 10000, dateHash / 1000000, dateHash % 10000 % 100).as(u16);
-        case DDMMYYYY:
-            return join(0, dateHash % 10000, dateHash % 10000 % 100, dateHash / 1000000).as(u16);
-        default:
-            throw std::runtime_error("No such date format");
-    }
-}
-
 array TPCDI_Utils::stringToTime(af::array const &timestr, bool isDelimited) {
-    if (!timestr.dims(1)) return array(3, 0, u16);
-
-    af::array out = timestr.rows(0, end - 1);
+    if (!timestr.isempty()) return array(3, 0, u16);
+    auto out = (isDelimited) ?
+               moddims(timestr, dim4(9, timestr.elements() / 9)) :
+               moddims(timestr, dim4(7, timestr.elements() / 7));
+    out = out.rows(0, end - 1);
     out(span, where(allTrue(out == ' ', 0))) = '0';
     out(out >= '0' && out <='9') -= '0';
     if (isDelimited) out(seq(2, 5, 3), span) = 255;
@@ -204,24 +137,18 @@ array TPCDI_Utils::stringToTime(af::array const &timestr, bool isDelimited) {
 }
 
 af::array TPCDI_Utils::stringToDateTime(af::array &datetimestr, bool const isDelimited, DateFormat dateFormat) {
-    if (!datetimestr.dims(1)) return array(6, 0, u16);
-    af::array date = datetimestr.rows(0, isDelimited ? 10 : 8);
+    if (datetimestr.isempty()) return array(6, 0, u16);
+    auto length = sum<unsigned int>(max(diff1(where(datetimestr == 0),0),0));
+    if (!length) return array(6, 0, u16);
+    auto out = moddims(datetimestr, dim4(length, datetimestr.elements() / length));
+
+    af::array date = out.rows(0, isDelimited ? 10 : 8);
     date = stringToDate(date, isDelimited, dateFormat);
 
-    af::array time = datetimestr.rows(end - (isDelimited ? 8 : 6), end);
+    af::array time = out.rows(end - (isDelimited ? 8 : 6), end);
     time = stringToTime(time, isDelimited);
 
     return join(0, date, time);
-}
-
-af::array TPCDI_Utils::stringToBoolean(af::array &boolstr) {
-    if (!boolstr.dims(1)) return array(0, b8);
-    array out = boolstr.row(0);
-    out(out == 'T' || out == 't' || out == '1' || out =='Y' || out == 'y' || out != 0) = 1;
-    out(out != 1) = 0;
-    out = moddims(out, dim4(out.dims(1), out.dims(0))).as(b8);
-    out.eval();
-    return out;
 }
 
 af::array TPCDI_Utils::polyHash(array const &column) {

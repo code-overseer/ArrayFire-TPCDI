@@ -128,11 +128,13 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     rhs.eval();
 }
 
-void inline stringGather(af::array &output, af::array const &input, af::array const &indexer) {
+af::array inline stringGather(af::array const &input, af::array &indexer) {
     using namespace af;
+    indexer = join(0, indexer, scan(indexer.row(1), 1, AF_BINARY_ADD, false));
+    indexer.eval();
     auto const out_length = sum<ull>(indexer.row(1));
     auto const row_nums = indexer.elements() / 3;
-    output = array(out_length, u8);
+    auto output = array(out_length, u8);
 
     auto out_ptr = output.device<unsigned char>();
     auto in_ptr = input.device<unsigned char>();
@@ -148,5 +150,9 @@ void inline stringGather(af::array &output, af::array const &input, af::array co
     output.unlock();
     input.unlock();
     indexer.unlock();
+    indexer.row(0) = (array)indexer.row(2);
+    indexer = indexer.rows(0, 1);
+    indexer.eval();
+    return output;
 }
 #endif //ARRAYFIRE_TPCDI_VECTOR_FUNCTIONS_H

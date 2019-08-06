@@ -29,13 +29,13 @@ public:
     void insert(Column &&column, int index, const char *name = nullptr);
     void remove(int index);
     af::array stringMatch(int column, char const *str) const;
-    AFDataFrame select(af::array const &index, std::string const &name) const;
+    AFDataFrame select(af::array const &index, std::string const &name = "") const;
     AFDataFrame project(int const *columns, int size, std::string const &name) const;
     AFDataFrame project(std::string const *names, int size, std::string const &name) const;
     AFDataFrame unionize(AFDataFrame &frame) const;
     AFDataFrame unionize(AFDataFrame &&frame) const { return unionize(frame); }
     AFDataFrame zip(AFDataFrame &rhs) const;
-
+    static std::pair<af::array, af::array> setCompare(Column const &lhs, Column const &rhs);
     static std::pair<af::array, af::array> setCompare(af::array const &lhs, af::array const &rhs);
     void sortBy(int column, bool isAscending = true);
     void sortBy(int *columns, int size, const bool *isAscending = nullptr);
@@ -52,9 +52,12 @@ public:
     inline AFDataFrame zip(AFDataFrame &&rhs) const { return zip(rhs); }
     inline AFDataFrame concatenate(AFDataFrame &frame) const { return unionize(std::move(frame)); }
     inline bool isEmpty() { return _data.empty() || _data[0].isempty(); }
-    inline std::vector<Column> &data() { return _data; }
-    inline Column &data(unsigned int column) { return _data[column]; }
-    inline Column &data(std::string const &name) { return data(_nameToIdx.at(name)); }
+    inline std::vector<Column> &columns() { return _data; }
+    inline std::vector<Column> const &columns_() { return _data; }
+    inline Column &operator()(unsigned int column) { return _data[column]; }
+    inline Column &operator()(std::string const &name) { return column(_nameToIdx.at(name)); }
+    inline Column &column(unsigned int i) { return _data[i]; }
+    inline Column &column(std::string const &name) { return column(_nameToIdx.at(name)); }
     inline AFDataFrame equiJoin(AFDataFrame const &rhs, std::string const &lName, std::string const &rName) const { return equiJoin(rhs, _nameToIdx.at(lName), rhs._nameToIdx.at(rName)); }
     inline void sortBy(std::string const &name, bool isAscending = true) { sortBy(_nameToIdx.at(name), isAscending); }
     inline void sortBy(std::string const *columns, int const size, bool const *isAscending = nullptr) {
@@ -71,6 +74,5 @@ private:
     std::string _name;
     std::unordered_map<std::string, unsigned int> _nameToIdx;
     std::unordered_map<unsigned int, std::string> _idxToName;
-    void _flush(af::array const &idx);
 };
 #endif //ARRAYFIRE_TPCDI_AFDATAFRAME_H
