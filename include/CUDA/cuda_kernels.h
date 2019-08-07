@@ -1,6 +1,6 @@
 #ifndef CUDA_KERNELS_H
 #define CUDA_KERNELS_H
-
+#include "include/Logger.h"
 #include <cuda.h>
 #include <stdio.h>
 #include <arrayfire.h>
@@ -19,7 +19,7 @@ __global__ static void bag_set(ull *result, ull const *bag, ull const *set, ull 
 	 ull i = id / set_size;
 	 ull j = id % set_size;
 	 bool b = id < bag_size * set_size && set[j] == bag[2 * i];
-	 if (b) result[k] = 1;
+	 if (b) result[i] = 1;
 }
 
 __global__ static void join_scatter(ull const *il, ull const *ir, ull const *cl, ull const *cr, ull const *outpos,
@@ -63,10 +63,10 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
         ull j = i * (i < len);
         unsigned char c = input[s + j];
         bool d = c != '-' && j != dec;
-        number += (len > 0 && d && i < len) * (c - '0') * (PARSE_TYPE)pown(10.0, p);
+        number += (len > 0 && d && i < len) * (c - '0') * (T)pow(10.0, p);
         p -= d;
     }
-    output[b * id + !b * row_num] = number * (!neg - neg);
+    output[b * id + !b * rows] = number * (!neg - neg);
 }
 
 __global__ static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
@@ -84,7 +84,7 @@ __global__ static void string_gather(unsigned char *output, ull const *idx, unsi
 }
 
 __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right,
-        ull const *l_idx, ull const *r_idx ull const rows, ull const loops) {
+                               ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
     ull const id = blockIdx.x * blockDim.x + threadIdx.x;
     bool a = id < rows;
     ull const l_start = l_idx[(2 * id) * a];
@@ -138,14 +138,15 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace TPCDI_Utils;
+    Logger::startTimer("Join Prepare");
     auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    left_count = flipdims(histogram(left_count, left_count.elements())).as(u64);
+    left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
     left_count = left_count(left_count > 0);
     auto left_max = sum<unsigned int>(max(left_count, 1));
     auto left_idx = scan(left_count, 1, AF_BINARY_ADD, false);
 
     auto right_count = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    right_count = flipdims(histogram(right_count, right_count.elements())).as(u64);
+    right_count = hflat(histogram(right_count, right_count.elements())).as(u64);
     right_count = right_count(right_count > 0);
     auto right_max = sum<unsigned int>(max(right_count, 1));
     auto right_idx = scan(right_count, 1, AF_BINARY_ADD, false);
@@ -153,6 +154,7 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     auto output_pos = right_count * left_count;
     auto output_size = sum<ull>(output_pos);
     output_pos = scan(output_pos, 1, AF_BINARY_ADD, false);
+    Logger::logTime("Join Prepare");
 #ifdef USING_AF
     array left_out(1, output_size + 1, u64);
     array right_out(1, output_size + 1, u64);
@@ -219,7 +221,7 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     auto idx_ptr = indexer.device<ull>();
     af::sync();
     ull const threadLimit = THREAD_LIMIT;
-    ull const threadCount = equals * left_max * right_max;
+    ull const threadCount = row_nums;
     ull const blocks = (threadCount/threadLimit) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);
@@ -244,7 +246,7 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     }
     out.eval();
     #else
-    auto out_ptr = out.device<bool>();
+    auto out_ptr = (bool*)out.device<char>();
     auto left_ptr = lhs.device<unsigned char>();
     auto right_ptr = rhs.device<unsigned char>();
     auto l_idx_ptr = l_idx.device<ull>();
@@ -252,7 +254,7 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     auto const rows = l_idx.elements() / 2;
     af::sync();
     ull const threadLimit = THREAD_LIMIT;
-    ull const threadCount = equals * left_max * right_max;
+    ull const threadCount = rows;
     ull const blocks = (threadCount/threadLimit) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);
@@ -281,7 +283,7 @@ af::array inline numericParse(af::array const &input, af::array const &indexer) 
     af::sync();
 
     ull const threadLimit = THREAD_LIMIT;
-    ull const threadCount = equals * left_max * right_max;
+    ull const threadCount = row_nums;
     ull const blocks = (threadCount/threadLimit) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);

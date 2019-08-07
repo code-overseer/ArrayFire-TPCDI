@@ -49,12 +49,16 @@ int main(int argc, char *argv[]) {
     }
     Logger::startTimer("0");
 //    test_Float(DIR::FLOAT);
+    print("Finwire");
     auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+    print("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY);
 //    auto statusType = loadStatusType(DIR::DIRECTORY);
+    print("DimCompany");
     auto dimCompany = finwire.company.equiJoin(industry,5,0);
 //    dimCompany = dimCompany.equiJoin(statusType, 4, 0);
     Logger::logTime("0");
+    dimCompany("CIK").printColumn();
     return 0;
 }
 

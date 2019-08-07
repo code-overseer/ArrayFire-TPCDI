@@ -6,7 +6,7 @@
 #define ARRAYFIRE_TPCDI_AFTYPES_H
 #include <arrayfire.h>
 #include <string>
-
+#include "include/Enums.h"
 template<af::dtype> struct GetType;
 template<> struct GetType<b8> { static constexpr bool value = false; };
 template<> struct GetType<u8> { static constexpr unsigned char value = 0; };
