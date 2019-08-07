@@ -56,7 +56,7 @@ AFParser::~AFParser() {
 
 void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
     _indexer = where64(_data == '\n');
-    _indexer = flipdims(_indexer);
+    _indexer = hflat(_indexer);
     _length = _indexer.elements();
     {
         auto col_end = where64(_data == delimiter);

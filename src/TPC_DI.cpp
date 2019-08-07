@@ -395,7 +395,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
 
-    auto out = AFDataFrame::setCompare(dimCompany.column("SK_CompanyID").data_(), s0.column("SK_CompanyID").data_());
+    auto out = AFDataFrame::setCompare(dimCompany.column("SK_CompanyID").data(), s0.column("SK_CompanyID").data());
     dimCompany.column("IsCurrent")(out.first) = 0;
     dimCompany.column("EndDate")(span, out.first) = (array) s0.column("EndDate")(span, out.second);
 
@@ -578,7 +578,7 @@ inline array marketingNameplate(array const &networth, array const &income, arra
     out(seq(45,54,1), j) = tile(val(seq(0,9,1), 5), dim4(1, j.dims(0)));
     out(55, span) = '\n';
     out = out(where(out)).as(u32);
-    idx = flipdims(where(out == '\n'));
+    idx = hflat(where(out == '\n'));
     out(idx) = 0;
     auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
     idx = join(0, tmp, idx);
@@ -631,14 +631,14 @@ AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate) {
 
     auto col = Column(tile(batchDate.column(1)(span, where(batchDate.column(0) == batchID)), dim), DATE);
     prospect.insert(Column(col.hash(), ULONG), 1, "SK_RecordDateID");
-    prospect.insert(Column(array(prospect.column("SK_RecordDateID").data_()), ULONG), 2, "SK_UpdateDateID");
+    prospect.insert(Column(array(prospect.column("SK_RecordDateID").data()), ULONG), 2, "SK_UpdateDateID");
     prospect.insert(Column(constant(1, dim, u32), UINT), 3, "BatchID");
     prospect.insert(Column(constant(0, dim, u8), BOOL), 4, "IsCustomer");
-    auto tmp = marketingNameplate(prospect.column("NetWorth").data_(), prospect.column("Income").data_(),
-                             prospect.column("NumberCreditCards").data_(),
-                             prospect.column("NumberChildren").data_(), prospect.column("Age").data_(),
-                             prospect.column("CreditRating").data_(),
-                             prospect.column("NumberCars").data_());
+    auto tmp = marketingNameplate(prospect.column("NetWorth").data(), prospect.column("Income").data(),
+                                  prospect.column("NumberCreditCards").data(),
+                                  prospect.column("NumberChildren").data(), prospect.column("Age").data(),
+                                  prospect.column("CreditRating").data(),
+                                  prospect.column("NumberCars").data());
     prospect.add(Column(tmp, STRING), "MarketingNameplate");
 
     return prospect;
@@ -711,29 +711,29 @@ inline af::array phoneNumberProcessing(af::array const &ctry, af::array const &a
     out(0, cond1) = '+';
 
     auto idx = range(dim4(c), 0, u32) + 1;
-    idx = batchFunc(idx, flipdims(cond1) * out.dims(0) , BatchFunctions::batchAdd);
+    idx = batchFunc(idx, hflat(cond1) * out.dims(0) , BatchFunctions::batchAdd);
     out(idx) = flat(ctry(span, cond1));
     auto j = join(0, cond1, cond2);
     out(c + 1, j) = '(';
     idx = range(dim4(a), 0, u32) + c + 2;
-    idx = batchFunc(idx, flipdims(j) * out.dims(0) , BatchFunctions::batchAdd);
+    idx = batchFunc(idx, hflat(j) * out.dims(0) , BatchFunctions::batchAdd);
     out(idx) = flat(area(span, j));
     out(2 + c + a, j) = ')';
 
     j = join(0, j, cond3);
     idx = range(dim4(l), 0, u32) + c + a + 3;
-    idx = batchFunc(idx, flipdims(j) * out.dims(0) , BatchFunctions::batchAdd);
+    idx = batchFunc(idx, hflat(j) * out.dims(0) , BatchFunctions::batchAdd);
     out(idx) = flat(local(span, j));
 
     j = join(0, j, extNotNull);
     idx = range(dim4(e), 0, u32) + c + a + l + 3;
-    idx = batchFunc(idx, flipdims(j) * out.dims(0) , BatchFunctions::batchAdd);
+    idx = batchFunc(idx, hflat(j) * out.dims(0) , BatchFunctions::batchAdd);
     out(idx) = flat(ext(span, j));
 
     out(3 + c + a + l + e, span) = '\n';
 
     out = out(where(out)).as(u32);
-    idx = flipdims(where(out == '\n'));
+    idx = hflat(where(out == '\n'));
     out(idx) = 0;
     auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
     idx = join(0, tmp, idx);
@@ -776,12 +776,12 @@ AFDataFrame loadDimCustomer(Customer &s_Customer, AFDataFrame &taxRate, AFDataFr
     for (auto const &i: input) dimCustomer.add(std::move(frame.column(i.first)), i.second);
 
     dimCustomer.insert(Column(tile(array(dim4(7), "ACTIVE"), dim), STRING), 2, "Status");
-    dimCustomer.insert(Column(phoneNumberProcessing(frame.column(18).data_(), frame.column(19).data_(),
-            frame.column(20).data_(), frame.column(21).data_()), STRING), 15, "Phone1");
-    dimCustomer.insert(Column(phoneNumberProcessing(frame.column(22).data_(), frame.column(23).data_(),
-            frame.column(24).data_(), frame.column(25).data_()), STRING), 16, "Phone2");
-    dimCustomer.insert(Column(phoneNumberProcessing(frame.column(26).data_(), frame.column(27).data_(),
-            frame.column(28).data_(), frame.column(29).data_()), STRING), 17, "Phone3");
+    dimCustomer.insert(Column(phoneNumberProcessing(frame.column(18).data(), frame.column(19).data(),
+                                                    frame.column(20).data(), frame.column(21).data()), STRING), 15, "Phone1");
+    dimCustomer.insert(Column(phoneNumberProcessing(frame.column(22).data(), frame.column(23).data(),
+                                                    frame.column(24).data(), frame.column(25).data()), STRING), 16, "Phone2");
+    dimCustomer.insert(Column(phoneNumberProcessing(frame.column(26).data(), frame.column(27).data(),
+                                                    frame.column(28).data(), frame.column(29).data()), STRING), 17, "Phone3");
     {
         AFDataFrame tmp;
         tmp.name("NationalTax");

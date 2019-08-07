@@ -9,6 +9,10 @@
 #ifdef USING_OPENCL
     #include "include/OpenCL/opencl_kernels.h"
     #include "include/OpenCL/opencl_parsers.h"
+#elif defined(USING_CUDA)
+    #include "include/CUDA/cuda_kernels.h"
+#else
+    #include "include/CPU/vector_functions.h"
 #endif
 
 #ifndef ULL

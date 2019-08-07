@@ -1,18 +1,14 @@
-//
-// Created by Bryan Wong on 2019-08-03.
-//
-
 #ifndef ARRAYFIRE_TPCDI_OPENCL_PARSERS_H
 #define ARRAYFIRE_TPCDI_OPENCL_PARSERS_H
-#include <arrayfire.h>
-#include <include/AFTypes.h>
-#include "opencl_helper.h"
-#include "include/TPCDI_Utils.h"
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
 #else
 #include <CL/cl.h>
 #endif
+#include <arrayfire.h>
+#include "opencl_helper.h"
+#include <include/AFTypes.h>
+#include "include/TPCDI_Utils.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
@@ -82,7 +78,8 @@ af::array inline numericParse(af::array const &input, af::array const &indexer) 
     return output;
 }
 
-static void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const loop_len, ull const output_size, ull const row_num) {
+static void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const loop_len,
+        ull const output_size, ull const row_num) {
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
     cl_command_queue queue = create_queue(context);
@@ -157,15 +154,17 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     indexer.eval();
     return output;
 }
-af::array inline stringGather(af::array &&input, af::array &&indexer) { return stringGather(input, indexer); }
 
-af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const & l_idx, af::array const & r_idx) {
+
+
+af::array inline stringComp(Column const &lhs, Column const &rhs) {
     using namespace af;
-    auto out = l_idx.row(1) == r_idx.row(1);
-    auto loop_length = sum<ull>(max(l_idx(1, out)));
+    auto out = lhs.index().row(1) == rhs.index().row(1);
+    auto loop_length = sum<ull>(max(lhs.index()(1, out)));
 
     for (ull i = 0; i < loop_length; ++i) {
-        out = flat(out) && (flat(l_idx.row(1) <= i) || flat(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i)) );
+        out = flat(out) && (flat(lhs.index().row(1) <= i) || flat(lhs(lhs.index().row(0) + i) == rhs(
+                rhs.index().row(0) + i)) );
     }
     out.eval();
 

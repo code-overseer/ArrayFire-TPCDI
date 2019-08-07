@@ -1,6 +1,5 @@
-//
-// Created by Bryan Wong on 2019-07-31.
-//
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "cert-err34-c"
 
 #ifndef ARRAYFIRE_TPCDI_VECTOR_FUNCTIONS_H
 #define ARRAYFIRE_TPCDI_VECTOR_FUNCTIONS_H
@@ -9,6 +8,8 @@
 #include <cstdio>
 #include <algorithm>
 #include <arrayfire.h>
+#include <cstdlib>
+#include "include/Column.h"
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
 #ifndef ULL
@@ -35,7 +36,7 @@ static void isExist_single(ull &result, ull const &input, ull const *set,  ull &
     }
 }
 
-void inline launchIntersect(ull *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+static void launchIntersect(ull *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     if (bag_size * set_size > 10000000llU) {
         ull const limit = std::thread::hardware_concurrency() - 1;
         ull const threadCount = bag_size;
@@ -92,13 +93,13 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace TPCDI_Utils;
 
     auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    left_count = flipdims(histogram(left_count, left_count.elements())).as(u64);
+    left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
     left_count = left_count(left_count > 0);
     auto left_max = sum<unsigned int>(max(left_count, 1));
     auto left_idx = scan(left_count, 1, AF_BINARY_ADD, false);
 
     auto right_count = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    right_count = flipdims(histogram(right_count, right_count.elements())).as(u64);
+    right_count = hflat(histogram(right_count, right_count.elements())).as(u64);
     right_count = right_count(right_count > 0);
     auto right_max = sum<unsigned int>(max(right_count, 1));
     auto right_idx = scan(right_count, 1, AF_BINARY_ADD, false);
@@ -161,4 +162,71 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     indexer.eval();
     return output;
 }
+
+af::array inline stringComp(Column const &lhs, Column const &rhs) {
+    using namespace af;
+    auto out = lhs.index().row(1) == rhs.index().row(1);
+    auto loop_length = sum<ull>(max(lhs.index()(1, out)));
+
+    for (ull i = 0; i < loop_length; ++i) {
+        out = flat(out) && (flat(lhs.index().row(1) <= i) || flat(lhs(lhs.index().row(0) + i) == rhs(
+                rhs.index().row(0) + i)) );
+    }
+    out.eval();
+
+    return out;
+}
+
+template<typename T> inline T convert(unsigned char* start, unsigned char**end);
+template<> inline float convert<float>(unsigned char* start, unsigned char**end) {
+    return std::strtof((char*)start, (char**)end);
+}
+template<> inline double convert<double>(unsigned char* start, unsigned char**end) {
+    return std::strtod((char*)start, (char**)end);
+}
+template<> inline unsigned char convert<unsigned char>(unsigned char* start, unsigned char**end) {
+    return (unsigned char)std::strtoul((char*)start, (char**)end, 0);
+}
+template<> inline unsigned short convert<unsigned short>(unsigned char* start, unsigned char**end) {
+    return (unsigned short)std::strtoul((char*)start, (char**)end, 0);
+}
+template<> inline short convert<short>(unsigned char* start, unsigned char**end) {
+    return (short)std::strtol((char*)start, (char**)end, 0);
+}
+template<> inline unsigned int convert<unsigned int>(unsigned char* start, unsigned char**end) {
+    return std::strtoul((char*)start, (char**)end, 0);
+}
+template<> inline int convert<int>(unsigned char* start, unsigned char**end) {
+    return (int)std::strtol((char*)start, (char**)end, 0);
+}
+template<> inline ull convert<ull>(unsigned char* start, unsigned char**end) {
+    return std::strtoull((char*)start, (char**)end, 0);
+}
+template<> inline long long convert<long long>(unsigned char* start, unsigned char**end) {
+    return std::strtoll((char*)start, (char**)end, 0);
+}
+
+template<typename T>
+af::array inline numericParse(af::array const &input, af::array const &indexer) {
+    using namespace af;
+    auto in = input;
+    in(sum(indexer, 0) - 1) = '\n';
+    auto const row_nums = indexer.elements() / 2;
+    auto output = array(1, row_nums + 1, GetAFType<T>().af_type);
+    auto out_ptr = output.device<T>();
+    auto in_ptr = in.device<unsigned char>();
+    af::sync();
+    unsigned char* endptr = in_ptr - 1;
+    for (ull i = 0; i < row_nums; ++i) {
+        out_ptr[i] = *(++endptr) == '\n' ? 0 : convert<T>(endptr, &endptr);
+    }
+    output.unlock();
+    input.unlock();
+    indexer.unlock();
+    output = output.cols(0, end - 1);
+    output.eval();
+    return output;
+}
 #endif //ARRAYFIRE_TPCDI_VECTOR_FUNCTIONS_H
+
+#pragma clang diagnostic pop

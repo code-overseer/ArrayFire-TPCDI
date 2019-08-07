@@ -14,11 +14,11 @@ void printStr(af::array str_array, std::ostream &out = std::cout);
 namespace TPCDI_Utils {
     std::string loadFile(char const *filename);
     std::string collect(std::vector<std::string> const &files, bool hasHeader = false);
-    af::array flipdims(af::array const &arr);
     af::array stringToDate(af::array const &datestr, bool isDelimited = false, DateFormat dateFormat = YYYYMMDD);
     af::array stringToTime(af::array const &timestr, bool isDelimited = false);
     af::array stringToDateTime(af::array &datetimestr, bool isDelimited = false, DateFormat dateFormat = YYYYMMDD);;
     af::array where64(af::array const &input);
+    inline af::array hflat(af::array const &arr) { return moddims(flat(arr), af::dim4(1, arr.elements())); }
 }
 
 namespace XML_Parser {

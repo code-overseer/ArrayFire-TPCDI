@@ -7,9 +7,9 @@
 #if defined(USING_OPENCL)
 #include "include/OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
-#include "CUDA/cuda_kernels.h"
+#include "include/CUDA/cuda_kernels.h"
 #else
-#include "CPU/vector_functions.h"
+#include "include/CPU/vector_functions.h"
 #endif
 #ifndef ULL
 #define ULL
@@ -178,7 +178,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     if (left.type() == STRING) {
         l = left.index(af::span, idx.first);
         r = right.index(af::span, idx.second);
-        auto keep = stringComp(left.data_(), right.data_(), l, r);
+        auto keep = stringComp(left, right);
         idx.first = idx.first(keep);
         idx.second = idx.second(keep);
     }
@@ -198,7 +198,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(Column const &lhs, Column const &rhs) {
-    return setCompare(lhs.data_(), rhs.data_());
+    return setCompare(lhs.data(), rhs.data());
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
@@ -213,7 +213,7 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
 
-    auto const equalSet = flipdims(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
+    auto const equalSet = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
     bagSetIntersect(lhs, equalSet);
     bagSetIntersect(rhs, equalSet);
 

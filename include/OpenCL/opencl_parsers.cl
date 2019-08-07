@@ -45,14 +45,16 @@ __kernel void string_gather(__global uchar *output, __global ulong const *idx, _
 }
 
 __kernel void str_cmp(__global bool *output, __global uchar const *left, __global uchar const *right,
-        __global ulong const *idx, ulong const rows) {
+        __global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
     ulong const id = get_global_id(0);
     bool a = id < rows;
-    ulong const istart = idx[(2 * id) * a];
-    ulong const len = idx[(2 * id + 1) * a];
-
+    ulong const l_start = l_idx[(2 * id) * a];
+    ulong const r_start = r_idx[(2 * id) * a];
+    ulong const len = l_idx[(2 * id + 1) * a];
+    bool out = output[a * id + !a * rows];
     #pragma unroll LOOP_LENGTH
     for (ulong i = 0; i < LOOP_LENGTH; ++i) {
-        output[a * id + !a * rows] &= (i >= len || left[i] == right[i]);
+        out &= (len < i || left[l_start + i] == right[r_start + i]);
     }
+    output[a * id + !a * rows] = out;
 }

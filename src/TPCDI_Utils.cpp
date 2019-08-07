@@ -66,10 +66,6 @@ std::string TPCDI_Utils::collect(std::vector<std::string> const &files, bool con
     return output;
 }
 
-af::array TPCDI_Utils::flipdims(af::array const &arr) {
-    return moddims(arr, af::dim4(arr.dims(1), arr.dims(0)));
-}
-
 af::array TPCDI_Utils::stringToDate(af::array const &datestr, bool const isDelimited, DateFormat dateFormat) {
     if (!datestr.isempty()) return array(3, 0, u16);
 

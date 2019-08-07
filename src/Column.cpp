@@ -5,13 +5,15 @@
 #include <cstring>
 #ifdef USING_OPENCL
     #include "include/OpenCL/opencl_parsers.h"
+#elif defined(USING_CUDA)
+    #include "include/CUDA/cuda_kernels.h"
 #else
     #include "include/CPU/vector_functions.h"
-
-
 #endif
+
 Column::Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
     _type(other._type), _host(other._host), _host_idx(other._host_idx) {
+    other._length = 0;
     other._host_idx = nullptr;
     other._host = nullptr;
 }
@@ -21,15 +23,28 @@ Column::Column(Column::Proxy &&data, Column::Proxy &&idx) {
 }
 
 Column::Column(Column::Proxy const &data, Column::Proxy const &idx) {
-    _device = data; _idx = idx;
+    _device = data; _idx = idx; _length = _idx.dims(1);
 }
 
 Column::Column(Column::Proxy &&data, DataType const type) : _type(type) {
-    _device = data;
+    _device = data; _length = _device.dims(1);
 }
 
 Column::Column(Column::Proxy const &data, DataType const type) : _type(type) {
-    _device = data;
+    _device = data; _length = _device.dims(1);
+}
+
+Column &Column::operator=(Column &&other) noexcept {
+    _device = std::move(other._device);
+    _idx = std::move(other._idx);
+    _type = other._type;
+    _length = other._length;
+    _host = other._host;
+    _host_idx = other._host_idx;
+    other._length = 0;
+    other._host = nullptr;
+    other._host_idx = nullptr;
+    return *this;
 }
 
 af::array Column::_fnv1a() const {
@@ -60,11 +75,23 @@ af::array Column::_wordHash() const {
         output(k, b) = flat(output(k, b)) | flat(_device(_idx(0, b) + i) << j);
         if (!j) ++k;
     }
+    output.eval();
     return output;
 }
 
+af::array Column::_dateHash() const {
+    auto mult = flip(pow(100Ull, range(af::dim4(3,1), 0, u64)), 0);
+    auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
+    return sum(key, 0).as(u64);
+}
+
+af::array Column::_datetimeHash() const {
+    auto mult = flip(pow(100Ull, range(af::dim4(6,1), 0, u64)), 0);
+    auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
+    return sum(key, 0).as(u64);
+}
+
 af::array Column::hash(bool const sortable) const {
-    using namespace TPCDI_Utils;
     if (_type == STRING) return sortable ? _wordHash() : _fnv1a();
     if (_type == DATE) return _dateHash();
     if (_type == TIME) return _timeHash();
@@ -80,8 +107,8 @@ af::array Column::operator==(af::array OP other) { \
     return _device == other; \
 } \
 af::array Column::operator!=(af::array OP other) { return !(*this == other); }
-ASSIGN( const &)
 
+ASSIGN( const &)
 ASSIGN(&&)
 #undef ASSIGN
 #define ASSIGN(OP) \
@@ -98,9 +125,7 @@ af::array Column::operator OP(af::array &&other) { return *this OP other; }
 ASSIGN(<)
 ASSIGN(>)
 ASSIGN(<=)
-
 ASSIGN(>=)
-
 #undef ASSIGN
 
 af::array Column::operator==(Column const &other) {
@@ -120,17 +145,6 @@ af::array Column::operator!=(Column const &other) { return !(*this == other); }
 void Column::flush() {
     if (_type != STRING) return;
     _device = stringGather(_device, _idx);
-}
-
-Column &Column::operator=(Column &&other) noexcept {
-    _device = std::move(other._device);
-    _idx = std::move(other._idx);
-    _type = other._type;
-    _host = other._host;
-    _host_idx = other._host_idx;
-    other._host = nullptr;
-    other._host_idx = nullptr;
-    return *this;
 }
 
 Column Column::concatenate(Column &bottom) {
@@ -241,14 +255,15 @@ void Column::toTime() {
 af::array Column::left(unsigned int length) {
     if (type() != STRING) throw std::runtime_error("Expected String");
     if (!where(anyTrue(_idx(1, af::span) < length)).isempty()) throw std::runtime_error("Some strings are too short");
-    auto out = af::batchFunc(_idx(0, af::span), af::range(af::dim4(length), u32), BatchFunctions::batchAdd);
-    out = moddims(_device(out), out.dims());
-    return out;
+    auto idx = _idx;
+    idx.row(1) = length;
+    auto out = stringGather(_device, idx);
+    return moddims(out, af::dim4(length, out.elements() / length));
 }
 af::array Column::right(unsigned int length) {
     if (type() != STRING) throw std::runtime_error("Expected String");
     if (!where(anyTrue(_idx(1, af::span) < length + 1)).isempty()) throw std::runtime_error("Some strings are too short");
-    auto end = af::accum(_idx(1, af::span)).as(s64) - 2;
+    auto end = af::sum(_idx.as(s64), 0) - 2;
     auto out = af::batchFunc(end, af::range(af::dim4(length), s32), BatchFunctions::batchSub);
     out = moddims(_device(out), out.dims());
     return out;
@@ -256,11 +271,12 @@ af::array Column::right(unsigned int length) {
 
 Column Column::trim(unsigned int start, unsigned int length) {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(anyTrue(_idx(1, af::span) < (start + length))).isempty()) throw std::runtime_error("Some strings are too short");
-    auto out = af::batchFunc(_idx(0, af::span), af::range(af::dim4(length + 1), u32) + start, BatchFunctions::batchAdd);
-    out.row(af::end) = _device.elements() - 1;
-
-    return Column(_device(out), STRING);
+    if (!where(anyTrue(flat(_idx(1, af::span) <= (length + start)))).isempty()) throw std::runtime_error("Some strings are too short");
+    auto idx = _idx;
+    idx.row(1) = length + 1;
+    auto out = Column(stringGather(_device, idx), std::move(idx));
+    out._device(out.irow(0) + length) = 0;
+    return out;
 }
 
 template<typename T>
@@ -269,7 +285,7 @@ void Column::cast() {
     if (_type == DATE || _type == TIME || _type == DATETIME) throw std::runtime_error("Invalid Type");
     if (_type == STRING) {
         _device = _device(_device != ' ');
-        _idx = af::diff1(af::join(1, af::constant(0, 1, u64), flipdims(where64(_device == 0))), 1);
+        _idx = af::diff1(af::join(1, af::constant(0, 1, u64), hflat(where64(_device == 0))), 1);
         _idx(0) += 1;
         _idx = join(0, af::scan(_idx, 1, AF_BINARY_ADD, false), _idx);
         _device = numericParse<T>(_device, _idx);
@@ -277,20 +293,6 @@ void Column::cast() {
         _device = _device.as(GetAFType<T>().af_type);
     }
     _type = GetAFType<T>().df_type;
-}
-
-af::array Column::_dateHash() const {
-    auto mult = flip(pow(100Ull, range(af::dim4(3,1), 0, u64)), 0);
-    auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
-    key = sum(key, 0).as(u64);
-    return key;
-}
-
-af::array Column::_datetimeHash() const {
-    auto mult = flip(pow(100Ull, range(af::dim4(6,1), 0, u64)), 0);
-    auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
-    key = sum(key, 0).as(u64);
-    return key;
 }
 
 template void Column::cast<unsigned char>();

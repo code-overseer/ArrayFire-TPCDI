@@ -102,8 +102,8 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     using namespace af;
     auto const bag_size = bag.row(0).elements();
     auto const set_size = set.elements();
-    auto result = constant(0, dim4(1, bag_size), u64);
 #ifdef USING_AF
+    auto result = constant(0, dim4(1, bag_size + 1), u64);
     auto id = range(dim4(1, bag_size * set_size), 1, u64);
     auto i = id / set_size;
     auto j = id % set_size;
@@ -111,7 +111,9 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     auto b = moddims(set(j), i.dims()) == moddims(bag(0, i), i.dims());
     auto k = b * i + !b * bag_size;
     result(k) = 1;
+    result = result.cols(0, end - 1);
 #else
+    auto result = constant(0, dim4(1, bag_size), u64);
     auto result_ptr = result.device<ull>();
     auto set_ptr = set.device<ull>();
     auto bag_ptr = bag.device<ull>();
@@ -131,13 +133,13 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace TPCDI_Utils;
     auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    left_count = flipdims(histogram(left_count, left_count.elements())).as(u64);
+    left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
     left_count = left_count(left_count > 0);
     auto left_max = sum<unsigned int>(max(left_count, 1));
     auto left_idx = scan(left_count, 1, AF_BINARY_ADD, false);
 
     auto right_count = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    right_count = flipdims(histogram(right_count, right_count.elements())).as(u64);
+    right_count = hflat(histogram(right_count, right_count.elements())).as(u64);
     right_count = right_count(right_count > 0);
     auto right_max = sum<unsigned int>(max(right_count, 1));
     auto right_idx = scan(right_count, 1, AF_BINARY_ADD, false);

@@ -5,9 +5,9 @@
 #if defined(USING_OPENCL)
 #include "include/OpenCL/opencl_kernels.h"
 #elif defined(USING_CUDA)
-#include "CUDA/cuda_kernels.h"
+#include "include/CUDA/cuda_kernels.h"
 #else
-#include "CPU/vector_functions.h"
+#include "include/CPU/vector_functions.h"
 #endif
 #ifndef ULL
 #define ULL
@@ -101,12 +101,12 @@ void testSetJoin() {
         int r[] = {2,3,4,4,5,5,5,6,7,7,7,9,9,11,12};
         lhs = array(14, l).as(u64);
         rhs = array(15, r).as(u64);
-        lhs = flipdims(lhs);
+        lhs = hflat(lhs);
         lhs = join(0, lhs, range(lhs.dims(), 1, u64));
-        rhs = flipdims(rhs);
+        rhs = hflat(rhs);
         rhs = join(0, rhs, range(rhs.dims(), 1, u64));
     }
-    auto equalSet = flipdims(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
+    auto equalSet = hflat(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
 
     bagSetIntersect(lhs, equalSet);
     bagSetIntersect(rhs, equalSet);

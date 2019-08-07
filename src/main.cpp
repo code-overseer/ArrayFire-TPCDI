@@ -3,6 +3,7 @@
 #include "include/BatchFunctions.h"
 #include "include/Logger.h"
 #include "include/TPC_DI.h"
+#include "include/Tests.h"
 
 namespace DIR {
     char const* DATE = "/Users/bryanwong/Downloads/TPCData/TestDate.csv";
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
         }
     }
     Logger::startTimer("0");
+    test_Float(DIR::FLOAT);
 //    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
 //    auto industry = loadIndustry(DIR::DIRECTORY);
 //    auto statusType = loadStatusType(DIR::DIRECTORY);

@@ -22,8 +22,8 @@ class Column {
     size_t _length = 0;
 public:
     Column(af::array const &data, DataType const type) : _device(data), _type(type) { _length = _device.dims(1); }
-    Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) { _length = _device.dims(1); }
     Column(af::array const &data, af::array const &index) : _device(data), _idx(index) { _length = _idx.dims(1); }
+    Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) { _length = _device.dims(1); }
     Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) { _length = _idx.dims(1); }
     Column(Column &&other) noexcept;
     Column(Proxy &&data, DataType type);
@@ -53,23 +53,26 @@ public:
     af::array right(unsigned int length);
     Column trim(unsigned int start, unsigned int length);
     template<typename T> void cast();
-    inline af::array& index() { return _idx; }
-    inline af::array const& index_() const { return _idx; }
-    inline af::array& data() { return _device; }
-    inline af::array const& data_() const { return _device; }
+    inline af::array const& index() const { return _idx; }
+    inline af::array const& data() const { return _device; }
     inline af::dim4 dims() const { return _device.dims(); }
     inline bool isempty() const { return _device.isempty(); }
     inline dim_t dims(unsigned int const i) const { return _device.dims(i); }
     inline DataType type() const { return _type; }
     inline DataType type(DataType const type) { _type = type; return _type; }
-    inline Proxy row(int i) const { return _device.row(i); }
-    inline Proxy col(int i) const { return _device.col(i); }
+    inline Proxy row(int const i) const { return _device.row(i); }
+    inline Proxy col(int const i) const { return _device.col(i); }
     inline Proxy rows(int i, int j) const { return _device.rows(i, j); }
     inline Proxy cols(int i, int j) const { return _device.cols(i, j); }
+    inline Proxy irow(int const i) const { return _idx.row(i); }
+    inline Proxy icol(int const i) const { return _idx.col(i); }
+    inline Proxy irows(int i, int j) const { return _idx.rows(i, j); }
+    inline Proxy icols(int i, int j) const { return _idx.cols(i, j); }
     inline Proxy index(af::index const &x) const { return _idx(x); }
     inline Proxy index(af::index const &x, af::index const &y) const { return _idx(x, y); }
     inline Proxy operator()(af::index const &x) const { return _device(x); }
     inline Proxy operator()(af::index const &x, af::index const &y) const { return _device(x, y); }
+    inline af::array& operator()() { return _device; }
     inline size_t length() { return _length; }
 
     #define ASSIGN(OP) \
