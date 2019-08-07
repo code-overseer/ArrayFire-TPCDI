@@ -46,17 +46,13 @@ int main(int argc, char *argv[]) {
             info();
         }
     }
-
-//    print("FruitTest");
-    AFParser parser(DIR::FLOAT, '|', false);
-//    Logger::startTimer("2");
-//
-//    Logger::logTime("2");
+    Logger::startTimer("0");
 //    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
 //    auto industry = loadIndustry(DIR::DIRECTORY);
+//    auto statusType = loadStatusType(DIR::DIRECTORY);
 //    auto dimCompany = finwire.company.equiJoin(industry,5,0);
-//    Logger::sendToCSV();
-
+//    dimCompany = dimCompany.equiJoin(statusType, 4, 0);
+    Logger::logTime("0");
     return 0;
 }
 

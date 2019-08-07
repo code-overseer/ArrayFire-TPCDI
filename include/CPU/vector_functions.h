@@ -67,9 +67,6 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     auto id = range(dim4(1, bag_size * set_size), 1, u64);
     auto i = id / set_size;
     auto j = id % set_size;
-    printf("SetSize: %llu\n", set_size);
-    af_print(set(0))
-    af_print(bag(0))
     auto b = moddims(set(j), i.dims()) == moddims(bag(0, i), i.dims());
     auto k = b * i + !b * bag_size;
     result(k) = 1;
@@ -136,6 +133,15 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     auto const row_nums = indexer.elements() / 3;
     auto output = array(out_length, u8);
 
+    #ifdef USING_AF
+    for (ull i = 0; i < loop_length; ++i) {
+        auto b = indexer.row(1) > i;
+        af::array o_idx = indexer(2, b) + i;
+        af::array i_idx = indexer(0, b) + i;
+        output(o_idx) = (array)input(i_idx);
+    }
+    output.eval();
+    #else
     auto out_ptr = output.device<unsigned char>();
     auto in_ptr = input.device<unsigned char>();
     auto idx_ptr = indexer.device<ull>();
@@ -146,10 +152,10 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
             out_ptr[idx_ptr[3 * i + 2] + j] = in_ptr[idx_ptr[3 * i] + j];
         }
     }
-
     output.unlock();
     input.unlock();
     indexer.unlock();
+    #endif
     indexer.row(0) = (array)indexer.row(2);
     indexer = indexer.rows(0, 1);
     indexer.eval();

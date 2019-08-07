@@ -37,17 +37,14 @@ public:
     AFDataFrame zip(AFDataFrame &rhs) const;
     static std::pair<af::array, af::array> setCompare(Column const &lhs, Column const &rhs);
     static std::pair<af::array, af::array> setCompare(af::array const &lhs, af::array const &rhs);
-    void sortBy(int column, bool isAscending = true);
+    void sortBy(int col, bool isAscending = true);
     void sortBy(int *columns, int size, const bool *isAscending = nullptr);
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
     void nameColumn(const std::string& name, unsigned int column);
     std::string name(const std::string& str);
     void flushToHost();
     void clear();
-
     inline void remove(std::string const &name) { remove(_nameToIdx[name]); }
-    inline af::array hashColumn(int const column, bool sortable = false) const { return _data[column].hash(sortable); }
-    inline af::array hashColumn(std::string const &name, bool sortable = false) const { return hashColumn(_nameToIdx.at(name), sortable); }
     inline af::array stringMatch(std::string const &name, char const *str) const { return stringMatch(_nameToIdx.at(name), str); }
     inline AFDataFrame zip(AFDataFrame &&rhs) const { return zip(rhs); }
     inline AFDataFrame concatenate(AFDataFrame &frame) const { return unionize(std::move(frame)); }

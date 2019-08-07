@@ -151,49 +151,6 @@ af::array TPCDI_Utils::stringToDateTime(af::array &datetimestr, bool const isDel
     return join(0, date, time);
 }
 
-af::array TPCDI_Utils::polyHash(array const &column) {
-    uint64_t const prime = 67llU;
-    auto hash = range(dim4(column.dims(0)), 0, u64);
-    hash = pow(prime, hash).as(u64);
-    hash = batchFunc(column, hash, batchMult);
-    hash = sum(hash, 0);
-    hash = hash.as(u64);
-    hash.eval();
-    return hash;
-}
-
-af::array TPCDI_Utils::byteHash(const array &column) {
-    if (column.type() != u8) throw std::invalid_argument("Unexpected array type, input must be unsigned char");
-    auto const n = column.dims(0);
-    if (!n) throw std::runtime_error("Cannot hash null column");
-    auto const r = n % 8;
-    auto const h = n / 8 + 1 * (r != 0);
-    auto const s1 = flip(range(dim4(8), 0, u64),0) * 8;
-    auto out = n < 8 ? sum(batchFunc(column.rows(0, n - 1), s1.rows(0, n - 1), bitShiftLeft), 0) :
-               sum(batchFunc(column.rows(0, 7), s1, bitShiftLeft), 0);
-    for (int i = 1; i < h; ++i) {
-        auto e = i * 8 + 7;
-        if (e < n) out = join(0, out, sum(batchFunc(column.rows(i * 8, e), s1, bitShiftLeft), 0));
-        else out = join(0, out, sum(batchFunc(column.rows(i * 8, i * 8 + r - 1), s1.rows(0, r - 1), bitShiftLeft), 0));
-    }
-    out.eval();
-    return out;
-}
-
-af::array TPCDI_Utils::dateHash(const array &date) {
-    auto mult = flip(pow(100, range(dim4(3,1), 0, u32)), 0);
-    auto key = batchFunc(mult, date, batchMult);
-    key = sum(key, 0);
-    return key;
-}
-
-af::array TPCDI_Utils::datetimeHash(af::array const &datetime) {
-    auto mult = flip(pow(100U, range(dim4(6,1), 0, u64)), 0);
-    auto key = batchFunc(mult, datetime.as(u64), batchMult);
-    key = sum(key, 0);
-    return key;
-}
-
 af::array TPCDI_Utils::where64(af::array const &input) {
     auto b = flat(input > 0);
     auto output = b * range(b.dims(), 0, u64);

@@ -101,9 +101,8 @@ Column AFParser::parse(int column) const {
 
     af::array idx = _indexer.row(column) + i;
     idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
-    af::array out;
-    numericParse<T>(out, _data, idx);
-    return Column(std::move(out), GetAFType<T>().df_type);
+
+    return Column(numericParse<T>(_data, idx), GetAFType<T>().df_type);
 }
 template Column AFParser::parse<unsigned char>(int column) const;
 template Column AFParser::parse<short>(int column) const;

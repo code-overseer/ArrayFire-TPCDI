@@ -18,77 +18,77 @@ using namespace TPCDI_Utils;
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<int>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_UnsignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<unsigned int>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_UChar(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<unsigned char>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_Float(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<float>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_Double(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<double>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_UnsignedLong(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<unsigned long long>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_SignedLong(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<long long>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_String(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<char*>(0);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_stringToBool(char const *filepath) {
     auto test = AFParser(filepath, '|', false);
     auto result = test.parse<bool>(17);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_Date(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.asDate(0, true);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 
 void test_Time(char const *filepath) {
     auto test = AFParser(filepath, '|', false);
     auto result = test.asTime(1, false);
-    result.print();
+    result.printColumn();
     af::sync();
 }
 

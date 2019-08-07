@@ -44,7 +44,7 @@ __kernel void string_gather(__global uchar *output, __global ulong const *idx, _
     }
 }
 
-__kernel void string_comp(__global bool const *out, __global uchar const *left, __global uchar const *right,
+__kernel void str_cmp(__global bool *output, __global uchar const *left, __global uchar const *right,
         __global ulong const *idx, ulong const rows) {
     ulong const id = get_global_id(0);
     bool a = id < rows;

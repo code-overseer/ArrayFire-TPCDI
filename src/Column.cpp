@@ -7,29 +7,68 @@
     #include "include/OpenCL/opencl_parsers.h"
 #else
     #include "include/CPU/vector_functions.h"
+
+
 #endif
-
-
 Column::Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
     _type(other._type), _host(other._host), _host_idx(other._host_idx) {
     other._host_idx = nullptr;
     other._host = nullptr;
 }
 
-Column::Column(Column::Proxy &&data, Column::Proxy &&idx, DataType const type) : _type(type) {
+Column::Column(Column::Proxy &&data, Column::Proxy &&idx) {
     _device = data; _idx = idx;
 }
 
-Column::Column(Column::Proxy const &data, Column::Proxy const &idx, DataType const type) : _type(type) {
+Column::Column(Column::Proxy const &data, Column::Proxy const &idx) {
     _device = data; _idx = idx;
+}
+
+Column::Column(Column::Proxy &&data, DataType const type) : _type(type) {
+    _device = data;
+}
+
+Column::Column(Column::Proxy const &data, DataType const type) : _type(type) {
+    _device = data;
+}
+
+af::array Column::_fnv1a() const {
+    using namespace af;
+    auto const loop_length = sum<unsigned long long>(max(_idx.row(1), 1));
+    auto const offset = 0xcbf29ce484222325llU;
+    auto const prime = 0x100000001b3llU;
+    af::array output = constant(offset, dim4(1, _idx.elements() / 2), u64);
+    for (ull i = 0; i < loop_length; ++i) {
+        auto b = _idx.row(1) > i;
+        auto low8 = flat((output(b) & 0xffllU)) ^ _device(_idx(0, b) + i);
+        output(b) = (flat(output(b) & ~0xffllU) | low8);
+        output(b) *= prime;
+    }
+    output.eval();
+    return output;
+}
+
+af::array Column::_wordHash() const {
+    using namespace af;
+    auto const loop_length = sum<unsigned long long>(max(_idx.row(1), 1));
+    auto const output_width = loop_length / 8 + ((loop_length % 8) > 0);
+    af::array output = constant(0, dim4(output_width, _idx.elements() / 2), u64);
+    int k = 0;
+    for (ull i = 0; i < loop_length; ++i) {
+        auto b = _idx.row(1) > i;
+        auto j = (7 - (i % 8)) * 8;
+        output(k, b) = flat(output(k, b)) | flat(_device(_idx(0, b) + i) << j);
+        if (!j) ++k;
+    }
+    return output;
 }
 
 af::array Column::hash(bool const sortable) const {
     using namespace TPCDI_Utils;
-    if (_type == STRING) return sortable ? byteHash(_device) : polyHash(byteHash(_device));
-    if (_type == DATE) return dateHash(_device).as(u64);
-    if (_type == TIME) return timeHash(_device).as(u64);
-    if (_type == DATETIME) return datetimeHash(_device).as(u64);
+    if (_type == STRING) return sortable ? _wordHash() : _fnv1a();
+    if (_type == DATE) return _dateHash();
+    if (_type == TIME) return _timeHash();
+    if (_type == DATETIME) return _datetimeHash();
     return af::array(_device).as(u64);
 }
 #define ASSIGN(OP) \
@@ -42,8 +81,8 @@ af::array Column::operator==(af::array OP other) { \
 } \
 af::array Column::operator!=(af::array OP other) { return !(*this == other); }
 ASSIGN( const &)
-ASSIGN(&&)
 
+ASSIGN(&&)
 #undef ASSIGN
 #define ASSIGN(OP) \
 af::array Column::operator OP(af::array const &other) { \
@@ -59,6 +98,7 @@ af::array Column::operator OP(af::array &&other) { return *this OP other; }
 ASSIGN(<)
 ASSIGN(>)
 ASSIGN(<=)
+
 ASSIGN(>=)
 
 #undef ASSIGN
@@ -127,15 +167,12 @@ void Column::clearDevice() {
     _idx = af::array();
 }
 
-Column Column::select(af::array const &idx) const {
-    Column out(*this);
+Column Column::select(af::array const &rows) const {
     if (_type == STRING) {
-        out._idx = out._idx(af::span, idx);
-        out.flush();
-    } else {
-        out._device = out._device(af::span, idx); //todo change to column wise
+        af::array idx = _idx(af::span, rows);
+        return Column(stringGather(_device, idx), idx);
     }
-    return out;
+    return Column(_device(af::span, rows), _type);
 }
 
 af::array Column::operator==(char const *other) {
@@ -179,7 +216,7 @@ void Column::toDateTime(bool const isDelimited, DateFormat const dateFormat) {
     _device.eval();
 }
 
-void Column::print() {
+void Column::printColumn() {
     if (_type != STRING) {
         af_print(_device);
     } else {
@@ -219,8 +256,7 @@ af::array Column::right(unsigned int length) {
 
 Column Column::trim(unsigned int start, unsigned int length) {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(anyTrue(_idx(1, af::span) < (start + length))).isempty())
-        throw std::runtime_error("Some strings are too short");
+    if (!where(anyTrue(_idx(1, af::span) < (start + length))).isempty()) throw std::runtime_error("Some strings are too short");
     auto out = af::batchFunc(_idx(0, af::span), af::range(af::dim4(length + 1), u32) + start, BatchFunctions::batchAdd);
     out.row(af::end) = _device.elements() - 1;
 
@@ -236,14 +272,27 @@ void Column::cast() {
         _idx = af::diff1(af::join(1, af::constant(0, 1, u64), flipdims(where64(_device == 0))), 1);
         _idx(0) += 1;
         _idx = join(0, af::scan(_idx, 1, AF_BINARY_ADD, false), _idx);
-        af::array out;
-        numericParse<T>(out, _device, _idx);
-        _device = std::move(out);
+        _device = numericParse<T>(_device, _idx);
     } else {
         _device = _device.as(GetAFType<T>().af_type);
-        _type = GetAFType<T>().df_type;
     }
+    _type = GetAFType<T>().df_type;
 }
+
+af::array Column::_dateHash() const {
+    auto mult = flip(pow(100Ull, range(af::dim4(3,1), 0, u64)), 0);
+    auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
+    key = sum(key, 0).as(u64);
+    return key;
+}
+
+af::array Column::_datetimeHash() const {
+    auto mult = flip(pow(100Ull, range(af::dim4(6,1), 0, u64)), 0);
+    auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
+    key = sum(key, 0).as(u64);
+    return key;
+}
+
 template void Column::cast<unsigned char>();
 template void Column::cast<short>();
 template void Column::cast<unsigned short>();

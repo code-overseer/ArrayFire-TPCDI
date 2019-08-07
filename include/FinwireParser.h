@@ -30,13 +30,12 @@ private:
     AFDataFrame extractFin() const;
     AFDataFrame extractSec() const;
     char const _search[3][4] = {"FIN", "CMP", "SEC"};
-    int const _widths[3] = {17, 16, 12};
     ull const _FINLengths[18] = {15, 3, 4, 1, 8, 8, 17, 17, 12, 12, 12, 17, 17, 17, 13, 13, 60, 0};
     ull const _CMPLengths[17] = {15, 3, 60, 10, 4, 2, 4, 8, 80, 80, 12, 25, 20, 24, 46, 150, 0};
     ull const _SECLengths[13] = {15, 3, 15, 6, 4, 70, 6, 13, 8, 8, 12, 60, 0};
     af::array _data;
     af::array _indexer;
-    template <typename T> Column parse(af::array &start, unsigned int length) const;
+    Column _extract(af::array &start, unsigned int length) const;
 public:
     explicit FinwireParser(std::vector<std::string> const &files);
     inline Finwire extractData() const { return Finwire(extractCmp(), extractFin(), extractSec()); }

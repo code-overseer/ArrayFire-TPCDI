@@ -88,6 +88,20 @@ static cl_program build_parse_program(cl_context context, char const *options = 
     return program;
 }
 
+static void printKernelBuildError(cl_context context, cl_program program) {
+    size_t size;
+    auto err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &size);
+    auto devices = (cl_device_id*) malloc(size);
+    err = clGetContextInfo(context, CL_CONTEXT_DEVICES, size, devices, NULL);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
+    char* log = (char*) malloc(size);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, size, log, NULL);
+    puts(log);
+
+    free(log);
+    free(devices);
+}
+
 static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
     cl_int err;
     cl_kernel kernel = clCreateKernel(program, kernel_name, &err);

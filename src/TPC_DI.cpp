@@ -441,11 +441,9 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     af::sync();
     fin1.clear();
     tmp.clear();
-
-    auto cond1 = financial.column("DC.EffectiveDate").hash()
-                 <= dateHash(financial.column("PTS").rows(0, 2));
-    auto cond2 = financial.column("DC.EndDate").hash()
-                 > dateHash(financial.column("PTS").rows(0, 2));
+    financial.column("PTS").toDate();
+    auto cond1 = financial.column("DC.EffectiveDate").hash() <= financial.column("PTS").hash();
+    auto cond2 = financial.column("DC.EndDate").hash() > financial.column("PTS").hash();
     financial = financial.select(where(cond1 && cond2), "");
 
     std::string order[14] = {
@@ -507,8 +505,8 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     security.column("PTS").toDate();
     security.nameColumn("EffectiveDate", "PTS");
 
-    auto cond1 = security.column("DC.EffectiveDate").hash() <= dateHash(security.column("EffectiveDate").hash());
-    auto cond2 = security.column("DC.EndDate").hash() > dateHash(security.column("EffectiveDate").hash());
+    auto cond1 = security.column("DC.EffectiveDate").hash() <= security.column("EffectiveDate").hash();
+    auto cond2 = security.column("DC.EndDate").hash() > security.column("EffectiveDate").hash();
     security = security.select(where(cond1 && cond2), "");
     {
         std::string order[11] = {
@@ -631,12 +629,12 @@ AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate) {
     auto batchID = 1;
     prospect.name("Prospect");
 
-    auto tmp = tile(batchDate.column(1)(span, where(batchDate.column(0) == batchID)), dim);
-    prospect.insert(Column(dateHash(tmp), ULONG), 1, "SK_RecordDateID");
+    auto col = Column(tile(batchDate.column(1)(span, where(batchDate.column(0) == batchID)), dim), DATE);
+    prospect.insert(Column(col.hash(), ULONG), 1, "SK_RecordDateID");
     prospect.insert(Column(array(prospect.column("SK_RecordDateID").data_()), ULONG), 2, "SK_UpdateDateID");
     prospect.insert(Column(constant(1, dim, u32), UINT), 3, "BatchID");
     prospect.insert(Column(constant(0, dim, u8), BOOL), 4, "IsCustomer");
-    tmp = marketingNameplate(prospect.column("NetWorth").data_(), prospect.column("Income").data_(),
+    auto tmp = marketingNameplate(prospect.column("NetWorth").data_(), prospect.column("Income").data_(),
                              prospect.column("NumberCreditCards").data_(),
                              prospect.column("NumberChildren").data_(), prospect.column("Age").data_(),
                              prospect.column("CreditRating").data_(),

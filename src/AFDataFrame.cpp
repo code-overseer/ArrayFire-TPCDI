@@ -144,8 +144,8 @@ AFDataFrame AFDataFrame::unionize(AFDataFrame &frame) const {
     return out;
 }
 
-void AFDataFrame::sortBy(int column, bool isAscending) {
-    array elements = hashColumn(column, true);
+void AFDataFrame::sortBy(int col, bool isAscending) {
+    array elements = _data[col].hash(true);
     auto const size = elements.dims(0);
     if (!size) return;
     array sorting;
@@ -175,9 +175,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     auto l = left.hash(false);
     auto r = right.hash(false);
     auto idx = setCompare(l, r);
-
     if (left.type() == STRING) {
-        // TODO collision check
         l = left.index(af::span, idx.first);
         r = right.index(af::span, idx.second);
         auto keep = stringComp(left.data_(), right.data_(), l, r);

@@ -61,12 +61,12 @@ static void launchNumericParse(T *output, ull const * idx, unsigned char const *
 }
 
 template<typename T>
-void inline numericParse(af::array &output, af::array const &input, af::array const &indexer) {
+af::array inline numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
 
     auto const loop_length = sum<ull>(max(indexer.row(1), 1));
     auto const row_nums = indexer.elements() / 2;
-    output = array(1, row_nums + 1, GetAFType<T>().af_type);
+    auto output = array(1, row_nums + 1, GetAFType<T>().af_type);
     auto out_ptr = output.device<T>();
     auto idx_ptr = indexer.device<ull>();
     auto in_ptr = input.device<unsigned char>();
@@ -79,11 +79,10 @@ void inline numericParse(af::array &output, af::array const &input, af::array co
     indexer.unlock();
     output = output.cols(0, end - 1);
     output.eval();
+    return output;
 }
 
 static void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const loop_len, ull const output_size, ull const row_num) {
-
-    static auto KERNELS = get_kernel_string();
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
     cl_command_queue queue = create_queue(context);
@@ -91,7 +90,7 @@ static void launchStringGather(unsigned char *output, ull const *idx, unsigned c
     char options[128];
     sprintf(options, "-D LOOP_LENGTH=%llu", loop_len);
     // Build the OpenCL program and get the kernel
-    cl_program program = build_program(context, KERNELS, options);
+    cl_program program = build_parse_program(context, options);
     cl_kernel kernel = create_kernel(program, "string_gather");
 
     cl_int err = CL_SUCCESS;
@@ -134,8 +133,10 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
 
     #ifdef USING_AF
     for (ull i = 0; i < loop_length; ++i) {
-        auto tmp = indexer(seq(0,2,2), indexer.row(1) > i);
-        output(flat(tmp.row(1))) = input(flat(tmp.row(0)));
+        auto b = indexer.row(1) > i;
+        af::array o_idx = indexer(2, b) + i;
+        af::array i_idx = indexer(0, b) + i;
+        output(o_idx) = (array)input(i_idx);
     }
     output.eval();
     #else
@@ -156,6 +157,7 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     indexer.eval();
     return output;
 }
+af::array inline stringGather(af::array &&input, af::array &&indexer) { return stringGather(input, indexer); }
 
 af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const & l_idx, af::array const & r_idx) {
     using namespace af;
@@ -163,8 +165,7 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     auto loop_length = sum<ull>(max(l_idx(1, out)));
 
     for (ull i = 0; i < loop_length; ++i) {
-        out = out && ( moddims(i >= l_idx, out.dims()) ||
-                moddims(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i), out.dims()) );
+        out = flat(out) && (flat(l_idx.row(1) <= i) || flat(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i)) );
     }
     out.eval();
 
