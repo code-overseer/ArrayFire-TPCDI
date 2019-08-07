@@ -163,14 +163,13 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     return output;
 }
 
-af::array inline stringComp(Column const &lhs, Column const &rhs) {
+af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
-    auto out = lhs.index().row(1) == rhs.index().row(1);
-    auto loop_length = sum<ull>(max(lhs.index()(1, out)));
+    auto out = l_idx.row(1) == r_idx.row(1);
+    auto loops = sum<ull>(max(l_idx(1, out)));
 
-    for (ull i = 0; i < loop_length; ++i) {
-        out = flat(out) && (flat(lhs.index().row(1) <= i) || flat(lhs(lhs.index().row(0) + i) == rhs(
-                rhs.index().row(0) + i)) );
+    for (ull i = 0; i < loops; ++i) {
+        out = flat(out) && (flat(l_idx.row(1) < i) || flat(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i)) );
     }
     out.eval();
 

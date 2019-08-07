@@ -175,10 +175,11 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     auto l = left.hash(false);
     auto r = right.hash(false);
     auto idx = setCompare(l, r);
+
     if (left.type() == STRING) {
         l = left.index(af::span, idx.first);
         r = right.index(af::span, idx.second);
-        auto keep = stringComp(left, right);
+        auto keep = stringComp(left.data(), right.data(), l, r);
         idx.first = idx.first(keep);
         idx.second = idx.second(keep);
     }

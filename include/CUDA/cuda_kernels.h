@@ -234,22 +234,22 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     return output;
 }
 
-af::array inline stringComp(Column const &lhs, Column const &rhs) {
+af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
-    auto out = lhs.index().row(1) == rhs.index().row(1);
-    auto loop_length = sum<ull>(max(lhs.index()(1, out)));
+    auto out = l_idx.row(1) == r_idx.row(1);
+    auto loops = sum<ull>(max(l_idx(1, out)));
     #ifdef USING_AF
-    for (ull i = 0; i < loop_length; ++i) {
-        out = flat(out) && (flat(lhs.index().row(1) < i) || flat(lhs(lhs.index().row(0) + i) == rhs(
-                rhs.index().row(0) + i)) );
+    for (ull i = 0; i < loops; ++i) {
+        out = flat(out) && (flat(l_idx.row(1) < i) || flat(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i)) );
     }
     out.eval();
     #else
     auto out_ptr = out.device<bool>();
-    auto left_ptr = lhs.data().device<unsigned char>();
-    auto right_ptr = rhs.data().device<unsigned char>();
-    auto idx_ptr = lhs.index().device<ull>();
-    auto const rows = lhs.index().elements() / 2;
+    auto left_ptr = lhs.device<unsigned char>();
+    auto right_ptr = rhs.device<unsigned char>();
+    auto l_idx_ptr = l_idx.device<ull>();
+    auto r_idx_ptr = r_idx.device<ull>();
+    auto const rows = l_idx.elements() / 2;
     af::sync();
     ull const threadLimit = THREAD_LIMIT;
     ull const threadCount = equals * left_max * right_max;
@@ -257,11 +257,12 @@ af::array inline stringComp(Column const &lhs, Column const &rhs) {
     dim3 grid(blocks, 1, 1);
     dim3 block(threadLimit, 1, 1);
 
-    str_cmp<<<grid, block>>>(out_ptr, left_ptr, right_ptr, idx_ptr, rows, loop_length);
+    str_cmp<<<grid, block>>>(out_ptr, left_ptr, right_ptr, l_idx_ptr, r_idx_ptr, rows, loops);
     out.unlock();
-    lhs.data().unlock();
-    rhs.data().unlock();
-    lhs.index().unlock();
+    lhs.unlock();
+    rhs.unlock();
+    l_idx.unlock();
+    r_idx.unlock();
     #endif
 
     return out;
