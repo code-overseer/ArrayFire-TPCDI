@@ -57,6 +57,7 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
         ull j = i * (i < len);
         dec += (input[s + j] == '.') * j;
     }
+
     bool neg = input[s] == '-';
     int p = (int)(dec + !dec * len) - 1 - neg;
     for (ull i = 0; i < loops; ++i) {

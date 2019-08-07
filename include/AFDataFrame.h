@@ -47,7 +47,6 @@ public:
     inline void remove(std::string const &name) { remove(_nameToIdx[name]); }
     inline af::array stringMatch(std::string const &name, char const *str) const { return stringMatch(_nameToIdx.at(name), str); }
     inline AFDataFrame zip(AFDataFrame &&rhs) const { return zip(rhs); }
-    inline AFDataFrame concatenate(AFDataFrame &frame) const { return unionize(std::move(frame)); }
     inline bool isEmpty() { return _data.empty() || _data[0].isempty(); }
     inline std::vector<Column> &columns() { return _data; }
     inline std::vector<Column> const &columns_() { return _data; }
@@ -56,15 +55,15 @@ public:
     inline Column &column(unsigned int i) { return _data[i]; }
     inline Column &column(std::string const &name) { return column(_nameToIdx.at(name)); }
     inline AFDataFrame equiJoin(AFDataFrame const &rhs, std::string const &lName, std::string const &rName) const { return equiJoin(rhs, _nameToIdx.at(lName), rhs._nameToIdx.at(rName)); }
+    inline uint64_t length() const { return _data.empty() ? 0 : _data[0].dims(1); }
+    inline void nameColumn(const std::string& name, const std::string &old) { nameColumn(name, _nameToIdx.at(old)); }
+    inline std::string name() const { return _name; }
     inline void sortBy(std::string const &name, bool isAscending = true) { sortBy(_nameToIdx.at(name), isAscending); }
     inline void sortBy(std::string const *columns, int const size, bool const *isAscending = nullptr) {
         int seqnum[size];
         for (int j = 0; j < size; ++j) seqnum[j] = _nameToIdx[columns[j]];
         sortBy(seqnum, size, isAscending);
     }
-    inline uint64_t length() const { return _data.empty() ? 0 : _data[0].dims(1); }
-    inline void nameColumn(const std::string& name, const std::string &old) { nameColumn(name, _nameToIdx.at(old)); }
-    inline std::string name() const { return _name; }
 private:
     inline Column project(int column) const { return Column(_data[column]); }
     std::vector<Column> _data;

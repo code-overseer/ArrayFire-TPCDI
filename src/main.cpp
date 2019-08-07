@@ -23,6 +23,16 @@ namespace DIR {
 
 void experiment();
 
+void DimCompany();
+
+void DimSecurity();
+
+void Financial();
+
+void DimBroker();
+
+void FinWire();
+
 int main(int argc, char *argv[]) {
     using namespace af;
     #if defined(USING_OPENCL)
@@ -47,18 +57,9 @@ int main(int argc, char *argv[]) {
             info();
         }
     }
-    Logger::startTimer("0");
-//    test_Float(DIR::FLOAT);
-    print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
-    print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
-//    auto statusType = loadStatusType(DIR::DIRECTORY);
-    print("DimCompany");
-    auto dimCompany = finwire.company.equiJoin(industry,5,0);
-//    dimCompany = dimCompany.equiJoin(statusType, 4, 0);
-    Logger::logTime("0");
-    dimCompany("CIK").printColumn();
+    Logger::startTimer();
+    experiment();
+    Logger::logTime();
     return 0;
 }
 
@@ -66,10 +67,6 @@ void experiment() {
     auto batchDate = loadBatchDate(DIR::DIRECTORY);
     print("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY);
-    
-    print("DimTime");
-    auto dimTime = loadDimTime(DIR::DIRECTORY);
-    dimTime.flushToHost();
     
     print("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY);
@@ -80,11 +77,11 @@ void experiment() {
     print("TaxRate");
     auto taxRate = loadTaxRate(DIR::DIRECTORY);
     taxRate.flushToHost();
-    
+
     print("TradeType");
     auto tradeType = loadTradeType(DIR::DIRECTORY);
     tradeType.flushToHost();
-    
+
     print("Audit");
     auto audit = loadAudit(DIR::DIRECTORY);
     audit.flushToHost();
@@ -132,4 +129,111 @@ void experiment() {
     auto dimBroker = loadDimBroker(DIR::DIRECTORY, dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
+}
+
+void DimCompany() {
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+
+    print("Industry");
+    auto industry = loadIndustry(DIR::DIRECTORY);
+
+    print("StatusType");
+    auto statusType = loadStatusType(DIR::DIRECTORY);
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+
+    print("DimCompany");
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    industry.flushToHost();
+}
+
+void DimSecurity() {
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+
+    print("Industry");
+    auto industry = loadIndustry(DIR::DIRECTORY);
+
+    print("StatusType");
+    auto statusType = loadStatusType(DIR::DIRECTORY);
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+
+    print("DimCompany");
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    industry.flushToHost();
+    statusType.flushToHost();
+    dimDate.flushToHost();
+    finwire.financial.clear();
+    finwire.company.clear();
+
+    print("DimSecurity");
+    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
+}
+
+void Financial() {
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+
+    print("Industry");
+    auto industry = loadIndustry(DIR::DIRECTORY);
+
+    print("StatusType");
+    auto statusType = loadStatusType(DIR::DIRECTORY);
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+
+    print("DimCompany");
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    industry.flushToHost();
+    statusType.flushToHost();
+    dimDate.flushToHost();
+    finwire.security.clear();
+    finwire.company.clear();
+
+    print("Financial");
+    auto financial = loadFinancial(finwire.financial, dimCompany);
+}
+
+void DimBroker() {
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    print("DimBroker");
+    loadDimBroker(DIR::DIRECTORY, dimDate);
+}
+
+void FinWire() {
+    auto batchDate = loadBatchDate(DIR::DIRECTORY);
+    print("DimDate");
+    auto dimDate = loadDimDate(DIR::DIRECTORY);
+
+    print("Industry");
+    auto industry = loadIndustry(DIR::DIRECTORY);
+
+    print("StatusType");
+    auto statusType = loadStatusType(DIR::DIRECTORY);
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+
+    print("DimCompany");
+    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    industry.flushToHost();
+    finwire.company.clear();
+
+    print("DimSecurity");
+    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
+    dimSecurity.flushToHost();
+    statusType.flushToHost();
+    finwire.security.clear();
+
+    print("Financial");
+    auto financial = loadFinancial(finwire.financial, dimCompany);
+    financial.flushToHost();
+    finwire.clear();
+
 }

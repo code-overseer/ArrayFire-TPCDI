@@ -46,7 +46,7 @@ AFDataFrame FinwireParser::extractCmp() const {
         output.add(_extract(start, *lengths));
         ++lengths;
     }
-    output.column(0).toDateTime(false, YYYYMMDD);
+    output.column(0).toDateTime(YYYYMMDD);
     output.column(3).cast<unsigned long long>();
     output.column(7).toDate(false, YYYYMMDD);
     return output;
@@ -62,7 +62,7 @@ AFDataFrame FinwireParser::extractFin() const {
         output.add(_extract(start, *lengths));
         ++lengths;
     }
-    output.column(0).toDateTime(false, YYYYMMDD);
+    output.column(0).toDateTime(YYYYMMDD);
     output.column(2).cast<unsigned short>();
     output.column(3).cast<unsigned char>();
     output.column(4).toDate(false, YYYYMMDD);
@@ -83,7 +83,7 @@ AFDataFrame FinwireParser::extractSec() const {
         ++lengths;
     }
 
-    output.column(0).toDateTime(false, YYYYMMDD);
+    output.column(0).toDateTime(YYYYMMDD);
     output.column(7).cast<unsigned long long>();
     output.column(8).toDate(false, YYYYMMDD);
     output.column(9).toDate(false, YYYYMMDD);

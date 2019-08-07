@@ -111,7 +111,7 @@ AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const
 AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name) const {
     AFDataFrame out(*this);
     if (!name.empty()) out.name(name);
-    for (auto &a : out._data) a.select(index);
+    for (auto &a : out._data) a = a.select(index);
     return out;
 }
 
@@ -145,15 +145,15 @@ AFDataFrame AFDataFrame::unionize(AFDataFrame &frame) const {
 }
 
 void AFDataFrame::sortBy(int col, bool isAscending) {
-    array elements = _data[col].hash(true);
-    auto const size = elements.dims(0);
+    array key = _data[col].hash(true);
+    auto const size = key.dims(0);
     if (!size) return;
     array sorting;
     array idx;
-    sort(sorting, idx, elements(end, span), 1, isAscending);
+    sort(sorting, idx, key(end, span), 1, isAscending);
     for (auto j = size - 2; j >= 0; --j) {
-        elements = elements(span, idx);
-        sort(sorting, idx, elements(j, span), 1, isAscending);
+        key = key(span, idx);
+        sort(sorting, idx, key(j, span), 1, isAscending);
     }
     for (auto &i : _data) i = i.select(idx);
 }

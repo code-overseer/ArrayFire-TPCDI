@@ -97,7 +97,7 @@ Column AFParser::parse(int column) const {
     if (!_length) return Column(array(0, GetAFType<T>().af_type),  GetAFType<T>().df_type);
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return Column(af::constant(0, 1, _length), GetAFType<T>().df_type);
+    if (!maximum) return Column(af::constant(0, 1, _length, GetAFType<T>().af_type), GetAFType<T>().df_type);
 
     af::array idx = _indexer.row(column) + i;
     idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
@@ -117,7 +117,7 @@ template<> Column AFParser::parse<char*>(int column) const {
     if (!_length) return Column(array(0, u8), array(0,u64));
     unsigned int const i = column != 0;
     auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return Column(constant(0, 1, _length, u8), range(dim4(1, _length), u64));
+    if (!maximum) return Column(constant(0, dim4(_length), u8), join(0, range(dim4(1, _length), 1, u64), constant(0, dim4(1, _length), u64)));
 
     af::array idx = _indexer.row(column) + i;
     idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
@@ -152,9 +152,9 @@ Column AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) co
     return out;
 }
 
-Column AFParser::asDateTime(int column, bool isDelimited, DateFormat inputFormat) const {
+Column AFParser::asDateTime(int column, DateFormat inputFormat) const {
     auto out = parse<char*>(column);
-    out.toDateTime(isDelimited, inputFormat);
+    out.toDateTime(inputFormat);
     return out;
 }
 

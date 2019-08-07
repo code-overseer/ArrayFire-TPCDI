@@ -19,6 +19,8 @@ class Column {
     af::array _datetimeHash() const;
     af::array _dateHash() const;
     inline af::array _timeHash() const { return _dateHash(); }
+    af::array _dehashDate(af::array const &key, DateFormat format);
+    inline af::array _dehashTime(af::array const &key) { return join(0, key / 10000, key / 100 % 100, key % 100).as(u16); }
     size_t _length = 0;
 public:
     Column(af::array const &data, DataType const type) : _device(data), _type(type) { _length = _device.dims(1); }
@@ -34,25 +36,24 @@ public:
     virtual ~Column() { if (_host) free(_host); if (_host_idx) free(_host_idx); }
     Column& operator=(Column &&other) noexcept;
     Column& operator=(Column const &other) = default;
-    Column concatenate(Column &bottom);
+    Column concatenate(Column const &bottom) const;
     Column select(af::array const &rows) const;
-    void flush();
     void toDate();
+    void toTime();
     void toDate(bool isDelimited, DateFormat dateFormat = YYYYMMDD);
     void toTime(bool isDelimited);
-    void toTime();
-    void toDateTime(bool isDelimited, DateFormat dateFormat = YYYYMMDD);
-    af::array hash(bool sortable = false) const;
+    void toDateTime(DateFormat dateFormat = YYYYMMDD);
     void toHost(bool clear = false);
     void clearDevice();
-    void printColumn();
+    template<typename T> void cast();
     static af::array endDate() {
         return join(0, af::constant(9999, 1, u16), af::constant(12, 1, u16), af::constant(31, 1, u16));
     }
-    af::array left(unsigned int length);
-    af::array right(unsigned int length);
-    Column trim(unsigned int start, unsigned int length);
-    template<typename T> void cast();
+    af::array hash(bool sortable = false) const;
+    void printColumn() const;
+    af::array left(unsigned int length) const;
+    af::array right(unsigned int length) const;
+    Column trim(unsigned int start, unsigned int length) const;
     inline af::array const& index() const { return _idx; }
     inline af::array const& data() const { return _device; }
     inline af::dim4 dims() const { return _device.dims(); }
@@ -72,8 +73,7 @@ public:
     inline Proxy index(af::index const &x, af::index const &y) const { return _idx(x, y); }
     inline Proxy operator()(af::index const &x) const { return _device(x); }
     inline Proxy operator()(af::index const &x, af::index const &y) const { return _device(x, y); }
-    inline af::array& operator()() { return _device; }
-    inline size_t length() { return _length; }
+    inline size_t length() const { return _length; }
 
     #define ASSIGN(OP) \
     af::array operator OP(Column const &other); \

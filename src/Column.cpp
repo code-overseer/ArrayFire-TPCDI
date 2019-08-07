@@ -72,7 +72,7 @@ af::array Column::_wordHash() const {
     for (ull i = 0; i < loop_length; ++i) {
         auto b = _idx.row(1) > i;
         auto j = (7 - (i % 8)) * 8;
-        output(k, b) = flat(output(k, b)) | flat(_device(_idx(0, b) + i) << j);
+        output(k, b) = TPCDI_Utils::hflat(flat(output(k, b)) | flat(_device(_idx(0, b) + i) << j));
         if (!j) ++k;
     }
     output.eval();
@@ -80,13 +80,13 @@ af::array Column::_wordHash() const {
 }
 
 af::array Column::_dateHash() const {
-    auto mult = flip(pow(100Ull, range(af::dim4(3,1), 0, u64)), 0);
+    auto mult = af::flip(pow(100Ull, af::range(af::dim4(3), 0, u64)), 0);
     auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
     return sum(key, 0).as(u64);
 }
 
 af::array Column::_datetimeHash() const {
-    auto mult = flip(pow(100Ull, range(af::dim4(6,1), 0, u64)), 0);
+    auto mult = af::flip(pow(100Ull, af::range(af::dim4(6), 0, u64)), 0);
     auto key = batchFunc(mult, _device, BatchFunctions::batchMult);
     return sum(key, 0).as(u64);
 }
@@ -142,26 +142,18 @@ af::array Column::operator==(Column const &other) {
 
 af::array Column::operator!=(Column const &other) { return !(*this == other); }
 
-void Column::flush() {
-    if (_type != STRING) return;
-    _device = stringGather(_device, _idx);
-}
-
-Column Column::concatenate(Column &bottom) {
+Column Column::concatenate(Column const &bottom) const {
     using namespace BatchFunctions;
-    flush();
-    bottom.flush();
     if (_type != bottom._type) throw std::runtime_error("Type mismatch");
     if (_type == STRING) {
         auto i = bottom._idx;
         i.row(0) = af::batchFunc(i.row(0), af::sum(_idx.col(af::end), 0), batchAdd);
-        return Column(join(0, _device, bottom._device), std::move(i));
+        return Column(join(0, _device, bottom._device), join(1, _idx, i));
     }
-    return Column(join(0, _device, bottom._device), _type);
+    return Column(join(1, _device, bottom._device), _type);
 }
 
 void Column::toHost(bool const clear) {
-    flush();
     if (_device.bytes()) {
         auto tmp = malloc(_device.bytes());
         _device.host(tmp);
@@ -201,12 +193,29 @@ af::array Column::operator==(char const *other) {
     return out;
 }
 
+af::array Column::_dehashDate(af::array const &key, DateFormat const dateFormat) {
+    switch (dateFormat) {
+        case YYYYMMDD:
+            return join(0, _device / 10000, (_device / 100) % 100, _device % 100).as(u16);
+        case YYYYDDMM:
+            return join(0, _device / 10000, _device % 100, (_device / 100) % 100).as(u16);
+        case MMDDYYYY:
+            return join(0, _device % 10000, _device / 1000000, (_device / 10000) % 100).as(u16);
+        case DDMMYYYY:
+            return join(0, _device % 10000, (_device / 10000) % 100, _device / 1000000).as(u16);
+        default:
+            throw std::runtime_error("No such date format");
+    }
+}
+
 void Column::toDate(bool const isDelimited, DateFormat const dateFormat) {
     using namespace af;
+    using namespace BatchFunctions;
     if (_type != STRING) throw std::runtime_error("Expected String type");
+    if (isDelimited) _device = _device((_device >= '0' && _device <= '9') || _device == 0);
+    cast<unsigned int>();
     _type = DATE;
-    _device = TPCDI_Utils::stringToDate(_device, isDelimited, dateFormat);
-    _idx = array(0, u64);
+    _device = _dehashDate(_device, dateFormat);
     _device.eval();
 }
 
@@ -214,23 +223,25 @@ void Column::toTime(bool const isDelimited) {
     using namespace af;
     using namespace BatchFunctions;
     if (_type != STRING) throw std::runtime_error("Expected String type");
+    if (isDelimited) _device = _device((_device >= '0' && _device <= '9') || _device == 0);
+    cast<unsigned int>();
     _type = TIME;
-    _device = TPCDI_Utils::stringToTime(_device, isDelimited);
-    _idx = array(0, u64);
+    _device = _dehashTime(_device);
     _device.eval();
 }
 
-void Column::toDateTime(bool const isDelimited, DateFormat const dateFormat) {
+void Column::toDateTime(DateFormat const dateFormat) {
     using namespace af;
     using namespace BatchFunctions;
     if (_type != STRING) throw std::runtime_error("Expected String type");
+    _device = _device((_device >= '0' && _device <= '9') || _device == 0);
+    cast<unsigned long long>();
     _type = DATETIME;
-    _device = TPCDI_Utils::stringToDateTime(_device, isDelimited, dateFormat);
-    _idx = array(0, u64);
+    _device = join(0, _dehashDate(_device / 1000000, dateFormat), _dehashTime(_device % 1000000));
     _device.eval();
 }
 
-void Column::printColumn() {
+void Column::printColumn() const {
     if (_type != STRING) {
         af_print(_device);
     } else {
@@ -252,24 +263,24 @@ void Column::toTime() {
     _device.eval();
 }
 
-af::array Column::left(unsigned int length) {
+af::array Column::left(unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(anyTrue(_idx(1, af::span) < length)).isempty()) throw std::runtime_error("Some strings are too short");
+    if (!where(af::anyTrue(_idx(1, af::span) < length)).isempty()) throw std::runtime_error("Some strings are too short");
     auto idx = _idx;
     idx.row(1) = length;
     auto out = stringGather(_device, idx);
     return moddims(out, af::dim4(length, out.elements() / length));
 }
-af::array Column::right(unsigned int length) {
+af::array Column::right(unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(anyTrue(_idx(1, af::span) < length + 1)).isempty()) throw std::runtime_error("Some strings are too short");
+    if (!where(af::anyTrue(_idx(1, af::span) < length + 1)).isempty()) throw std::runtime_error("Some strings are too short");
     auto end = af::sum(_idx.as(s64), 0) - 2;
     auto out = af::batchFunc(end, af::range(af::dim4(length), s32), BatchFunctions::batchSub);
     out = moddims(_device(out), out.dims());
     return out;
 }
 
-Column Column::trim(unsigned int start, unsigned int length) {
+Column Column::trim(unsigned int start, unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
     if (!where(anyTrue(flat(_idx(1, af::span) <= (length + start)))).isempty()) throw std::runtime_error("Some strings are too short");
     auto idx = _idx;
