@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
         }
     }
     Logger::startTimer();
-    experiment();
+    DimSecurity();
     Logger::logTime();
     return 0;
 }
@@ -165,7 +165,6 @@ void DimSecurity() {
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
-    statusType.flushToHost();
     dimDate.flushToHost();
     finwire.financial.clear();
     finwire.company.clear();
@@ -237,3 +236,5 @@ void FinWire() {
     finwire.clear();
 
 }
+
+

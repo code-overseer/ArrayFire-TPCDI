@@ -1,4 +1,4 @@
-__kernel void is_exist_kernel(__global ulong *result, __global ulong const *bag,
+__kernel void is_exist_kernel(__global char *result, __global ulong const *bag,
         __global ulong const *set, ulong const bag_size, ulong const set_size) {
 
     ulong const id = get_global_id(0);
@@ -25,9 +25,7 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
 
     if (b) {
         left = pos + left * k + j;
-        right = pos + right * j + k;
-
         l[left] = il[i] + j;
-        r[right] = ir[i] + k;
+        r[left] = ir[i] + k;
     }
 }

@@ -34,7 +34,7 @@ public:
     AFDataFrame project(std::string const *names, int size, std::string const &name) const;
     AFDataFrame unionize(AFDataFrame &frame) const;
     AFDataFrame unionize(AFDataFrame &&frame) const { return unionize(frame); }
-    AFDataFrame zip(AFDataFrame &rhs) const;
+    AFDataFrame zip(AFDataFrame const &rhs) const;
     static std::pair<af::array, af::array> setCompare(Column const &lhs, Column const &rhs);
     static std::pair<af::array, af::array> setCompare(af::array const &lhs, af::array const &rhs);
     void sortBy(int col, bool isAscending = true);
@@ -42,6 +42,7 @@ public:
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
     void nameColumn(const std::string& name, unsigned int column);
     std::string name(const std::string& str);
+    void printAllNames() {for (auto const& i : _nameToIdx) printf("%s : %d\n", i.first.c_str(), i.second); }
     void flushToHost();
     void clear();
     inline void remove(std::string const &name) { remove(_nameToIdx[name]); }
@@ -49,13 +50,13 @@ public:
     inline AFDataFrame zip(AFDataFrame &&rhs) const { return zip(rhs); }
     inline bool isEmpty() { return _data.empty() || _data[0].isempty(); }
     inline std::vector<Column> &columns() { return _data; }
-    inline std::vector<Column> const &columns_() { return _data; }
+    inline std::vector<Column> const &columns_() const { return _data; }
     inline Column &operator()(unsigned int column) { return _data[column]; }
-    inline Column &operator()(std::string const &name) { return column(_nameToIdx.at(name)); }
-    inline Column &column(unsigned int i) { return _data[i]; }
-    inline Column &column(std::string const &name) { return column(_nameToIdx.at(name)); }
+    inline Column &operator()(std::string const &name) { return (*this)(_nameToIdx.at(name)); }
+    inline Column const &column_(unsigned int i) const { return _data[i]; }
+    inline Column const &column_(std::string const &name) const { return column_(_nameToIdx.at(name)); }
     inline AFDataFrame equiJoin(AFDataFrame const &rhs, std::string const &lName, std::string const &rName) const { return equiJoin(rhs, _nameToIdx.at(lName), rhs._nameToIdx.at(rName)); }
-    inline uint64_t length() const { return _data.empty() ? 0 : _data[0].dims(1); }
+    inline uint64_t length() const { return _data.empty() ? 0 : _data[0].length(); }
     inline void nameColumn(const std::string& name, const std::string &old) { nameColumn(name, _nameToIdx.at(old)); }
     inline std::string name() const { return _name; }
     inline void sortBy(std::string const &name, bool isAscending = true) { sortBy(_nameToIdx.at(name), isAscending); }

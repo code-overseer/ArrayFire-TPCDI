@@ -53,7 +53,8 @@ void AFDataFrame::add(Column &column, const char *name) {
 }
 
 void AFDataFrame::add(Column &&column, const char *name) {
-    add(column, name);
+    _data.emplace_back(std::move(column));
+    if (name) nameColumn(name, (int)(_data.size() - 1));
 }
 
 void AFDataFrame::insert(Column &column, int index, const char *name) {
@@ -117,19 +118,18 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
 
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
-
     for (int i = 0; i < size; i++)
         columns[i] = _nameToIdx.at(names[i]);
 
     return project(columns, size, name);
 }
 
-AFDataFrame AFDataFrame::zip(AFDataFrame &rhs) const {
+AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
     if (length() != rhs.length()) throw std::runtime_error("Left and Right tables do not have the same length");
     AFDataFrame output = *this;
 
     for (size_t i = 0; i < rhs._data.size(); ++i)
-        output.add(rhs._data[i], (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+        output.add(Column(rhs.column_(i)), (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
 
     return output;
 }
@@ -169,8 +169,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     auto &left = _data[lhs_column];
     auto &right = rhs._data[rhs_column];
 
-    if (left.type() != right.type())
-        throw std::runtime_error("Supplied column data types do not match");
+    if (left.type() != right.type()) throw std::runtime_error("Supplied column data types do not match");
 
     auto l = left.hash(false);
     auto r = right.hash(false);
@@ -203,9 +202,9 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(Column const &lhs, Colum
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
-    printf("LHS rows: %llu\n", left.elements());
-    printf("RHS rows: %llu\n", right.elements());
-    Logger::startTimer("Join");
+//    printf("LHS rows: %llu\n", left.elements());
+//    printf("RHS rows: %llu\n", right.elements());
+//    Logger::startTimer("Join");
     array lhs;
     array rhs;
     array idx;
@@ -220,8 +219,8 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
 
     auto equals = equalSet.elements();
     joinScatter(lhs, rhs, equals);
-    printf("Output rows: %llu\n", lhs.elements());
-    Logger::logTime("Join");
+//    printf("Output rows: %llu\n", lhs.elements());
+//    Logger::logTime("Join");
     return { lhs, rhs };
 }
 

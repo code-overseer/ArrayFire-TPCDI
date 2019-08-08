@@ -21,7 +21,7 @@ __kernel void parser(__global PARSE_TYPE *output, __global ulong const *idx, __g
     for (ulong i = 0; i < LOOP_LENGTH; ++i) {
         ulong j = i * (i < len);
         uchar c = input[s + j];
-        bool d = c != '-' && j != dec;
+        bool d = c != '-' && c != '.';
         number += (len > 0 && d && i < len) * (c - '0') * (PARSE_TYPE)pown(10.0, p);
         p -= d;
     }

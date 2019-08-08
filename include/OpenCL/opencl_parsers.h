@@ -167,11 +167,12 @@ af::array inline numericParse(af::array const &input, af::array const &indexer) 
 
 af::array inline stringGather(af::array const &input, af::array &indexer) {
     using namespace af;
-    indexer = join(0, indexer, scan(indexer.row(1), 1, AF_BINARY_ADD, false));
+    if (indexer.isempty()) return array(0, u8);
+    if (indexer.elements() > 2) indexer = join(0, indexer, scan(indexer.row(1), 1, AF_BINARY_ADD, false));
+    else indexer = join(0, indexer, constant(0, 1, indexer.type()));
     auto const loop_length = sum<ull>(max(indexer.row(1), 1));
     auto const out_length = sum<ull>(indexer.row(1));
     auto output = array(out_length, u8);
-
     #ifdef USING_AF
     for (ull i = 0; i < loop_length; ++i) {
         auto b = indexer.row(1) > i;
@@ -193,7 +194,7 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     input.unlock();
     indexer.unlock();
     #endif
-    indexer.row(0) = (array)indexer.row(2);
+    indexer = flip(indexer, 0);
     indexer = indexer.rows(0, 1);
     indexer.eval();
     return output;
@@ -201,6 +202,7 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
 
 af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
+    if (l_idx.elements() != r_idx.elements()) throw std::runtime_error("String column dimemsion mismatch");
     auto out = l_idx.row(1) == r_idx.row(1);
     auto loops = sum<ull>(max(l_idx(1, out)));
 

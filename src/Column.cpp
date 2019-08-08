@@ -13,35 +13,24 @@
 
 Column::Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
     _type(other._type), _host(other._host), _host_idx(other._host_idx) {
-    other._length = 0;
     other._host_idx = nullptr;
     other._host = nullptr;
 }
 
-Column::Column(Column::Proxy &&data, Column::Proxy &&idx) {
-    _device = data; _idx = idx;
-}
+Column::Column(Column::Proxy &&data, Column::Proxy &&idx) { _device = data; _idx = idx; }
 
-Column::Column(Column::Proxy const &data, Column::Proxy const &idx) {
-    _device = data; _idx = idx; _length = _idx.dims(1);
-}
+Column::Column(Column::Proxy const &data, Column::Proxy const &idx) { _device = data; _idx = idx; }
 
-Column::Column(Column::Proxy &&data, DataType const type) : _type(type) {
-    _device = data; _length = _device.dims(1);
-}
+Column::Column(Column::Proxy &&data, DataType const type) : _type(type) { _device = data; }
 
-Column::Column(Column::Proxy const &data, DataType const type) : _type(type) {
-    _device = data; _length = _device.dims(1);
-}
+Column::Column(Column::Proxy const &data, DataType const type) : _type(type) { _device = data; }
 
 Column &Column::operator=(Column &&other) noexcept {
     _device = std::move(other._device);
     _idx = std::move(other._idx);
     _type = other._type;
-    _length = other._length;
     _host = other._host;
     _host_idx = other._host_idx;
-    other._length = 0;
     other._host = nullptr;
     other._host_idx = nullptr;
     return *this;
@@ -98,6 +87,7 @@ af::array Column::hash(bool const sortable) const {
     if (_type == DATETIME) return _datetimeHash();
     return af::array(_device).as(u64);
 }
+
 #define ASSIGN(OP) \
 af::array Column::operator==(af::array OP other) { \
     if (_type == STRING || _type == DATE || _type == TIME || _type == DATETIME) { \
@@ -111,10 +101,12 @@ af::array Column::operator!=(af::array OP other) { return !(*this == other); }
 ASSIGN( const &)
 ASSIGN(&&)
 #undef ASSIGN
+
 #define ASSIGN(OP) \
 af::array Column::operator OP(af::array const &other) { \
     af::array lhs; \
     if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
+    if (length() != other.dims(1)) { throw std::runtime_error("Mismatch column length"); } \
     if (_type == DATE || _type == TIME || _type == DATETIME) { \
         lhs = hash(false); \
         return lhs OP other; \
@@ -129,18 +121,34 @@ ASSIGN(>=)
 #undef ASSIGN
 
 af::array Column::operator==(Column const &other) {
-    af::array lhs;
-    af::array rhs;
     if (_type != other._type) { throw std::runtime_error("Mismatch column type"); }
+    if (length() != other.length()) { throw std::runtime_error("Mismatch column length"); }
     if (_type == STRING || _type == DATE || _type == TIME || _type == DATETIME) {
-        lhs = hash(false);
-        rhs = other.hash(false);
+        auto b =  hash(false) == other.hash(false);
+        if (_type != STRING) return b;
+        if (where(b).isempty()) return b;
+        return stringComp(_device, other._device, _idx(af::span, b), other._idx(af::span, b));
     }
-    if (!lhs.isempty() && !rhs.isempty()) return lhs == rhs;
     return _device == other._device;
 }
 
 af::array Column::operator!=(Column const &other) { return !(*this == other); }
+
+#define ASSIGN(OP) \
+af::array Column::operator OP(Column const &other) { \
+    if (_type != other._type) { throw std::runtime_error("Mismatch column type"); } \
+    if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
+    if (length() != other.length()) { throw std::runtime_error("Mismatch column length"); } \
+    if (_type == DATE || _type == TIME || _type == DATETIME) { \
+        return hash(false) OP other.hash(false); \
+    } \
+    return _device OP other._device; \
+}
+ASSIGN(<)
+ASSIGN(>)
+ASSIGN(<=)
+ASSIGN(>=)
+#undef ASSIGN
 
 Column Column::concatenate(Column const &bottom) const {
     using namespace BatchFunctions;
@@ -196,13 +204,13 @@ af::array Column::operator==(char const *other) {
 af::array Column::_dehashDate(af::array const &key, DateFormat const dateFormat) {
     switch (dateFormat) {
         case YYYYMMDD:
-            return join(0, _device / 10000, (_device / 100) % 100, _device % 100).as(u16);
+            return join(0, key / 10000, (key / 100) % 100, key % 100).as(u16);
         case YYYYDDMM:
-            return join(0, _device / 10000, _device % 100, (_device / 100) % 100).as(u16);
+            return join(0, key / 10000, key % 100, (key / 100) % 100).as(u16);
         case MMDDYYYY:
-            return join(0, _device % 10000, _device / 1000000, (_device / 10000) % 100).as(u16);
+            return join(0, key % 10000, key / 1000000, (key / 10000) % 100).as(u16);
         case DDMMYYYY:
-            return join(0, _device % 10000, (_device / 10000) % 100, _device / 1000000).as(u16);
+            return join(0, key % 10000, (key / 10000) % 100, key / 1000000).as(u16);
         default:
             throw std::runtime_error("No such date format");
     }
@@ -264,14 +272,18 @@ void Column::toTime() {
 }
 
 af::array Column::left(unsigned int length) const {
+    if (length == 0) throw std::invalid_argument("Must be > 0");
     if (type() != STRING) throw std::runtime_error("Expected String");
     if (!where(af::anyTrue(_idx(1, af::span) < length)).isempty()) throw std::runtime_error("Some strings are too short");
+    if (length == 1) return TPCDI_Utils::hflat(_device((af::array)_idx.row(0)));
     auto idx = _idx;
     idx.row(1) = length;
     auto out = stringGather(_device, idx);
+    out = (out != 0);
     return moddims(out, af::dim4(length, out.elements() / length));
 }
 af::array Column::right(unsigned int length) const {
+    if (length == 0) throw std::invalid_argument("Must be > 0");
     if (type() != STRING) throw std::runtime_error("Expected String");
     if (!where(af::anyTrue(_idx(1, af::span) < length + 1)).isempty()) throw std::runtime_error("Some strings are too short");
     auto end = af::sum(_idx.as(s64), 0) - 2;
@@ -304,6 +316,7 @@ void Column::cast() {
         _device = _device.as(GetAFType<T>().af_type);
     }
     _type = GetAFType<T>().df_type;
+    _idx = af::array(0, u64);
 }
 
 template void Column::cast<unsigned char>();

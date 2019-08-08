@@ -139,23 +139,24 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace TPCDI_Utils;
-    Logger::startTimer("Join Prepare");
     auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
     left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
     left_count = left_count(left_count > 0);
     auto left_max = sum<unsigned int>(max(left_count, 1));
-    auto left_idx = scan(left_count, 1, AF_BINARY_ADD, false);
+    auto left_idx = (left_count.elements() == 1) ? constant(0, 1, left_count.type())
+                                                 : scan(left_count, 1, AF_BINARY_ADD, false);
 
     auto right_count = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0), 1) > 0).as(u64)), 1) - 1;
     right_count = hflat(histogram(right_count, right_count.elements())).as(u64);
     right_count = right_count(right_count > 0);
     auto right_max = sum<unsigned int>(max(right_count, 1));
-    auto right_idx = scan(right_count, 1, AF_BINARY_ADD, false);
+    auto right_idx = (right_count.elements() == 1) ? constant(0, 1, right_count.type())
+                                                   : scan(right_count, 1, AF_BINARY_ADD, false);
 
     auto output_pos = right_count * left_count;
     auto output_size = sum<ull>(output_pos);
-    output_pos = scan(output_pos, 1, AF_BINARY_ADD, false);
-    Logger::logTime("Join Prepare");
+    output_pos = (output_pos.elements() == 1) ? constant(0, 1, output_pos.type())
+                                              : scan(output_pos, 1, AF_BINARY_ADD, false);
 #ifdef USING_AF
     array left_out(1, output_size + 1, u64);
     array right_out(1, output_size + 1, u64);

@@ -21,12 +21,11 @@ class Column {
     inline af::array _timeHash() const { return _dateHash(); }
     af::array _dehashDate(af::array const &key, DateFormat format);
     inline af::array _dehashTime(af::array const &key) { return join(0, key / 10000, key / 100 % 100, key % 100).as(u16); }
-    size_t _length = 0;
 public:
-    Column(af::array const &data, DataType const type) : _device(data), _type(type) { _length = _device.dims(1); }
-    Column(af::array const &data, af::array const &index) : _device(data), _idx(index) { _length = _idx.dims(1); }
-    Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) { _length = _device.dims(1); }
-    Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) { _length = _idx.dims(1); }
+    Column(af::array const &data, DataType const type) : _device(data), _type(type) {  }
+    Column(af::array const &data, af::array const &index) : _device(data), _idx(index) {  }
+    Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) {  }
+    Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) {  }
     Column(Column &&other) noexcept;
     Column(Proxy &&data, DataType type);
     Column(Proxy const &data, DataType type);
@@ -73,12 +72,12 @@ public:
     inline Proxy index(af::index const &x, af::index const &y) const { return _idx(x, y); }
     inline Proxy operator()(af::index const &x) const { return _device(x); }
     inline Proxy operator()(af::index const &x, af::index const &y) const { return _device(x, y); }
-    inline size_t length() const { return _length; }
+    inline size_t length() const { return (_type == STRING) ? _idx.dims(1) : _device.dims(1); }
 
     #define ASSIGN(OP) \
-    af::array operator OP(Column const &other); \
-    af::array operator OP(af::array const &other); \
-    af::array operator OP(af::array &&other);
+    af::array operator OP (Column const &other); \
+    af::array operator OP (af::array const &other); \
+    af::array operator OP (af::array &&other);
     ASSIGN(==)
     ASSIGN(!=)
     ASSIGN(>=)
