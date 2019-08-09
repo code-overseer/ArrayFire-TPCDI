@@ -71,7 +71,7 @@ af::array TPCDI_Utils::where64(af::array const &input) {
     return output(b);
 }
 
-void XML_Parser::fillBlanks(int &count, String fieldName, StrToInt &tracker, String &data, bool isAtt) {
+void TPCDI_Utils::fillBlanks(int &count, String fieldName, StrToInt &tracker, String &data, bool isAtt) {
     if (!tracker.count(fieldName)) {
         char msg[32];
         char const* type = (isAtt) ? "attribute" : "element";
@@ -84,7 +84,7 @@ void XML_Parser::fillBlanks(int &count, String fieldName, StrToInt &tracker, Str
     }
 }
 
-void XML_Parser::depthFirstAppend(String &data, Node *node, StrToInt &tracker, String branch, Node *const root) {
+void TPCDI_Utils::depthFirstAppend(String &data, Node *node, StrToInt &tracker, String branch, Node *const root) {
     static int count = 0;
     if (node == root) {
         count = 0;
@@ -123,7 +123,7 @@ void XML_Parser::depthFirstAppend(String &data, Node *node, StrToInt &tracker, S
     }
 }
 
-void XML_Parser::learnFieldNames(Node* node, StrToInt &tracker, String branch, Node* const root) {
+void TPCDI_Utils::learnFieldNames(Node* node, StrToInt &tracker, String branch, Node* const root) {
     static int count = 0;
     if (node == root) {
         count = 0;
@@ -153,7 +153,7 @@ void XML_Parser::learnFieldNames(Node* node, StrToInt &tracker, String branch, N
     if (node == root) tracker.insert(std::make_pair(std::string("End"), count));
 }
 
-std::string XML_Parser::flattenCustomerMgmt(char const *directory) {
+std::string TPCDI_Utils::flattenCustomerMgmt(char const *directory) {
     using namespace rapidxml;
     char file[128];
     strcpy(file, directory);

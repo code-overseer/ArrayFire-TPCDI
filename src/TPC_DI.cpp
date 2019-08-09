@@ -363,7 +363,6 @@ inline void nameDimCompany(AFDataFrame &dimCompany) {
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
     auto dimCompany = s_Company.equiJoin(industry,5,0);
-
     dimCompany = dimCompany.equiJoin(statusType, 4, 0);
     {
         std::string order[15] = {
@@ -374,18 +373,11 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     }
     dimCompany("PTS").toDate();
     dimCompany.nameColumn("EffectiveDate", "PTS");
-    dimCompany.insert(Column(range(dim4(1, dimCompany.length()), 1, u64), ULONG), 0, "SK_CompanyID");
-    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.length()), b8), BOOL), dimCompany.columns().size() - 1, "IsCurrent");
-    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.length()), u32), UINT), dimCompany.columns().size() - 1, "BatchID");
+    dimCompany.insert(Column(range(dim4(1, dimCompany.length()), 1, u64)), 0, "SK_CompanyID");
+    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.length()), b8)), dimCompany.columns().size() - 1, "IsCurrent");
+    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.length()), u32)), dimCompany.columns().size() - 1, "BatchID");
     dimCompany.add(Column(tile(Column::endDate(), dim4(1, dimCompany.length())), DATE), "EndDate");
-
-    {
-        auto &rating = dimCompany("SP_RATING");
-        auto lowGrade = rating.left(1) != 'A';
-        lowGrade = lowGrade && anyTrue(batchFunc(rating.left(3), array(3, "BBB").as(u8), BatchFunctions::batchNotEqual), 0);
-        lowGrade.eval();
-        dimCompany.insert(Column(lowGrade, BOOL), 6, "isLowGrade");
-    }
+    dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
 
     nameDimCompany(dimCompany);
     std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
@@ -406,7 +398,6 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     s0 = s0.project(order, 1, "S0");
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
-
     auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
@@ -436,9 +427,9 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     AFDataFrame financial;
     std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
     auto tmp = dimCompany.project(columns, 4, "DC");
-
+//TODO
     auto fin1 = s_Financial.select(s_Financial("CO_NAME_OR_CIK").left(1) == '0');
-    fin1("CO_NAME_OR_CIK") = fin1("CO_NAME_OR_CIK").trim(0, 10);
+    //TODO
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
 
     financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
@@ -446,6 +437,7 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
 
     columns[1] = "Name";
     tmp = dimCompany.project(columns, 4, "DC");
+    //TODO
     fin1 = s_Financial.select(s_Financial("CO_NAME_OR_CIK").left(1) != '0');
     fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
     fin1.remove("CO_NAME_OR_CIK");
@@ -496,7 +488,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     {
         std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
         auto dc = dimCompany.project(columns, 4, "DC");
-        auto part1 = s_Security.select(s_Security("CO_NAME_OR_CIK").left(1) == '0');
+        auto part1 = s_Security.select(s_Security("CO_NAME_OR_CIK").left(1) == "0");
         part1("CO_NAME_OR_CIK").cast<unsigned long long>();
         part1 = part1.equiJoin(dc, "CO_NAME_OR_CIK", "CompanyID");
         part1("PTS").toDate();
@@ -563,9 +555,8 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     return security;
 }
 
-inline array marketingNameplate(array const &networth, array const &income, array const &cards, array const &children,
+inline Column marketingNameplate(array const &networth, array const &income, array const &cards, array const &children,
                          array const &age, array const &credit, array const &cars) {
-    auto out = constant(0, 56, networth.dims(1), u8);
     array val(12, 6, "+HighValue\0\0+Expenses\0\0\0+Boomer\0\0\0\0\0+MoneyAlert\0+Spender\0\0\0\0+Inherited\0\0");
     val = val.as(u8);
     auto idx = constant(0, 6, networth.dims(1), b8);
@@ -576,35 +567,24 @@ inline array marketingNameplate(array const &networth, array const &income, arra
     idx(4, where(cars > 3 || cards > 7)) = 1;
     idx(5, where(age > 25 || networth > 1000000)) = 1;
 
-    auto j = where(idx.row(0));
-    out(seq(0,9,1), j) = tile(val(seq(0,9,1), 0), dim4(1, j.dims(0)));
-    j = where(idx.row(1));
-    out(seq(10,18,1), j) = tile(val(seq(0,8,1), 1), dim4(1, j.dims(0)));
-    j = where(idx.row(2));
-    out(seq(19,25,1), j) = tile(val(seq(0,6,1), 2), dim4(1, j.dims(0)));
-    j = where(idx.row(3));
-    out(seq(26,36,1), j) = tile(val(seq(0,10,1), 3), dim4(1, j.dims(0)));
-    j = where(idx.row(4));
-    out(seq(37,44,1), j) = tile(val(seq(0,7,1), 4), dim4(1, j.dims(0)));
-    j = where(idx.row(5));
-    out(seq(45,54,1), j) = tile(val(seq(0,9,1), 5), dim4(1, j.dims(0)));
-    out(55, span) = '\n';
-    out = out(where(out)).as(u32);
-    idx = hflat(where(out == '\n'));
-    out(idx) = 0;
-    auto tmp = join(1, constant(0, 1, u32), idx.cols(0, end - 1) + 1);
-    idx = join(0, tmp, idx);
-    auto h = sum<uint32_t>(max(diff1(idx, 0))) + 1;
-    tmp = batchFunc(idx.row(0), range(dim4(h), 0, u32), BatchFunctions::batchAdd);
-    tmp(where(batchFunc(tmp, idx.row(1), BatchFunctions::batchGreater))) = UINT32_MAX;
-    idx = where(tmp != UINT32_MAX);
-    tmp(idx) = out;
-    out = tmp;
-    out(where(out == UINT32_MAX)) = 0;
-    out = moddims(out, dim4(h, out.elements() / h)).as(u8);
-    out.eval();
+    auto out = constant(0, 56, networth.dims(1), u8);
 
-    return out;
+    auto j = where(idx.row(0));
+    out(seq(0,9), j) = tile(val(seq(10), 0), dim4(1, j.dims(0)));
+    j = where(idx.row(1));
+    out(seq(10,18), j) = tile(val(seq(9), 1), dim4(1, j.dims(0)));
+    j = where(idx.row(2));
+    out(seq(19,25), j) = tile(val(seq(7), 2), dim4(1, j.dims(0)));
+    j = where(idx.row(3));
+    out(seq(26,36), j) = tile(val(seq(11), 3), dim4(1, j.dims(0)));
+    j = where(idx.row(4));
+    out(seq(37,44), j) = tile(val(seq(8), 4), dim4(1, j.dims(0)));
+    j = where(idx.row(5));
+    out(seq(45,54), j) = tile(val(seq(10), 5), dim4(1, j.dims(0)));
+    out(55, span) = '\n';
+    out = out(out > 0);
+    out(out == '\n') = 0;
+    return Column(out, STRING);
 }
 
 void nameStagingProspect(AFDataFrame &s_prospect) {
@@ -642,16 +622,16 @@ AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate) {
     prospect.name("Prospect");
 
     auto col = Column(tile(batchDate(1)(span, batchDate(0).data() == batchID), dim), DATE);
-    prospect.insert(Column(col.hash(), ULONG), 1, "SK_RecordDateID");
-    prospect.insert(Column(array(prospect("SK_RecordDateID").data()), ULONG), 2, "SK_UpdateDateID");
-    prospect.insert(Column(constant(1, dim, u32), UINT), 3, "BatchID");
-    prospect.insert(Column(constant(0, dim, u8), BOOL), 4, "IsCustomer");
+    prospect.insert(Column(col.hash()), 1, "SK_RecordDateID");
+    prospect.insert(Column(array(prospect("SK_RecordDateID").data())), 2, "SK_UpdateDateID");
+    prospect.insert(Column(constant(1, dim, u32)), 3, "BatchID");
+    prospect.insert(Column(constant(0, dim, b8)), 4, "IsCustomer");
     auto tmp = marketingNameplate(prospect("NetWorth").data(), prospect("Income").data(),
                                   prospect("NumberCreditCards").data(),
                                   prospect("NumberChildren").data(), prospect("Age").data(),
                                   prospect("CreditRating").data(),
                                   prospect("NumberCars").data());
-    prospect.add(Column(tmp, STRING), "MarketingNameplate");
+    prospect.add(std::move(tmp), "MarketingNameplate");
 
     return prospect;
 }
@@ -692,17 +672,17 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
 }
 
 Customer splitCustomer(AFDataFrame &&s_Customer) {
-    auto idx = s_Customer.stringMatch(0, "NEW");
+    auto idx = s_Customer(0) == "NEW";
     auto newC = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatch(0, "ADDACCT");
+    idx = s_Customer(0) == "ADDACCT";
     auto add = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatch(0, "UPDACCT");
+    idx = s_Customer(0) == "UPDACCT";
     auto uAcc = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatch(0, "CLOSEACCT");
+    idx = s_Customer(0) == "CLOSEACCT";
     auto cAcc = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatch(0, "UPDCUST");
+    idx = s_Customer(0) == "UPDCUST";
     auto uCus = new AFDataFrame(s_Customer.select(idx));
-    idx = s_Customer.stringMatch(0, "INACT");
+    idx = s_Customer(0) == "INACT";
     auto inAc = new AFDataFrame(s_Customer.select(idx));
 
     return Customer(newC, add, uAcc, cAcc, uCus, inAc);

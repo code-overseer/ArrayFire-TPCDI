@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <utility>
 #include "Enums.h"
-#include "AFTypes.h"
 
 /* Wrapper for array to simplify access for different types (especially strings) */
 class Column {
@@ -19,13 +18,17 @@ class Column {
     af::array _datetimeHash() const;
     af::array _dateHash() const;
     inline af::array _timeHash() const { return _dateHash(); }
-    af::array _dehashDate(af::array const &key, DateFormat format);
-    inline af::array _dehashTime(af::array const &key) { return join(0, key / 10000, key / 100 % 100, key % 100).as(u16); }
+    static af::array _dehashDate(af::array const &key, DateFormat format);
+    static af::array _dehashTime(af::array const &key) { return join(0, key / 10000, key / 100 % 100, key % 100).as(u16); }
+    void _generateStringIndex();
+    static std::unordered_map<af::dtype, DataType> _typeMap;
 public:
-    Column(af::array const &data, DataType const type) : _device(data), _type(type) {  }
-    Column(af::array const &data, af::array const &index) : _device(data), _idx(index) {  }
-    Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) {  }
-    Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) {  }
+    Column(af::array const &data, DataType type);
+    Column(af::array &&data, DataType type);
+    explicit Column(af::array const &data);
+    explicit Column(af::array &&data);
+    Column(af::array const &data, af::array const &index);
+    Column(af::array &&data, af::array &&index);
     Column(Column &&other) noexcept;
     Column(Proxy &&data, DataType type);
     Column(Proxy const &data, DataType type);
@@ -50,8 +53,8 @@ public:
     }
     af::array hash(bool sortable = false) const;
     void printColumn() const;
-    af::array left(unsigned int length) const;
-    af::array right(unsigned int length) const;
+    Column left(unsigned int length) const;
+    Column right(unsigned int length) const;
     Column trim(unsigned int start, unsigned int length) const;
     inline af::array const& index() const { return _idx; }
     inline af::array const& data() const { return _device; }
@@ -86,7 +89,6 @@ public:
     ASSIGN(<)
     #undef ASSIGN
     af::array operator ==(char const *other);
-
+    inline af::array operator !=(char const *other) { return !(*this == other); }
 };
-
 #endif //ARRAYFIRE_TPCDI_COLUMN_H

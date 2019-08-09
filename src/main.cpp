@@ -1,6 +1,5 @@
 #include <cstring>
 #include <string>
-#include "include/BatchFunctions.h"
 #include "include/Logger.h"
 #include "include/TPC_DI.h"
 #include "include/Tests.h"
@@ -58,7 +57,7 @@ int main(int argc, char *argv[]) {
         }
     }
     Logger::startTimer();
-    DimSecurity();
+    DimCompany();
     Logger::logTime();
     return 0;
 }
@@ -147,6 +146,9 @@ void DimCompany() {
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
+    statusType.flushToHost();
+    dimDate.flushToHost();
+    dimCompany.flushToHost();
 }
 
 void DimSecurity() {

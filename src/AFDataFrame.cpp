@@ -1,11 +1,10 @@
 #include "include/AFDataFrame.h"
-#include "include/BatchFunctions.h"
 #include "include/TPCDI_Utils.h"
-#include "include/Enums.h"
-#include <cstring>
+#include "include/BatchFunctions.h"
 #include "include/Logger.h"
 #if defined(USING_OPENCL)
 #include "include/OpenCL/opencl_kernels.h"
+#include "include/OpenCL/opencl_parsers.h"
 #elif defined(USING_CUDA)
 #include "include/CUDA/cuda_kernels.h"
 #else
@@ -18,7 +17,6 @@
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
 using namespace af;
-
 
 AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _data(std::move(other._data)),
                                                          _nameToIdx(std::move(other._nameToIdx)),
@@ -57,7 +55,7 @@ void AFDataFrame::add(Column &&column, const char *name) {
     if (name) nameColumn(name, (int)(_data.size() - 1));
 }
 
-void AFDataFrame::insert(Column &column, int index, const char *name) {
+void AFDataFrame::insert(Column &column, unsigned int index, const char *name) {
     _idxToName.erase(index);
     for (auto &i : _nameToIdx) {
         if (i.second >= index) {
@@ -70,11 +68,9 @@ void AFDataFrame::insert(Column &column, int index, const char *name) {
     if (name) nameColumn(name, index);
 }
 
-void AFDataFrame::insert(Column &&column, int index, const char *name) {
-    insert(column, index, name);
-}
+void AFDataFrame::insert(Column &&column, unsigned int index, const char *name) { insert(column, index, name); }
 
-void AFDataFrame::remove(int index) {
+void AFDataFrame::remove(unsigned int index) {
     _data.erase(_data.begin() + index);
     _nameToIdx.erase(_idxToName[index]);
     _idxToName.erase(index);
@@ -87,40 +83,28 @@ void AFDataFrame::remove(int index) {
     }
 }
 
-af::array AFDataFrame::stringMatch(int column, char const *str) const {
-    if (_data[column].type() != STRING) throw std::runtime_error("Invalid column type");
-    auto length = strlen(str) + 1;
-    if (_data[column].dims(0) < length) return constant(0, dim4(1, _data[column].dims(1)), b8);
-
-    auto match = array(length, str);
-    auto idx = allTrue(batchFunc(_data[column].rows(0, --length), match, batchEqual), 0);
-    idx.eval();
-    return idx;
-}
-
 AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const &name) const {
     AFDataFrame output;
     output.name(name.empty() ? _name : name);
     for (int i = 0; i < size; i++) {
         int n = columns[i];
-        output.add(project(n));
+        output.add(Column(_data[n]));
         if (_idxToName.count(n)) output.nameColumn(_idxToName.at(n), i);
     }
     return output;
 }
 
 AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name) const {
-    AFDataFrame out(*this);
-    if (!name.empty()) out.name(name);
-    for (auto &a : out._data) a = a.select(index);
-    return out;
+    AFDataFrame output;
+    output.name(name.empty() ? _name : name);
+    unsigned int i = 0;
+    for (auto &a : _data) output.add(a.select(index), _idxToName.at(i++).c_str());
+    return output;
 }
 
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
-    for (int i = 0; i < size; i++)
-        columns[i] = _nameToIdx.at(names[i]);
-
+    for (int i = 0; i < size; i++) columns[i] = _nameToIdx.at(names[i]);
     return project(columns, size, name);
 }
 
@@ -136,33 +120,37 @@ AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
 
 AFDataFrame AFDataFrame::unionize(AFDataFrame &frame) const {
     if (_data.size() != frame._data.size()) throw std::runtime_error("Number of attributes do not match");
-
     auto out(*this);
     for (size_t i = 0; i < out._data.size(); ++i)
         out._data[i] = out._data[i].concatenate(frame._data[i]);
-
     return out;
 }
 
-void AFDataFrame::sortBy(int col, bool isAscending) {
+void AFDataFrame::sortBy(unsigned int const col, bool const isAscending) {
     array key = _data[col].hash(true);
     auto const size = key.dims(0);
     if (!size) return;
     array sorting;
     array idx;
     sort(sorting, idx, key(end, span), 1, isAscending);
-    for (auto j = size - 2; j >= 0; --j) {
+    for (int j = (int)size - 2; j >= 0; --j) {
         key = key(span, idx);
         sort(sorting, idx, key(j, span), 1, isAscending);
     }
     for (auto &i : _data) i = i.select(idx);
 }
 
-void AFDataFrame::sortBy(int *columns, int size, bool const *isAscending) {
-    for (auto i = size - 1; i >= 0; --i) {
+void AFDataFrame::sortBy(unsigned int const *columns, unsigned int const size, bool const *isAscending) {
+    for (int i = (int)size - 1; i >= 0; --i) {
         auto asc = isAscending ? isAscending[i] : true;
         sortBy(columns[i], asc);
     }
+}
+
+void AFDataFrame::sortBy(std::string const *columns, unsigned int const size, bool const *isAscending) {
+    unsigned int seqnum[size];
+    for (int j = 0; j < size; ++j) seqnum[j] = _nameToIdx[columns[j]];
+    sortBy(seqnum, size, isAscending);
 }
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
@@ -202,9 +190,6 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(Column const &lhs, Colum
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
-//    printf("LHS rows: %llu\n", left.elements());
-//    printf("RHS rows: %llu\n", right.elements());
-//    Logger::startTimer("Join");
     array lhs;
     array rhs;
     array idx;
@@ -212,15 +197,12 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     lhs = join(0, lhs, idx.as(lhs.type()));
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
-
     auto const equalSet = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
     bagSetIntersect(lhs, equalSet);
     bagSetIntersect(rhs, equalSet);
-
     auto equals = equalSet.elements();
     joinScatter(lhs, rhs, equals);
-//    printf("Output rows: %llu\n", lhs.elements());
-//    Logger::logTime("Join");
+
     return { lhs, rhs };
 }
 
@@ -246,6 +228,5 @@ void AFDataFrame::clear() {
     _idxToName.clear();
     _nameToIdx.clear();
 }
-
 
 

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <arrayfire.h>
 #include <cstdlib>
+#include <include/AFTypes.h>
 #include "include/Column.h"
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
@@ -18,44 +19,86 @@ typedef unsigned long long ull;
 typedef unsigned long long int ulli;
 #endif
 
-static void isExist(ull *result, ull const *input, ull const *set, ull *start, ull const set_size, ull const j) {
-    for (ull i = start[0]; i < set_size; start[j] = ++i) {
-        if (set[i] > *input) return;
-        if (set[i] ^ *input) continue;
-        *result = 1;
-        return;
-    }
-}
-
-static void isExist_single(ull &result, ull const &input, ull const *set,  ull &start, ull const set_size) {
-    for (ull i = start; i < set_size; start = ++i) {
-        if (set[i] > input) return;
-        if (set[i] ^ input) continue;
-        result = 1;
-        return;
-    }
-}
-
-static void launchIntersect(ull *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
-    if (bag_size * set_size > 10000000llU) {
-        ull const limit = std::thread::hardware_concurrency() - 1;
-        ull const threadCount = bag_size;
-        std::vector<ull> s((size_t)limit);
-        for (int i = 0; i < limit; ++i) s[i] = 0;
-
-        std::thread threads[limit];
-        for (ull i = 0; i < threadCount / limit + 1; ++i) {
-            auto jlim = (i == threadCount / limit) ? threadCount % limit : limit;
-            for (ull j = 0; j < jlim; ++j) {
-                auto n = i * limit + j;
-                threads[j] = std::thread(isExist, result + n, bag + 2 * n, set, s.data(), set_size, j);
-            }
-            for (ull j = 0; j < jlim; ++j) threads[j].join();
-            for (ull j = 0; j < jlim; ++j) s[0] = (s[0] < s[j]) ? s[j] : s[0];
+static void bag_set(ull *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+    ull start = 0;
+    for (int n = 0; n < bag_size; ++n) {
+        for (ull i = start; i < set_size; start = ++i) {
+            if (set[i] > bag[2 * n]) return;
+            if (set[i] ^ bag[2 * n]) continue;
+            result[n] = 1;
+            return;
         }
-    } else {
-        ull s = 0;
-        for (int n = 0; n < bag_size; ++n) isExist_single(result[n], bag[2 * n], set, s, set_size);
+    }
+}
+
+static void join_scatter(ull const *il, ull const *ir, ull const *cl, ull const *cr, ull const *outpos,  ull *l, ull *r,
+    ull const equals, ull const left_max, ull const right_max, ull const out_size) {
+
+    for (int i = 0; i < equals; ++i) {
+        for (int j = 0; j < cl[i]; ++j) {
+            for (int k = 0; k < cr[i]; ++k) {
+                auto idx = outpos[i] + cl[i] * k + j;
+                l[idx] = il[i] + j;
+                r[idx] = ir[i] + k;
+            }
+        }
+    }
+}
+
+static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
+    for (ull i = 0; i < rows; ++i) {
+        for (ull j = 0; j < idx[3 * i + 1]; ++j) {
+            output[idx[3 * i + 2] + j] = input[idx[3 * i] + j];
+        }
+    }
+}
+
+static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right,
+                    ull const *l_idx, ull const *r_idx, ull const rows) {
+    for (int i = 0; i < rows; ++i) {
+        output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)(right + r_idx[2 * i]));
+    }
+}
+
+static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,  ull const rows) {
+    for (int i = 0; i < rows; ++i) {
+        output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)right);
+    }
+}
+
+template<typename T> inline T convert(unsigned char* start, unsigned char**end);
+
+template<> inline float convert<float>(unsigned char* start, unsigned char**end) {
+    return std::strtof((char*)start, (char**)end);
+}
+template<> inline double convert<double>(unsigned char* start, unsigned char**end) {
+    return std::strtod((char*)start, (char**)end);
+}
+template<> inline unsigned char convert<unsigned char>(unsigned char* start, unsigned char**end) {
+    return (unsigned char)std::strtoul((char*)start, (char**)end, 0);
+}
+template<> inline unsigned short convert<unsigned short>(unsigned char* start, unsigned char**end) {
+    return (unsigned short)std::strtoul((char*)start, (char**)end, 0);
+}
+template<> inline short convert<short>(unsigned char* start, unsigned char**end) {
+    return (short)std::strtol((char*)start, (char**)end, 0);
+}
+template<> inline unsigned int convert<unsigned int>(unsigned char* start, unsigned char**end) {
+    return std::strtoul((char*)start, (char**)end, 0);
+}
+template<> inline int convert<int>(unsigned char* start, unsigned char**end) {
+    return (int)std::strtol((char*)start, (char**)end, 0);
+}
+template<> inline ull convert<ull>(unsigned char* start, unsigned char**end) {
+    return std::strtoull((char*)start, (char**)end, 0);
+}
+template<> inline long long convert<long long>(unsigned char* start, unsigned char**end) {
+    return std::strtoll((char*)start, (char**)end, 0);
+}
+template<typename T> inline void parser(T *output, unsigned char const* input, ull const rows) {
+    unsigned char const* endptr = input - 1;
+    for (ull i = 0; i < rows; ++i) {
+        output[i] = *(++endptr) == '\n' ? 0 : convert<T>(endptr, &endptr);
     }
 }
 
@@ -77,7 +120,7 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     auto bag_ptr = bag.device<ull>();
     af::sync();
 
-    launchIntersect(result_ptr, bag_ptr, set_ptr, bag_size, set_size);
+    bag_set(result_ptr, bag_ptr, set_ptr, bag_size, set_size);
 
     bag.unlock();
     set.unlock();
@@ -135,11 +178,11 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     auto output = array(out_length, u8);
 
     #ifdef USING_AF
+    auto const loop_length = sum<ull>(max(indexer.row(1), 1));
     for (ull i = 0; i < loop_length; ++i) {
         auto b = indexer.row(1) > i;
-        af::array o_idx = indexer(2, b) + i;
-        af::array i_idx = indexer(0, b) + i;
-        output(o_idx) = (array)input(i_idx);
+        auto c = indexer.row(1) - 1 != i;
+        output(indexer(2, b) + i) = input(indexer(0, b) + i) * c;
     }
     output.eval();
     #else
@@ -163,6 +206,24 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     return output;
 }
 
+template<typename T> af::array inline numericParse(af::array const &input, af::array const &indexer) {
+    using namespace af;
+    auto in = input;
+    in(sum(indexer, 0) - 1) = '\n';
+    auto const rows = indexer.elements() / 2;
+    auto output = array(1, rows + 1, GetAFType<T>().af_type);
+    auto out_ptr = output.device<T>();
+    auto in_ptr = in.device<unsigned char>();
+    af::sync();
+    parser<T>(output, input, rows);
+    output.unlock();
+    input.unlock();
+    indexer.unlock();
+    output = output.cols(0, end - 1);
+    output.eval();
+    return output;
+}
+
 af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
     auto out = l_idx.row(1) == r_idx.row(1);
@@ -176,55 +237,17 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     return out;
 }
 
-template<typename T> inline T convert(unsigned char* start, unsigned char**end);
-template<> inline float convert<float>(unsigned char* start, unsigned char**end) {
-    return std::strtof((char*)start, (char**)end);
-}
-template<> inline double convert<double>(unsigned char* start, unsigned char**end) {
-    return std::strtod((char*)start, (char**)end);
-}
-template<> inline unsigned char convert<unsigned char>(unsigned char* start, unsigned char**end) {
-    return (unsigned char)std::strtoul((char*)start, (char**)end, 0);
-}
-template<> inline unsigned short convert<unsigned short>(unsigned char* start, unsigned char**end) {
-    return (unsigned short)std::strtoul((char*)start, (char**)end, 0);
-}
-template<> inline short convert<short>(unsigned char* start, unsigned char**end) {
-    return (short)std::strtol((char*)start, (char**)end, 0);
-}
-template<> inline unsigned int convert<unsigned int>(unsigned char* start, unsigned char**end) {
-    return std::strtoul((char*)start, (char**)end, 0);
-}
-template<> inline int convert<int>(unsigned char* start, unsigned char**end) {
-    return (int)std::strtol((char*)start, (char**)end, 0);
-}
-template<> inline ull convert<ull>(unsigned char* start, unsigned char**end) {
-    return std::strtoull((char*)start, (char**)end, 0);
-}
-template<> inline long long convert<long long>(unsigned char* start, unsigned char**end) {
-    return std::strtoll((char*)start, (char**)end, 0);
-}
-
-template<typename T>
-af::array inline numericParse(af::array const &input, af::array const &indexer) {
+af::array inline stringComp(af::array const &lhs, char const *rhs, af::array const &l_idx) {
     using namespace af;
-    auto in = input;
-    in(sum(indexer, 0) - 1) = '\n';
-    auto const row_nums = indexer.elements() / 2;
-    auto output = array(1, row_nums + 1, GetAFType<T>().af_type);
-    auto out_ptr = output.device<T>();
-    auto in_ptr = in.device<unsigned char>();
-    af::sync();
-    unsigned char* endptr = in_ptr - 1;
-    for (ull i = 0; i < row_nums; ++i) {
-        out_ptr[i] = *(++endptr) == '\n' ? 0 : convert<T>(endptr, &endptr);
+    auto loops = strlen(rhs) + 1;
+    auto out = l_idx.row(1) == loops;
+
+    for (ull i = 0; i < loops; ++i) {
+        out(out) = out(out) && lhs(l_idx(0, out) + i) == rhs[i];
     }
-    output.unlock();
-    input.unlock();
-    indexer.unlock();
-    output = output.cols(0, end - 1);
-    output.eval();
-    return output;
+    out.eval();
+
+    return out;
 }
 #endif //ARRAYFIRE_TPCDI_VECTOR_FUNCTIONS_H
 

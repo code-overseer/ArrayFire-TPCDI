@@ -57,7 +57,7 @@ static void launchNumericParse(T *output, ull const * idx, unsigned char const *
 }
 
 static void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const loop_len,
-        ull const output_size, ull const row_num) {
+        ull const output_size, ull const rows) {
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
     cl_command_queue queue = create_queue(context);
@@ -75,17 +75,16 @@ static void launchStringGather(unsigned char *output, ull const *idx, unsigned c
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel, arg++, sizeof(ull), &output_size);
-    err |= clSetKernelArg(kernel, arg, sizeof(ull), &row_num);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
 
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
         throw (err);
     }
 
-    auto num = row_num;
     // Set launch configuration parameters and launch kernel
     size_t local  = 256;
-    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -143,6 +142,48 @@ ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
     }
 }
 
+static void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
+                             ull const rows, ull const loops) {
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
+
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu", loops);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_parse_program(context, options);
+    cl_kernel kernel = create_kernel(program, "str_cmp_single");
+
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &left);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &right);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
+
+    // Set launch configuration parameters and launch kernel
+    size_t local  = 256;
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
+}
+
 template<typename T>
 af::array inline numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
@@ -176,9 +217,8 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     #ifdef USING_AF
     for (ull i = 0; i < loop_length; ++i) {
         auto b = indexer.row(1) > i;
-        af::array o_idx = indexer(2, b) + i;
-        af::array i_idx = indexer(0, b) + i;
-        output(o_idx) = (array)input(i_idx);
+        auto c = indexer.row(1) - 1 != i;
+        output(indexer(2, b) + i) = input(indexer(0, b) + i) * c;
     }
     output.eval();
     #else
@@ -205,10 +245,9 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     if (l_idx.elements() != r_idx.elements()) throw std::runtime_error("String column dimemsion mismatch");
     auto out = l_idx.row(1) == r_idx.row(1);
     auto loops = sum<ull>(max(l_idx(1, out)));
-
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {
-        out = flat(out) && (flat(l_idx.row(1) < i) || flat(lhs(l_idx.row(0) + i) == rhs(r_idx.row(0) + i)) );
+        out(out) = out(out) && flat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
     out.eval();
     #else
@@ -226,6 +265,34 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     rhs.unlock();
     l_idx.unlock();
     r_idx.unlock();
+    #endif
+    return out;
+}
+
+af::array inline stringComp(af::array const &lhs, char const* rhs, af::array const &l_idx) {
+    using namespace af;
+    auto loops = strlen(rhs) + 1;
+    auto out = l_idx.row(1) == loops;
+
+    #ifdef USING_AF
+    for (ull i = 0; i < loops; ++i) {
+        out(out) = out(out) && lhs(l_idx(0, out) + i) == rhs[i];
+    }
+    out.eval();
+    #else
+    auto right = array(loops, rhs).as(u8);
+    auto out_ptr = (bool*)out.device<char>();
+    auto left_ptr = lhs.device<unsigned char>();
+    auto right_ptr = right.device<unsigned char>();
+    auto l_idx_ptr = l_idx.device<ull>();
+    auto const rows = l_idx.elements() / 2;
+    af::sync();
+
+    launchStringComp(out_ptr, left_ptr, right_ptr, l_idx_ptr, rows, loops);
+    out.unlock();
+    lhs.unlock();
+    l_idx.unlock();
+    right.unlock();
     #endif
     return out;
 }

@@ -38,66 +38,85 @@ __global__ static void join_scatter(ull const *il, ull const *ir, ull const *cl,
     b = b && !(j / left) && !(k / right);
     if (b) {
         left = pos + left * k + j;
-        right = pos + right * j + k;
-
         l[left] = il[i] + j;
-        r[right] = ir[i] + k;
+        r[left] = ir[i] + k;
     }
 }
 template<typename T>
 __global__ static void parser(T *output, ull const *idx, unsigned char const *input, ull const rows, ull const loops) {
     ull const id = blockIdx.x * blockDim.x + threadIdx.x;
-    bool b = id < rows;
-    ull const s = idx[2 * id * b];
-    ull const len = idx[(2 * id + 1) * b] - 1;
-    T number = 0;
-    ull dec = 0;
-    // Multiple accesses to input[s+j] inefficient
-    for (ull i = 0; i < loops; ++i) {
-        ull j = i * (i < len);
-        dec += (input[s + j] == '.') * j;
-    }
+    if (id < rows) {
+        ull const s = idx[2 * id];
+        ull const len = idx[2 * id + 1] - 1;
+        T number = 0;
+        ull dec = 0;
+        // Multiple accesses to input[s+j] inefficient
+        for (ull i = 0; i < loops; ++i) {
+            ull j = i * (i < len);
+            dec += (input[s + j] == '.') * j;
+        }
 
-    bool neg = input[s] == '-';
-    int p = (int)(dec + !dec * len) - 1 - neg;
-    for (ull i = 0; i < loops; ++i) {
-        ull j = i * (i < len);
-        unsigned char c = input[s + j];
-        bool d = c != '-' && j != dec;
-        number += (len > 0 && d && i < len) * (c - '0') * (T)pow(10.0, p);
-        p -= d;
+        bool neg = input[s] == '-';
+        int p = (int)(dec + !dec * len) - 1 - neg;
+
+        for (ull i = 0; i < loops; ++i) {
+            ull j = i * (i < len);
+            unsigned char c = input[s + j];
+            bool d = c != '-' && c != '.';
+            number += (len > 0 && d && i < len) * (c - '0') * (T)pow(10.0, p);
+            p -= d;
+        }
+
+        output[id] = number * (!neg - neg);
     }
-    output[b * id + !b * rows] = number * (!neg - neg);
 }
 
 __global__ static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
-    bool a = id < rows;
-    ull const istart = idx[(3 * id) * a];
-    ull const len = idx[(3 * id + 1) * a];
-    ull const ostart = idx[(3 * id + 2) * a];
-    bool b;
 
-    for (ull i = 0; i < loops; ++i) {
-        b = a && i < len;
-        output[b * (ostart + i) + !b * (size - 1)] = b * input[istart + b * i];
+    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (id < rows) {
+        ull const istart = idx[3 * id];
+        ull const len = idx[3 * id + 1];
+        ull const ostart = idx[3 * id + 2];
+        bool b;
+        bool c;
+        for (ull i = 0; i < loops; ++i) {
+            b = i < len;
+            c = i != len - 1;
+            output[b * (ostart + i) + !b * (size - 1)] = b * input[istart + b * i];
+        }
     }
 }
 
 __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right,
                                ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
     ull const id = blockIdx.x * blockDim.x + threadIdx.x;
-    bool a = id < rows;
-    ull const l_start = l_idx[(2 * id) * a];
-    ull const r_start = r_idx[(2 * id) * a];
-    ull const len = l_idx[(2 * id + 1) * a];
-    bool out = output[a * id + !a * rows];
+    if (id < rows) {
+        ull const l_start = l_idx[2 * id];
+        ull const r_start = r_idx[2 * id];
+        ull const len = l_idx[2 * id + 1];
+        bool out = output[id];
 
-    for (ull i = 0; i < loops; ++i) {
-        out &= (len < i || left[l_start + i] == right[r_start + i]);
+        for (ull i = 0; i < loops; ++i) {
+            out &= (len < i || left[l_start + i] == right[r_start + i]);
+        }
+
+        output[id] = out;
     }
+}
 
-    output[a * id + !a * rows] = out;
+__global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
+        ull const rows, ull const loops) {
+    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (id < rows) {
+        ulong const l_start = l_idx[2 * id];
+        bool out = output[id];
+
+        for (ulong i = 0; i < loops; ++i) {
+            out &= left[l_start + i] == right[i];
+        }
+        output[id] = out;
+    }
 }
 
 void inline bagSetIntersect(af::array &bag, af::array const &set) {
@@ -211,9 +230,8 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     #ifdef USING_AF
     for (ull i = 0; i < loop_length; ++i) {
         auto b = indexer.row(1) > i;
-        af::array o_idx = indexer(2, b) + i;
-        af::array i_idx = indexer(0, b) + i;
-        output(o_idx) = (array)input(i_idx);
+        auto c = indexer.row(1) - 1 != i;
+        output(indexer(2, b) + i) = input(indexer(0, b) + i) * c;
     }
     output.eval();
     #else
@@ -272,8 +290,42 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     return out;
 }
 
-template<typename T>
-af::array inline numericParse(af::array const &input, af::array const &indexer) {
+af::array inline stringComp(af::array const &lhs, char const *rhs, af::array const &l_idx) {
+    using namespace af;
+    auto loops = strlen(rhs) + 1;
+    auto out = l_idx.row(1) == loops;
+
+    #ifdef USING_AF
+    for (ull i = 0; i < loops; ++i) {
+        out(out) = out(out) && lhs(l_idx(0, out) + i) == rhs[i];
+    }
+    out.eval();
+    #else
+    auto right = array(loops, rhs).as(u8);
+    auto out_ptr = (bool*)out.device<char>();
+    auto left_ptr = lhs.device<unsigned char>();
+    auto right_ptr = right.device<unsigned char>();
+    auto l_idx_ptr = l_idx.device<ull>();
+    auto const rows = l_idx.elements() / 2;
+    af::sync();
+
+    ull const threadLimit = THREAD_LIMIT;
+    ull const threadCount = rows;
+    ull const blocks = (threadCount/threadLimit) + 1;
+    dim3 grid(blocks, 1, 1);
+    dim3 block(threadLimit, 1, 1);
+
+    str_cmp<<<grid, block>>>(out_ptr, left_ptr, right_ptr, l_idx_ptr, rows, loops);
+    out.unlock();
+    lhs.unlock();
+    l_idx.unlock();
+    right.unlock();
+    #endif
+
+    return out;
+}
+
+template<typename T> af::array inline numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
 
     auto const loop_length = sum<ull>(max(indexer.row(1), 1));
@@ -299,4 +351,5 @@ af::array inline numericParse(af::array const &input, af::array const &indexer) 
     output.eval();
     return output;
 }
+
 #endif

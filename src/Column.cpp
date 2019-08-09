@@ -1,6 +1,7 @@
 #include "include/Column.h"
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
+#include "include/AFTypes.h"
 #include <exception>
 #include <cstring>
 #ifdef USING_OPENCL
@@ -11,19 +12,49 @@
     #include "include/CPU/vector_functions.h"
 #endif
 
-Column::Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
+std::unordered_map<af::dtype, DataType> Column::_typeMap({{u8, UCHAR}, // NOLINT(cert-err58-cpp)
+                                                            {b8, BOOL},
+                                                            {u16, USHORT},
+                                                            {s16, SHORT},
+                                                            {u32, UINT},
+                                                            {s32, INT},
+                                                            {u64, ULONG},
+                                                            {s64, LONG},
+                                                            {f32, FLOAT},
+                                                            {f64, DOUBLE}});
+
+Column::Column(af::array const &data, DataType const type) : _device(data), _type(type) {
+    if (type == STRING) _generateStringIndex();
+}
+Column::Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) {
+    if (type == STRING) _generateStringIndex();
+}
+Column::Column(af::array const &data) : _type(_typeMap.at(data.type())), _device(data) { }
+Column::Column(af::array &&data) : _type(_typeMap.at(std::move(data).type())), _device(data) { }
+Column::Column(af::array const &data, af::array const &index) : _device(data), _idx(index) { }
+Column::Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) { }
+Column::Column::Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
     _type(other._type), _host(other._host), _host_idx(other._host_idx) {
     other._host_idx = nullptr;
     other._host = nullptr;
 }
 
-Column::Column(Column::Proxy &&data, Column::Proxy &&idx) { _device = data; _idx = idx; }
+Column::Column(Column::Proxy &&data, Column::Proxy &&idx) {
+    _device = data;
+    _idx = idx;
+    _device.eval();
+    _idx.eval();
+}
 
-Column::Column(Column::Proxy const &data, Column::Proxy const &idx) { _device = data; _idx = idx; }
+Column::Column(Column::Proxy const &data, Column::Proxy const &idx) {
+    _device = data; _idx = idx;
+    _device.eval();
+    _idx.eval();
+}
 
-Column::Column(Column::Proxy &&data, DataType const type) : _type(type) { _device = data; }
+Column::Column(Column::Proxy &&data, DataType const type) : _type(type) { _device = data; _device.eval(); }
 
-Column::Column(Column::Proxy const &data, DataType const type) : _type(type) { _device = data; }
+Column::Column(Column::Proxy const &data, DataType const type) : _type(type) { _device = data; _device.eval(); }
 
 Column &Column::operator=(Column &&other) noexcept {
     _device = std::move(other._device);
@@ -150,6 +181,11 @@ ASSIGN(<=)
 ASSIGN(>=)
 #undef ASSIGN
 
+af::array Column::operator==(char const *other) {
+    if (_type != STRING) throw std::runtime_error("Type mismatch");
+    return stringComp(_device, other, _idx);
+}
+
 Column Column::concatenate(Column const &bottom) const {
     using namespace BatchFunctions;
     if (_type != bottom._type) throw std::runtime_error("Type mismatch");
@@ -187,18 +223,6 @@ Column Column::select(af::array const &rows) const {
         return Column(stringGather(_device, idx), idx);
     }
     return Column(_device(af::span, rows), _type);
-}
-
-af::array Column::operator==(char const *other) {
-    if (_type != STRING) throw std::runtime_error("Type mismatch");
-    size_t const length = strlen(other) + 1;
-    using namespace af;
-    auto rhs = af::array(length, other).as(u8);
-    auto out = _idx.row(1) == length;
-    auto lhs = _device(batchFunc(_idx(0, out), range(dim4(length),0, u32), BatchFunctions::batchAdd));
-    lhs = moddims(lhs, dim4(length, lhs.elements() / length));
-    out = allTrue(batchFunc(lhs, rhs, BatchFunctions::batchEqual), 0);
-    return out;
 }
 
 af::array Column::_dehashDate(af::array const &key, DateFormat const dateFormat) {
@@ -271,35 +295,41 @@ void Column::toTime() {
     _device.eval();
 }
 
-af::array Column::left(unsigned int length) const {
-    if (length == 0) throw std::invalid_argument("Must be > 0");
+Column Column::left(unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(af::anyTrue(_idx(1, af::span) < length)).isempty()) throw std::runtime_error("Some strings are too short");
-    if (length == 1) return TPCDI_Utils::hflat(_device((af::array)_idx.row(0)));
+    if (length == 0) throw std::invalid_argument("Must be > 0");
+    auto len = length + 1;
     auto idx = _idx;
-    idx.row(1) = length;
-    auto out = stringGather(_device, idx);
-    out = (out != 0);
-    return moddims(out, af::dim4(length, out.elements() / length));
+    idx(1, idx.row(1) > len) = len;
+    return Column(stringGather(_device, idx), idx);
 }
-af::array Column::right(unsigned int length) const {
-    if (length == 0) throw std::invalid_argument("Must be > 0");
+
+Column Column::right(unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(af::anyTrue(_idx(1, af::span) < length + 1)).isempty()) throw std::runtime_error("Some strings are too short");
-    auto end = af::sum(_idx.as(s64), 0) - 2;
-    auto out = af::batchFunc(end, af::range(af::dim4(length), s32), BatchFunctions::batchSub);
-    out = moddims(_device(out), out.dims());
-    return out;
+    if (length == 0) throw std::invalid_argument("Must be > 0");
+    auto len = length + 1;
+    auto idx = _idx;
+    auto b = idx.row(1) > len;
+    idx(0, b) = idx(1, b) - len;
+    idx(1, b) = len;
+    return Column(stringGather(_device, idx), idx);
 }
 
 Column Column::trim(unsigned int start, unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(anyTrue(flat(_idx(1, af::span) <= (length + start)))).isempty()) throw std::runtime_error("Some strings are too short");
+    if (!where(anyTrue(flat(_idx.row(1) <= (length + start)))).isempty()) throw std::runtime_error("Some strings are too short");
     auto idx = _idx;
     idx.row(1) = length + 1;
     auto out = Column(stringGather(_device, idx), std::move(idx));
     out._device(out.irow(0) + length) = 0;
     return out;
+}
+
+void Column::_generateStringIndex() {
+    using namespace TPCDI_Utils;
+    _idx = af::diff1(af::join(1, af::constant(0, 1, u64), hflat(where64(_device == 0))), 1);
+    _idx(0) += 1;
+    _idx = join(0, af::scan(_idx, 1, AF_BINARY_ADD, false), _idx);
 }
 
 template<typename T>
@@ -308,9 +338,7 @@ void Column::cast() {
     if (_type == DATE || _type == TIME || _type == DATETIME) throw std::runtime_error("Invalid Type");
     if (_type == STRING) {
         _device = _device(_device != ' ');
-        _idx = af::diff1(af::join(1, af::constant(0, 1, u64), hflat(where64(_device == 0))), 1);
-        _idx(0) += 1;
-        _idx = join(0, af::scan(_idx, 1, AF_BINARY_ADD, false), _idx);
+        _generateStringIndex();
         _device = numericParse<T>(_device, _idx);
     } else {
         _device = _device.as(GetAFType<T>().af_type);
@@ -318,7 +346,6 @@ void Column::cast() {
     _type = GetAFType<T>().df_type;
     _idx = af::array(0, u64);
 }
-
 template void Column::cast<unsigned char>();
 template void Column::cast<short>();
 template void Column::cast<unsigned short>();

@@ -9,6 +9,7 @@ namespace BatchFunctions {
 
     af::array batchNotEqual(af::array const &rhs, af::array const &lhs);
     af::array batchEqual(af::array const &rhs, af::array const &lhs);
+    af::array batchStrCmp(af::array const &rhs, af::array const &lhs);
     af::array batchLess(af::array const &rhs, af::array const &lhs);
     af::array batchGreater(af::array const &rhs, af::array const &lhs);
     af::array batchGE(af::array const &rhs, af::array const &lhs);

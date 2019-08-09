@@ -61,3 +61,7 @@ af::array BatchFunctions::bitAnd(af::array const &lhs, af::array const &rhs) {
 af::array BatchFunctions::bitOr(af::array const &lhs, af::array const &rhs) {
     return lhs | rhs;
 }
+
+af::array BatchFunctions::batchStrCmp(af::array const &rhs, af::array const &lhs) {
+    return allTrue(rhs == lhs);
+}
