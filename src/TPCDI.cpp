@@ -362,9 +362,8 @@ inline void nameDimCompany(AFDataFrame &dimCompany) {
 }
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
-    print(s_Company.rows());
     auto dimCompany = s_Company.equiJoin(industry,5,0);
-    print(dimCompany.rows());
+
     dimCompany = dimCompany.equiJoin(statusType, 4, 0);
     {
         std::string order[15] = {
@@ -373,25 +372,26 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
         };
         dimCompany = dimCompany.project(order, 15, "DimCompany");
     }
+
     dimCompany("PTS").toDate();
     dimCompany.nameColumn("EffectiveDate", "PTS");
     dimCompany.insert(Column(range(dim4(1, dimCompany.rows()), 1, u64)), 0, "SK_CompanyID");
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), b8)), dimCompany.columns() - 1, "IsCurrent");
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), u32)), dimCompany.columns() - 1, "BatchID");
     dimCompany.add(TPCDI_Utils::endDate(dimCompany.rows()), "EndDate");
+
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
     nameDimCompany(dimCompany);
+
     std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
     auto s0 = dimCompany.project(order, 3, "S0");
     s0.sortBy(order + 1, 2);
     auto s2 = s0.project(order + 1, 1, "S2");
     auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1);
-    print("HERE");
     s2 = s2.select(range(dim4(s2.rows() - 1), 0, u64), "S2");
     s1 = s1.zip(s2);
     s1 = s1.select(s1("CompanyID") == s1("S2.CompanyID"), "S1");
     auto end_date = s1.project(order + 2, 1, "EndDate");
-    print("HERE");
     s0 = s0.project(order, 2, "S0");
     s1 = s0.project(order + 1, 1, "S1");
     s0 = s0.select(range(dim4(s0.rows() - 1), 0, u64), "S0");

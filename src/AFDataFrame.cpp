@@ -156,16 +156,16 @@ void AFDataFrame::sortBy(std::string const *columns, unsigned int const size, bo
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
     auto &left = _data[lhs_column];
     auto &right = rhs._data[rhs_column];
+    if (left.type() != right.type()) throw std::runtime_error("Column type mismatch");
+    if (left.isempty() || right.isempty()) return AFDataFrame();
 
-    if (left.type() != right.type()) throw std::runtime_error("Supplied column data types do not match");
+    auto idx = setCompare(left.hash(), right.hash());
 
-    auto l = left.hash(false);
-    auto r = right.hash(false);
-    auto idx = setCompare(l, r);
+    if (idx.first.isempty()) return AFDataFrame();
 
     if (left.type() == STRING) {
-        l = left.index(af::span, idx.first);
-        r = right.index(af::span, idx.second);
+        af::array l = left.index(af::span, idx.first);
+        af::array r = right.index(af::span, idx.second);
         auto keep = stringComp(left.data(), right.data(), l, r);
         idx.first = idx.first(keep);
         idx.second = idx.second(keep);
@@ -173,7 +173,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
 
     AFDataFrame result;
     for (size_t i = 0; i < _data.size(); i++) {
-      result.add(_data[i].select(idx.first), _colToName.at(i));
+        result.add(_data[i].select(idx.first), _colToName.at(i));
     }
 
     for (size_t i = 0; i < rhs._data.size(); i++) {
@@ -186,10 +186,16 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(Column const &lhs, Column const &rhs) {
+    if (lhs.type() != rhs.type()) throw std::runtime_error("Column type mismatch");
+    if (lhs.isempty() || rhs.isempty()) return { af::array(0, u64), af::array(0, u64) };
+    if (lhs.type() == STRING || lhs.type() == TIME || lhs.type() == DATE || lhs.type() == DATETIME) {
+        return setCompare(lhs.hash(), rhs.hash());
+    }
     return setCompare(lhs.data(), rhs.data());
 }
 
 std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
+    if (left.isempty() || right.isempty()) return { af::array(0, u64), af::array(0, u64) };
     array lhs;
     array rhs;
     array idx;
@@ -200,6 +206,7 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     auto const equalSet = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
     bagSetIntersect(lhs, equalSet);
     bagSetIntersect(rhs, equalSet);
+
     auto equals = equalSet.elements();
     joinScatter(lhs, rhs, equals);
 

@@ -56,9 +56,9 @@ int main(int argc, char *argv[]) {
             info();
         }
     }
+
     Logger::startTimer();
     DimCompany();
-
     Logger::logTime();
     return 0;
 }

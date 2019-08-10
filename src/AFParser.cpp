@@ -102,8 +102,8 @@ Column AFParser::parse(int column) const {
     auto const maximum = _maxColumnWidths[column];
     if (!maximum) return Column(af::constant(0, 1, _length, GetAFType<T>().af_type), GetAFType<T>().df_type);
 
-    af::array idx = _indexer.row(column) + i;
-    idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
+    auto idx = _indexer.row(column) + i;
+    idx = join(0, idx, (_indexer.row(column + 1) - idx) + 1);
 
     return Column(numericParse<T>(_data, idx), GetAFType<T>().df_type);
 }
@@ -122,8 +122,8 @@ template<> Column AFParser::parse<char*>(int column) const {
     auto const maximum = _maxColumnWidths[column];
     if (!maximum) return Column(constant(0, dim4(_length), u8), join(0, range(dim4(1, _length), 1, u64), constant(0, dim4(1, _length), u64)));
 
-    af::array idx = _indexer.row(column) + i;
-    idx = join(0, idx, _indexer.row(column + 1) - idx + 1);
+    auto idx = _indexer.row(column) + i;
+    idx = join(0, idx, (_indexer.row(column + 1) - idx) + 1);
     auto out = stringGather(_data, idx);
     return Column(std::move(out), std::move(idx));
 }

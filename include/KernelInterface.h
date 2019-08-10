@@ -11,7 +11,7 @@ typedef unsigned long long ull;
 #elif defined(USING_CUDA)
 #include "include/CUDA/cuda_kernels.h"
 #else
-#include "include/CPU/vector_functions.h"
+#include "include/CPU/single_threaded.h"
 #endif
 
 void inline bagSetIntersect(af::array &bag, af::array const &set) {
@@ -40,7 +40,7 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     set.unlock();
     result.unlock();
 #endif
-    bag = bag(span, where(result));
+    bag = bag(span, result);
     bag.eval();
 }
 
@@ -73,8 +73,9 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     auto k = i % right_max;
     i = i / left_max / right_max;
     auto b = !(j / left_count(i)) && !(k / right_count(i));
-    left_out(b * (output_pos(i) + left_count(i) * k + j) + !b * output_size) = left_idx(i) + j;
-    right_out(b * (output_pos(i) + right_count(i) * j + k) + !b * output_size) = right_idx(i) + k;
+    auto idx = b * (output_pos(i) + left_count(i) * k + j) + !b * output_size;
+    left_out(idx) = left_idx(i) + j;
+    right_out(idx) = right_idx(i) + k;
     left_out = left_out.cols(0, end - 1);
     right_out = right_out.cols(0, end - 1);
 #else
@@ -113,12 +114,11 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     auto const loops = sum<ull>(max(indexer.row(1), 1));
     auto const rows = indexer.elements() / 3;
     auto output = array(out_size, u8);
-
     #ifdef USING_AF
-    for (ull i = 0; i < loop_length; ++i) {
+    for (ull i = 0; i < loops; ++i) {
         auto b = indexer.row(1) > i;
-        auto c = indexer.row(1) - 1 != i;
-        output(indexer(2, b) + i) = input(indexer(0, b) + i) * c;
+        auto c = indexer(1, b) - 1 != i;
+        output(indexer(2, b) + i) = input(indexer(0, b) + i) * flat(c);
     }
     output.eval();
     #else
@@ -143,9 +143,10 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     using namespace af;
     auto out = l_idx.row(1) == r_idx.row(1);
     auto loops = sum<ull>(max(l_idx(1, out)));
+
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {
-        out(out) = out(out) && flat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
+        out(out) = out(out) && TPCDI_Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
     #else
     auto out_ptr = (bool*)out.device<char>();
@@ -175,7 +176,7 @@ af::array inline stringComp(af::array const &lhs, char const *rhs, af::array con
     auto out = l_idx.row(1) == loops;
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {
-        out(out) = out(out) && lhs(l_idx(0, out) + i) == rhs[i];
+        out(out) = out(out) && TPCDI_Utils::hflat(lhs(l_idx(0, out) + i) == rhs[i]);
     }
     #else
     auto right = array(loops, rhs).as(u8);
@@ -201,24 +202,36 @@ af::array inline stringComp(af::array const &lhs, char const *rhs, af::array con
 
 template<typename T> af::array inline numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
+    using namespace TPCDI_Utils;
     auto const loops = sum<ull>(max(indexer.row(1), 1));
     auto const rows = indexer.elements() / 2;
     auto output = array(1, rows, GetAFType<T>().af_type);
+    static int abc = 0;
+    abc++;
 
     #ifdef USING_AF
+    auto neg = hflat(input((array)indexer.row(0)) == '-');
+    neg.eval();
+
     auto dec = constant(0, dim4(1, rows), u8);
-    auto neg = input((array)indexer.row(0)) == '-';
     for (int i = 0; i < loops; ++i) {
         auto j = i < indexer.row(1);
-        dec(j) = (input(indexer(0, j) + i) == '.') * i;
+        dec(j) += hflat((input(indexer(0, j) + i) == '.') * i).as(dec.type());
     }
-    auto power = ((dec + !dec * indexer.row(1)) - 1 - neg).as(u8);
+    auto power = ((dec + !dec * indexer.row(1)) - neg - 1).as(u8);
     for (int i = 0; i < loops; ++i) {
         auto j = i < indexer.row(1);
-        j = j && (input(indexer(0, j) + i) != '.' && input(indexer(0, j) + i) != '-');
-        output(j) += (input(indexer(0, j) + i) - '0') * pow(10, power);
+        auto k = indexer(0, j) + i;
+        j(j) = j(j) && hflat(input(k) != '.' && input(k) != '-');
+        j.eval();
+        k = k(j);
+        k.eval();
+        if (k.isempty()) continue;
+        output(j) += hflat(input(k) - '0').as(output.type()) * pow(10, power(j)).as(output.type());
         power -= j;
+        power.eval();
     }
+
     output.eval();
 
     dec = array();

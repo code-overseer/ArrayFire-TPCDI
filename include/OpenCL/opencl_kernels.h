@@ -8,6 +8,8 @@
 typedef unsigned long long ull;
 #endif
 
+#define LOCAL_GROUP_SIZE 256
+
 void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     static auto KERNELS = get_kernel_string();
     // Get OpenCL context from memory buffer and create a Queue
@@ -33,7 +35,7 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
 
     auto num = bag_size * set_size;
     // Set launch configuration parameters and launch kernel
-    size_t local  = 256;
+    size_t local = LOCAL_GROUP_SIZE;
     size_t global = local * (num / local + ((num % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
@@ -82,7 +84,7 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
 
     auto num = left_max * right_max * equals;
     // Set launch configuration parameters and launch kernel
-    size_t local  = 256;
+    size_t local = LOCAL_GROUP_SIZE;
     size_t global = local * (num / local + ((num % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
@@ -122,11 +124,10 @@ void inline launchNumericParse(T *output, ull const * idx, unsigned char const *
         printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
         throw (err);
     }
-
-    auto num = rows;
+    
     // Set launch configuration parameters and launch kernel
-    size_t local  = 256;
-    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    size_t local = LOCAL_GROUP_SIZE;
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -167,7 +168,7 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     }
 
     // Set launch configuration parameters and launch kernel
-    size_t local  = 256;
+    size_t local = LOCAL_GROUP_SIZE;
     size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
@@ -211,7 +212,7 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
 
     auto num = rows;
     // Set launch configuration parameters and launch kernel
-    size_t local  = 256;
+    size_t local = LOCAL_GROUP_SIZE;
     size_t global = local * (num / local + ((num % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
@@ -253,7 +254,7 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
     }
 
     // Set launch configuration parameters and launch kernel
-    size_t local  = 256;
+    size_t local = LOCAL_GROUP_SIZE;
     size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
