@@ -45,12 +45,9 @@ public:
     void toDate(bool isDelimited, DateFormat dateFormat = YYYYMMDD);
     void toTime(bool isDelimited);
     void toDateTime(DateFormat dateFormat = YYYYMMDD);
-    void toHost(bool clear = false);
+    void toHost();
     void clearDevice();
     template<typename T> void cast();
-    static af::array endDate() {
-        return join(0, af::constant(9999, 1, u16), af::constant(12, 1, u16), af::constant(31, 1, u16));
-    }
     af::array hash(bool sortable = false) const;
     void printColumn() const;
     Column left(unsigned int length) const;
@@ -79,16 +76,18 @@ public:
 
     #define ASSIGN(OP) \
     af::array operator OP (Column const &other); \
-    af::array operator OP (af::array const &other); \
-    af::array operator OP (af::array &&other);
+    af::array operator OP (af::array const &other);
     ASSIGN(==)
-    ASSIGN(!=)
     ASSIGN(>=)
     ASSIGN(<=)
     ASSIGN(>)
     ASSIGN(<)
     #undef ASSIGN
+    af::array operator!= (Column const &other) { return !(*this == other); }
+    af::array operator!= (af::array const &other) { return !(*this == other); }
     af::array operator ==(char const *other);
     inline af::array operator !=(char const *other) { return !(*this == other); }
 };
+
+
 #endif //ARRAYFIRE_TPCDI_COLUMN_H

@@ -11,6 +11,7 @@
 #else
     #include "include/CPU/vector_functions.h"
 #endif
+#define GC_BUFFER 1000000000
 
 std::unordered_map<af::dtype, DataType> Column::_typeMap({{u8, UCHAR}, // NOLINT(cert-err58-cpp)
                                                             {b8, BOOL},
@@ -119,38 +120,6 @@ af::array Column::hash(bool const sortable) const {
     return af::array(_device).as(u64);
 }
 
-#define ASSIGN(OP) \
-af::array Column::operator==(af::array OP other) { \
-    if (_type == STRING || _type == DATE || _type == TIME || _type == DATETIME) { \
-        auto lhs = hash(false); \
-        return lhs == other; \
-    } \
-    return _device == other; \
-} \
-af::array Column::operator!=(af::array OP other) { return !(*this == other); }
-
-ASSIGN( const &)
-ASSIGN(&&)
-#undef ASSIGN
-
-#define ASSIGN(OP) \
-af::array Column::operator OP(af::array const &other) { \
-    af::array lhs; \
-    if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
-    if (length() != other.dims(1)) { throw std::runtime_error("Mismatch column length"); } \
-    if (_type == DATE || _type == TIME || _type == DATETIME) { \
-        lhs = hash(false); \
-        return lhs OP other; \
-    } \
-    return _device OP other; \
-} \
-af::array Column::operator OP(af::array &&other) { return *this OP other; }
-ASSIGN(<)
-ASSIGN(>)
-ASSIGN(<=)
-ASSIGN(>=)
-#undef ASSIGN
-
 af::array Column::operator==(Column const &other) {
     if (_type != other._type) { throw std::runtime_error("Mismatch column type"); }
     if (length() != other.length()) { throw std::runtime_error("Mismatch column length"); }
@@ -163,15 +132,32 @@ af::array Column::operator==(Column const &other) {
     return _device == other._device;
 }
 
-af::array Column::operator!=(Column const &other) { return !(*this == other); }
+af::array Column::operator==(af::array const &other) {
+    if (_type == STRING || _type == DATE || _type == TIME || _type == DATETIME) {
+        auto lhs = hash(false);
+        return lhs == other;
+    }
+    return _device == other;
+}
 
 #define ASSIGN(OP) \
+af::array Column::operator OP(af::array const &other) { \
+    af::array lhs; \
+    if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
+    if (length() != other.dims(1)) { throw std::runtime_error("Mismatch column length"); } \
+    if (_type == DATE || _type == TIME || _type == DATETIME) { \
+        lhs = hash(false); \
+        return lhs OP other; \
+    } \
+    return _device OP other; \
+} \
+\
 af::array Column::operator OP(Column const &other) { \
     if (_type != other._type) { throw std::runtime_error("Mismatch column type"); } \
     if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
     if (length() != other.length()) { throw std::runtime_error("Mismatch column length"); } \
     if (_type == DATE || _type == TIME || _type == DATETIME) { \
-        return hash(false) OP other.hash(false); \
+        return hash() OP other.hash(); \
     } \
     return _device OP other._device; \
 }
@@ -197,7 +183,7 @@ Column Column::concatenate(Column const &bottom) const {
     return Column(join(1, _device, bottom._device), _type);
 }
 
-void Column::toHost(bool const clear) {
+void Column::toHost() {
     if (_device.bytes()) {
         auto tmp = malloc(_device.bytes());
         _device.host(tmp);
@@ -208,13 +194,17 @@ void Column::toHost(bool const clear) {
         _idx.host(tmp);
         _host_idx = tmp;
     }
-    if (clear) clearDevice();
+    clearDevice();
     af::sync();
 }
 
 void Column::clearDevice() {
+    static size_t bytes_cleared = 0;
+    bytes_cleared += _device.bytes();
+    bytes_cleared += _idx.bytes();
     _device = af::array();
     _idx = af::array();
+    if (bytes_cleared > GC_BUFFER) af::deviceGC();
 }
 
 Column Column::select(af::array const &rows) const {
@@ -329,7 +319,8 @@ void Column::_generateStringIndex() {
     using namespace TPCDI_Utils;
     _idx = af::diff1(af::join(1, af::constant(0, 1, u64), hflat(where64(_device == 0))), 1);
     _idx(0) += 1;
-    _idx = join(0, af::scan(_idx, 1, AF_BINARY_ADD, false), _idx);
+    _idx = _idx.elements() == 1 ? af::join(0, af::constant(0, 1, _idx.type()), _idx) :
+            af::join(0, af::scan(_idx, 1, AF_BINARY_ADD, false), _idx);
 }
 
 template<typename T>

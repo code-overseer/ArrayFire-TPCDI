@@ -52,6 +52,7 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
 AFParser::~AFParser() {
     if (_maxColumnWidths) af::freeHost(_maxColumnWidths);
     if (_cumulativeMaxColumnWidths) af::freeHost(_cumulativeMaxColumnWidths);
+    af::deviceGC();
 }
 
 void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {

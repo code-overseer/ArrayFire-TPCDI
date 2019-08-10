@@ -4,8 +4,8 @@
 // Created by Bryan Wong on 2019-06-28.
 //
 
-#ifndef ARRAYFIRE_TPCDI_TPC_DI_H
-#define ARRAYFIRE_TPCDI_TPC_DI_H
+#ifndef ARRAYFIRE_TPCDI_TPCDI_H
+#define ARRAYFIRE_TPCDI_TPCDI_H
 #include "AFDataFrame.h"
 #include "AFParser.hpp"
 #include "TPCDI_Utils.h"
@@ -74,4 +74,4 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
 
 AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate);
 
-#endif //ARRAYFIRE_TPCDI_TPC_DI_H
+#endif //ARRAYFIRE_TPCDI_TPCDI_H

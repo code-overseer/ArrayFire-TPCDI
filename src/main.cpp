@@ -1,7 +1,7 @@
 #include <cstring>
 #include <string>
 #include "include/Logger.h"
-#include "include/TPC_DI.h"
+#include "include/TPCDI.h"
 #include "include/Tests.h"
 
 namespace DIR {
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
         }
     }
     Logger::startTimer();
-    DimCompany();
+//    DimBroker();
     Logger::logTime();
     return 0;
 }

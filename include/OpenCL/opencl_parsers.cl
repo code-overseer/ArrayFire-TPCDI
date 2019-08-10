@@ -15,7 +15,6 @@ __kernel void parser(__global PARSE_TYPE *output, __global ulong const *idx, __g
             ulong j = i * (i < len);
             dec += (input[s + j] == '.') * j;
         }
-
         bool neg = input[s] == '-';
 
         int p = (int)(dec + !dec * len) - 1 - neg;
@@ -28,7 +27,6 @@ __kernel void parser(__global PARSE_TYPE *output, __global ulong const *idx, __g
             number += (len > 0 && d && i < len) * (c - '0') * (PARSE_TYPE)pown(10.0, p);
             p -= d;
         }
-
         output[id] = number * (!neg - neg);
     }
 }

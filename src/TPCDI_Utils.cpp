@@ -1,5 +1,6 @@
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
+#include "include/Column.h"
 #include <fstream>
 #include <string>
 #include <thread>
@@ -69,6 +70,12 @@ af::array TPCDI_Utils::where64(af::array const &input) {
     auto b = flat(input > 0);
     auto output = b * range(b.dims(), 0, u64);
     return output(b);
+}
+
+Column TPCDI_Utils::endDate(int length) {
+    auto a = join(0, af::constant(9999, 1, u16), af::constant(12, 1, u16), af::constant(31, 1, u16));
+    a = tile(a, dim4(1, length));
+    return Column(std::move(a), DATE);
 }
 
 void TPCDI_Utils::fillBlanks(int &count, String fieldName, StrToInt &tracker, String &data, bool isAtt) {

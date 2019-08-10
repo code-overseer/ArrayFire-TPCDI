@@ -2,7 +2,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 #include <rapidxml.hpp>
-#include "include/TPC_DI.h"
+#include "include/TPCDI.h"
 #include "include/BatchFunctions.h"
 #include "include/Logger.h"
 
@@ -16,9 +16,9 @@ AFDataFrame loadBatchDate(char const* directory) {
     char file[128];
     strcpy(file, directory);
     strcat(file, "BatchDate.txt");
-    AFDataFrame frame;
     AFParser parser(file, '|', false);
 
+    AFDataFrame frame;
     frame.add(Column(constant(1, 1, u32), UINT));
     frame.add(parser.asDate(0, true, YYYYMMDD));
 
@@ -263,7 +263,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
 AFDataFrame loadStagingCustomer(char const* directory) {
 
-    std::string data = XML_Parser::flattenCustomerMgmt(directory);
+    std::string data = TPCDI_Utils::flattenCustomerMgmt(directory);
     
     AFParser parser(data, '|', false);
     AFDataFrame frame;
@@ -298,18 +298,18 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
         dimBroker.add(parser.parse<unsigned int>(0));
         dimBroker.add(parser.parse<unsigned int>(1));
         for (int i = 2;  i <= 7; ++i) dimBroker.add(parser.parse<char*>(i));
-        auto idx = dimBroker(5) == "314";
-        dimBroker = dimBroker.select(idx, "DimBroker");
+        print(dimBroker.columns());
+        dimBroker = dimBroker.select(dimBroker(5) == "314", "DimBroker");
         dimBroker.remove(5);
     }
-    auto length = dimBroker.columns()[0].dims(1);
-    dimBroker.insert(Column(range(dim4(1, length), 1, u64), ULONG), 0);
-    dimBroker.add(Column(constant(1, dim4(1, length), b8), BOOL));
-    dimBroker.add(Column(constant(1, dim4(1, length), u32), UINT));
+    auto length = dimBroker.rows();
+    dimBroker.insert(Column(range(dim4(1, length), 1, u64)), 0);
+    dimBroker.add(Column(constant(1, dim4(1, length), b8)));
+    dimBroker.add(Column(constant(1, dim4(1, length), u32)));
     dimDate.sortBy(0);
-    auto date = dimDate(1)(0);
+    auto date = dimDate(1)(af::span, 0);
     dimBroker.add(Column(tile(date, dim4(1, length)), DATE));
-    dimBroker.add(Column(tile(Column::endDate(), dim4(1, length)), DATE));
+    dimBroker.add(TPCDI_Utils::endDate(length));
     return dimBroker;
 }
 
@@ -373,10 +373,10 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     }
     dimCompany("PTS").toDate();
     dimCompany.nameColumn("EffectiveDate", "PTS");
-    dimCompany.insert(Column(range(dim4(1, dimCompany.length()), 1, u64)), 0, "SK_CompanyID");
-    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.length()), b8)), dimCompany.columns().size() - 1, "IsCurrent");
-    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.length()), u32)), dimCompany.columns().size() - 1, "BatchID");
-    dimCompany.add(Column(tile(Column::endDate(), dim4(1, dimCompany.length())), DATE), "EndDate");
+    dimCompany.insert(Column(range(dim4(1, dimCompany.rows()), 1, u64)), 0, "SK_CompanyID");
+    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), b8)), dimCompany.columns() - 1, "IsCurrent");
+    dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), u32)), dimCompany.columns() - 1, "BatchID");
+    dimCompany.add(TPCDI_Utils::endDate(dimCompany.rows()), "EndDate");
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
 
     nameDimCompany(dimCompany);
@@ -384,15 +384,15 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     auto s0 = dimCompany.project(order, 3, "S0");
     s0.sortBy(order + 1, 2);
     auto s2 = s0.project(order + 1, 1, "S2");
-    auto s1 = s0.select(range(dim4(s0.length() - 1), 0, u64) + 1, "S1");
-    s2 = s2.select(range(dim4(s2.length() - 1), 0, u64), "S2");
+    auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1, "S1");
+    s2 = s2.select(range(dim4(s2.rows() - 1), 0, u64), "S2");
     s1 = s1.zip(s2);
     s1 = s1.select(s1("CompanyID") == s1("S2.CompanyID"), "S1");
     auto end_date = s1.project(order + 2, 1, "EndDate");
     s0 = s0.project(order, 2, "S0");
     s1 = s0.project(order + 1, 1, "S1");
-    s0 = s0.select(range(dim4(s0.length() - 1), 0, u64), "S0");
-    s1 = s1.select(range(dim4(s1.length() - 1), 0, u64) + 1, "S1");
+    s0 = s0.select(range(dim4(s0.rows() - 1), 0, u64), "S0");
+    s1 = s1.select(range(dim4(s1.rows() - 1), 0, u64) + 1, "S1");
     s0 = s0.zip(s1);
     s0 = s0.select(s0("CompanyID") == s0("S1.CompanyID"), "S0");
     s0 = s0.project(order, 1, "S0");
@@ -401,7 +401,8 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
-
+    array a ;
+    a< 0;
     return dimCompany;
 }
 
@@ -427,18 +428,16 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     AFDataFrame financial;
     std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
     auto tmp = dimCompany.project(columns, 4, "DC");
-//TODO
-    auto fin1 = s_Financial.select(s_Financial("CO_NAME_OR_CIK").left(1) == '0');
-    //TODO
-    fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
+    auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
 
+    auto fin1 = s_Financial.select(cik);
+    fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
     financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
     financial.remove("CO_NAME_OR_CIK");
 
     columns[1] = "Name";
     tmp = dimCompany.project(columns, 4, "DC");
-    //TODO
-    fin1 = s_Financial.select(s_Financial("CO_NAME_OR_CIK").left(1) != '0');
+    fin1 = s_Financial.select(!cik);
     fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
     fin1.remove("CO_NAME_OR_CIK");
     if (!fin1.isEmpty()) financial = financial.unionize(fin1);
@@ -488,7 +487,9 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     {
         std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
         auto dc = dimCompany.project(columns, 4, "DC");
-        auto part1 = s_Security.select(s_Security("CO_NAME_OR_CIK").left(1) == "0");
+        auto cik = s_Security("CO_NAME_OR_CIK").left(1) == "0";
+
+        auto part1 = s_Security.select(cik);
         part1("CO_NAME_OR_CIK").cast<unsigned long long>();
         part1 = part1.equiJoin(dc, "CO_NAME_OR_CIK", "CompanyID");
         part1("PTS").toDate();
@@ -497,11 +498,11 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
                 part1("DC.EffectiveDate") <= part1("EffectiveDate") &&
                 part1("DC.EndDate") > part1("EffectiveDate"));
 
-
         part1.remove("CO_NAME_OR_CIK");
         columns[1] = "Name";
         dc = dimCompany.project(columns, 4, "DC");
-        auto part2 = s_Security.select(s_Security("CO_NAME_OR_CIK").irow(1) != 11);
+
+        auto part2 = s_Security.select(!cik);
         part2 = part2.equiJoin(dc, "CO_NAME_OR_CIK", "Name");
         part2.remove("CO_NAME_OR_CIK");
         part2("PTS").toDate();
@@ -521,11 +522,11 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
         };
         security = security.project(order, 11, "DimSecurity");
     }
-    auto length = security.length();
+    auto length = security.rows();
     security.insert(Column(range(dim4(1, length), 1, u64), ULONG), 0, "SK_SecurityID");
-    security.insert(Column(constant(1, dim4(1, length), b8), BOOL), security.columns().size() - 1, "IsCurrent");
-    security.insert(Column(constant(1, dim4(1, length), u32), UINT), security.columns().size() - 1, "BatchID");
-    security.add(Column(tile(Column::endDate(), dim4(1, length)), DATE), "EndDate");
+    security.insert(Column(constant(1, dim4(1, length), b8), BOOL), security.columns() - 1, "IsCurrent");
+    security.insert(Column(constant(1, dim4(1, length), u32), UINT), security.columns() - 1, "BatchID");
+    security.add(TPCDI_Utils::endDate(length), "EndDate");
 
     nameDimSecurity(security);
 
@@ -533,22 +534,21 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
     auto s0 = security.project(order, 3, "S0");
     s0.sortBy(order + 1, 2);
     auto s2 = s0.project(order + 1, 1, "S2");
-    auto s1 = s0.select(range(dim4(s0.length() - 1), 0, u64) + 1);
-    s2 = s2.select(range(dim4(s2.length() - 1), 0, u64));
+    auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1);
+    s2 = s2.select(range(dim4(s2.rows() - 1), 0, u64));
     s1 = s1.zip(s2);
     s1 = s1.select(s1("Symbol") == s1("S2.Symbol"));
     auto end_date = s1.project(order + 2, 1, "EndDate");
     if (end_date.isEmpty()) return security;
     s0 = s0.project(order, 2, "S0");
     s1 = s0.project(order + 1, 1, "S1");
-    s0 = s0.select(range(dim4(s0.length() - 1), 0, u64));
-    s1 = s1.select(range(dim4(s1.length() - 1), 0, u64) + 1);
+    s0 = s0.select(range(dim4(s0.rows() - 1), 0, u64));
+    s1 = s1.select(range(dim4(s1.rows() - 1), 0, u64) + 1);
     s0 = s0.zip(s1);
     s0 = s0.select(s0("Symbol") == s0("S1.Symbol"));
     s0.project(order, 1, "S0");
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
-    print("HERE");
     auto out = AFDataFrame::setCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
     security("IsCurrent")(out.first) = 0;
     security("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
@@ -560,12 +560,12 @@ inline Column marketingNameplate(array const &networth, array const &income, arr
     array val(12, 6, "+HighValue\0\0+Expenses\0\0\0+Boomer\0\0\0\0\0+MoneyAlert\0+Spender\0\0\0\0+Inherited\0\0");
     val = val.as(u8);
     auto idx = constant(0, 6, networth.dims(1), b8);
-    idx(0, where(networth > 1000000 || income > 200000)) = 1;
-    idx(1, where(cards > 5 || children > 3)) = 1;
-    idx(2, where(age > 45)) = 1;
-    idx(3, where(credit < 600 || income < 5000 || networth < 100000)) = 1;
-    idx(4, where(cars > 3 || cards > 7)) = 1;
-    idx(5, where(age > 25 || networth > 1000000)) = 1;
+    idx(0, networth > 1000000 || income > 200000) = 1;
+    idx(1, cards > 5 || children > 3) = 1;
+    idx(2, age > 45) = 1;
+    idx(3, credit < 600 || income < 5000 || networth < 100000) = 1;
+    idx(4, cars > 3 || cards > 7) = 1;
+    idx(5, age > 25 || networth > 1000000) = 1;
 
     auto out = constant(0, 56, networth.dims(1), u8);
 

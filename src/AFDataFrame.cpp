@@ -98,7 +98,13 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
     AFDataFrame output;
     output.name(name.empty() ? _name : name);
     unsigned int i = 0;
-    for (auto &a : _data) output.add(a.select(index), _idxToName.at(i++).c_str());
+    for (auto &a : _data) {
+        if (_idxToName.count(i++)) {
+            output.add(a.select(index), _idxToName.at(i++).c_str());
+        } else {
+            output.add(a.select(index));
+        }
+    }
     return output;
 }
 
@@ -109,11 +115,11 @@ AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string
 }
 
 AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
-    if (length() != rhs.length()) throw std::runtime_error("Left and Right tables do not have the same length");
+    if (rows() != rhs.rows()) throw std::runtime_error("Left and Right tables do not have the same length");
     AFDataFrame output = *this;
 
     for (size_t i = 0; i < rhs._data.size(); ++i)
-        output.add(Column(rhs.column_(i)), (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+        output.add(Column(rhs._data[i]), (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
 
     return output;
 }
@@ -133,11 +139,18 @@ void AFDataFrame::sortBy(unsigned int const col, bool const isAscending) {
     array sorting;
     array idx;
     sort(sorting, idx, key(end, span), 1, isAscending);
-    for (int j = (int)size - 2; j >= 0; --j) {
-        key = key(span, idx);
-        sort(sorting, idx, key(j, span), 1, isAscending);
+    if ((int)size - 2 >= 0) {
+        auto main = idx;
+        for (int j = (int)size - 2; j >= 0; --j) {
+            key = key(span, idx);
+            sort(sorting, idx, key(j, span), 1, isAscending);
+            main = main(idx);
+        }
+        for (auto &i : _data) i = i.select(main);
+    } else {
+        for (auto &i : _data) i = i.select(idx);
     }
-    for (auto &i : _data) i = i.select(idx);
+    af::deviceGC();
 }
 
 void AFDataFrame::sortBy(unsigned int const *columns, unsigned int const size, bool const *isAscending) {
@@ -219,7 +232,7 @@ void AFDataFrame::nameColumn(std::string const& name, unsigned int column) {
 
 void AFDataFrame::flushToHost() {
     if (_data.empty()) return;
-    for (auto &a : _data) a.toHost(true);
+    for (auto &a : _data) a.toHost();
 }
 
 void AFDataFrame::clear() {

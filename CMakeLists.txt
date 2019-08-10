@@ -41,7 +41,7 @@ add_executable(ArrayFire-TPCDI
         src/BatchFunctions.cpp
         src/Tests.cpp
         src/AFDataFrame.cpp
-        src/TPC_DI.cpp
+        src/TPCDI.cpp
         src/Logger.cpp
         src/FinwireParser.cpp
         src/TPCDI_Utils.cpp
@@ -51,7 +51,7 @@ add_executable(ArrayFire-TPCDI
         include/BatchFunctions.h
         include/Tests.h
         include/AFDataFrame.h
-        include/TPC_DI.h
+        include/TPCDI.h
         include/FinwireParser.h
         include/TPCDI_Utils.h
         include/Logger.h
@@ -66,7 +66,7 @@ if (USING_CUDA)
             src/AFParser.cpp
             src/Column.cpp
             src/FinwireParser.cpp
-            src/TPC_DI.cpp
+            src/TPCDI.cpp
             include/CUDA/cuda_kernels.h
             PROPERTIES LANGUAGE CUDA)
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE include/CUDA/cuda_kernels.h)

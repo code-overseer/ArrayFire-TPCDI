@@ -38,6 +38,7 @@ public:
     AFDataFrame extractFin() const;
     AFDataFrame extractSec() const;
     explicit FinwireParser(std::vector<std::string> const &files);
+    virtual ~FinwireParser() { af::deviceGC(); }
     inline Finwire extractData() const { return Finwire(extractCmp(), extractFin(), extractSec()); }
     af::array filterRowsByCategory(const RecordType &type) const;
 };

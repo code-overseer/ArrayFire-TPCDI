@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include "Enums.h"
 
+class Column;
+
 template<typename T>
 inline void print(T i, std::ostream &out = std::cout) { af::sync(); out << i << std::endl; }
 void printStr(af::array str_array, std::ostream &out = std::cout);
@@ -19,6 +21,7 @@ namespace TPCDI_Utils {
     std::string loadFile(char const *filename);
     std::string collect(std::vector<std::string> const &files, bool hasHeader = false);;
     af::array where64(af::array const &input);
+    Column endDate(int length);
     inline af::array hflat(af::array const &arr) { return moddims(flat(arr), af::dim4(1, arr.elements())); }
     void fillBlanks(int &count, std::string fieldName, StrToInt &tracker, String &data, bool isAtt = false);
     void depthFirstAppend(String &data, Node *node, StrToInt &tracker,  String branch, Node *root);
