@@ -46,7 +46,11 @@ static void printProgramBuildError(cl_context context, cl_program program) {
 
 static cl_program build_program(cl_context context, const std::string& kernel_string, char const *options = nullptr) {
     static cl_program program = nullptr;
-    if (program) return program;
+    static cl_context previous = context;
+    if (program) {
+        if (context == previous) return program;
+        else clReleaseProgram(program);
+    }
 
     cl_int err;
     const char *source = kernel_string.c_str();
@@ -67,7 +71,8 @@ static cl_program build_program(cl_context context, const std::string& kernel_st
 }
 
 static cl_program build_parse_program(cl_context context, char const *options = nullptr) {
-    cl_program program;
+    static cl_program program = nullptr;
+    if (program) clReleaseProgram(program);
     cl_int err;
     static std::string kernel_str = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_parsers.cl");
     static const char *source = kernel_str.c_str();
@@ -113,10 +118,12 @@ static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
 }
 
 static cl_command_queue create_queue(cl_context context) {
-    static cl_context prev = nullptr;
+    static cl_context prev = context;
     static cl_command_queue queue = nullptr;
-    if (prev != context) prev = context;
-    else if (queue) return queue;
+    if (queue) {
+        if (prev != context) prev = context;
+        else return queue;
+    }
 
     cl_device_id device;
     cl_int err = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &device, NULL);

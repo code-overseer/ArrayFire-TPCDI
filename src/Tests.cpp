@@ -1,14 +1,6 @@
 #include "include/Tests.h"
-#include "include/AFDataFrame.h"
-#include <memory>
 #include "include/TPCDI_Utils.h"
-#if defined(USING_OPENCL)
-#include "include/OpenCL/opencl_kernels.h"
-#elif defined(USING_CUDA)
-#include "include/CUDA/cuda_kernels.h"
-#else
-#include "include/CPU/vector_functions.h"
-#endif
+#include "include/KernelInterface.h"
 #ifndef ULL
 #define ULL
     typedef unsigned long long ull;

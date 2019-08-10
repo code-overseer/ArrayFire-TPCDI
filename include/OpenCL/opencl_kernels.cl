@@ -21,9 +21,8 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
     ulong left = cl[i];
     ulong right = cr[i];
     ulong pos = outpos[i];
-    b = b && !(j / left) && !(k / right);
 
-    if (b) {
+    if (b && !(j / left) && !(k / right)) {
         left = pos + left * k + j;
         l[left] = il[i] + j;
         r[left] = ir[i] + k;

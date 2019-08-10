@@ -1,13 +1,14 @@
 #ifndef ARRAYFIRE_TPCDI_OPENCL_KERNELS_H
 #define ARRAYFIRE_TPCDI_OPENCL_KERNELS_H
 #include "opencl_helper.h"
+#include "include/AFTypes.h"
 #include <arrayfire.h>
 #ifndef ULL
 #define ULL
 typedef unsigned long long ull;
 #endif
 
-static void launchIntersect(char *result, ull const *input, ull const *comparison, ull const bag_size, ull const set_size) {
+void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     static auto KERNELS = get_kernel_string();
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)result);
@@ -20,8 +21,8 @@ static void launchIntersect(char *result, ull const *input, ull const *compariso
     int arg = 0;
     // Set input parameters for the kernel
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &result);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &comparison);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &bag);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &set);
     err |= clSetKernelArg(kernel, arg++, sizeof(ull), &bag_size);
     err |= clSetKernelArg(kernel, arg, sizeof(ull), &set_size);
 
@@ -48,11 +49,11 @@ static void launchIntersect(char *result, ull const *input, ull const *compariso
 
 }
 
-static void lauchJoinScatter(ull const *il, ull const *ir, ull const *cl, ull const *cr, ull const *outpos,
+void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                              ull *l, ull *r, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
     static auto KERNELS = get_kernel_string();
     // Get OpenCL context from memory buffer and create a Queue
-    cl_context context = get_context((cl_mem)il);
+    cl_context context = get_context((cl_mem)l_idx);
     cl_command_queue queue = create_queue(context);
 
     // Build the OpenCL program and get the kernel
@@ -62,10 +63,10 @@ static void lauchJoinScatter(ull const *il, ull const *ir, ull const *cl, ull co
     cl_int err = CL_SUCCESS;
     int arg = 0;
     // Set input parameters for the kernel
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &il);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &ir);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &cl);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &cr);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &r_idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_cnt);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &r_cnt);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &outpos);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &r);
@@ -97,96 +98,174 @@ static void lauchJoinScatter(ull const *il, ull const *ir, ull const *cl, ull co
 
 }
 
-void inline bagSetIntersect(af::array &bag, af::array const &set) {
-    using namespace af;
-    auto const bag_size = bag.row(0).elements();
-    auto const set_size = set.elements();
-#ifdef USING_AF
-    auto result = constant(0, dim4(1, bag_size + 1), u64);
-    auto id = range(dim4(1, bag_size * set_size), 1, u64);
-    auto i = id / set_size;
-    auto j = id % set_size;
+template<typename T>
+void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
 
-    auto b = moddims(set(j), i.dims()) == moddims(bag(0, i), i.dims());
-    auto k = b * i + !b * bag_size;
-    result(k) = 1;
-    result = result.cols(0, end - 1);
-#else
-    auto result = constant(0, dim4(1, bag_size), b8);
-    auto result_ptr = result.device<char>();
-    auto set_ptr = set.device<ull>();
-    auto bag_ptr = bag.device<ull>();
-    af::sync();
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu -D PARSE_TYPE=%s", loops, GetAFType<T>().str);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_parse_program(context, options);
+    cl_kernel kernel = create_kernel(program, "parser");
 
-    launchIntersect(result_ptr, bag_ptr, set_ptr, bag_size, set_size);
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
 
-    bag.unlock();
-    set.unlock();
-    result.unlock();
-#endif
-    bag = bag(span, result);
-    bag.eval();
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
+
+    auto num = rows;
+    // Set launch configuration parameters and launch kernel
+    size_t local  = 256;
+    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
 }
 
-void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
-    using namespace af;
-    using namespace TPCDI_Utils;
-    auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
-    left_count = left_count(left_count > 0);
-    auto left_max = sum<unsigned int>(max(left_count, 1));
-    auto left_idx = (left_count.elements() == 1) ? constant(0, 1, left_count.type())
-            : scan(left_count, 1, AF_BINARY_ADD, false);
+void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
+        ull const rows, ull const loops) {
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
 
-    auto right_count = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    right_count = hflat(histogram(right_count, right_count.elements())).as(u64);
-    right_count = right_count(right_count > 0);
-    auto right_max = sum<unsigned int>(max(right_count, 1));
-    auto right_idx = (right_count.elements() == 1) ? constant(0, 1, right_count.type())
-            : scan(right_count, 1, AF_BINARY_ADD, false);
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu", loops);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_parse_program(context, options);
+    cl_kernel kernel = create_kernel(program, "string_gather");
 
-    auto output_pos = right_count * left_count;
-    auto output_size = sum<ull>(output_pos);
-    output_pos = (output_pos.elements() == 1) ? constant(0, 1, output_pos.type())
-            : scan(output_pos, 1, AF_BINARY_ADD, false);
-#ifdef USING_AF
-    array left_out(1, output_size + 1, u64);
-    array right_out(1, output_size + 1, u64);
-    auto i = range(dim4(1, equals * left_max * right_max), 1, u64);
-    auto j = i / right_max % left_max;
-    auto k = i % right_max;
-    i = i / left_max / right_max;
-    auto b = !(j / left_count(i)) && !(k / right_count(i));
-    left_out(b * (output_pos(i) + left_count(i) * k + j) + !b * output_size) = left_idx(i) + j;
-    right_out(b * (output_pos(i) + right_count(i) * j + k) + !b * output_size) = right_idx(i) + k;
-    left_out = left_out.cols(0, end - 1);
-    right_out = right_out.cols(0, end - 1);
-#else
-    array left_out(1, output_size, u64);
-    array right_out(1, output_size, u64);
-    auto idx_l = left_idx.device<ull>();
-    auto idx_r = right_idx.device<ull>();
-    auto count_l = left_count.device<ull>();
-    auto count_r = right_count.device<ull>();
-    auto pos = output_pos.device<ull>();
-    auto left = left_out.device<ull>();
-    auto right = right_out.device<ull>();
-    af::sync();
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel, arg++, sizeof(ull), &output_size);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
 
-    lauchJoinScatter(idx_l, idx_r, count_l, count_r, pos, left, right, equals, left_max, right_max, output_size);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
 
-    left_idx.unlock();
-    right_idx.unlock();
-    left_count.unlock();
-    right_count.unlock();
-    output_pos.unlock();
-    left_out.unlock();
-    right_out.unlock();
-#endif
-    lhs = lhs(1, left_out);
-    rhs = rhs(1, right_out);
-    lhs.eval();
-    rhs.eval();
+    // Set launch configuration parameters and launch kernel
+    size_t local  = 256;
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
+}
+
+void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
+                             ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
+
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu", loops);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_parse_program(context, options);
+    cl_kernel kernel = create_kernel(program, "str_cmp");
+
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &left);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &right);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &r_idx);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
+
+    auto num = rows;
+    // Set launch configuration parameters and launch kernel
+    size_t local  = 256;
+    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
+}
+
+void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
+                             ull const rows, ull const loops) {
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
+
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu", loops);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_parse_program(context, options);
+    cl_kernel kernel = create_kernel(program, "str_cmp_single");
+
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &left);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &right);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
+
+    // Set launch configuration parameters and launch kernel
+    size_t local  = 256;
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
 }
 
 #endif

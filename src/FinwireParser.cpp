@@ -1,6 +1,7 @@
 #include "include/FinwireParser.h"
 #include "include/BatchFunctions.h"
 #include "include/TPCDI_Utils.h"
+#include "include/KernelInterface.h"
 #include <fstream>
 using namespace af;
 using namespace TPCDI_Utils;

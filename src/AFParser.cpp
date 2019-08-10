@@ -9,10 +9,12 @@
 #include "include/AFParser.hpp"
 #include "include/BatchFunctions.h"
 #include "include/TPCDI_Utils.h"
+#include "include/Column.h"
+#include "include/KernelInterface.h"
+#include "include/AFTypes.h"
+#include "include/Logger.h"
 #include <sstream>
 #include <utility>
-#include <include/Column.h>
-#include "include/Logger.h"
 using namespace af;
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
@@ -140,29 +142,20 @@ template<> Column AFParser::parse<bool>(int column) const {
     out.eval();
     return Column(std::move(out), BOOL);
 }
-
 Column AFParser::asTime(int column, bool const isDelimited) const {
     auto out = parse<char*>(column);
     out.toTime(isDelimited);
     return out;
 }
-
 Column AFParser::asDate(int column, bool isDelimited, DateFormat inputFormat) const {
     auto out = parse<char*>(column);
     out.toDate(isDelimited, inputFormat);
     return out;
 }
-
 Column AFParser::asDateTime(int column, DateFormat inputFormat) const {
     auto out = parse<char*>(column);
     out.toDateTime(inputFormat);
     return out;
-}
-
-void AFParser::printData() const {
-    auto c = _data.host<uint8_t>();
-    print((char*)c);
-    freeHost(c);
 }
 
 

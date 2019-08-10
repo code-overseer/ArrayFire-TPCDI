@@ -2,15 +2,9 @@
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
 #include "include/AFTypes.h"
+#include "include/KernelInterface.h"
 #include <exception>
 #include <cstring>
-#ifdef USING_OPENCL
-    #include "include/OpenCL/opencl_parsers.h"
-#elif defined(USING_CUDA)
-    #include "include/CUDA/cuda_kernels.h"
-#else
-    #include "include/CPU/vector_functions.h"
-#endif
 #define GC_BUFFER 1000000000
 
 std::unordered_map<af::dtype, DataType> Column::_typeMap({{u8, UCHAR}, // NOLINT(cert-err58-cpp)

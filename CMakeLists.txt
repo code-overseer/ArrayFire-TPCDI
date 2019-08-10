@@ -55,9 +55,11 @@ add_executable(ArrayFire-TPCDI
         include/FinwireParser.h
         include/TPCDI_Utils.h
         include/Logger.h
-        include/CPU/vector_functions.h
+        include/CPU/single_threaded.h
         include/AFTypes.h
-        include/Column.h)
+        include/Column.h
+        include/KernelInterface.h
+        )
 
 if (USING_CUDA)
     set_source_files_properties(src/AFDataFrame.cpp
@@ -74,8 +76,7 @@ if (USING_CUDA)
 elseif(USING_OPENCL)
     add_definitions( -DOCL_KERNEL_DIR="${CMAKE_SOURCE_DIR}/include/OpenCL/" )
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE include/OpenCL/opencl_kernels.h
-            include/OpenCL/opencl_helper.h
-            include/OpenCL/opencl_parsers.h)
+            include/OpenCL/opencl_helper.h)
     TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${OpenCL_LIBRARIES} )
 endif()
 

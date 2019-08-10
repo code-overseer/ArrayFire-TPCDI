@@ -1,24 +1,15 @@
 #ifndef AFParser_hpp
 #define AFParser_hpp
 
-#include <arrayfire.h>
-#include <unordered_map>
-#include <iostream>
 #include "include/Enums.h"
-#include "Column.h"
-#ifdef USING_OPENCL
-    #include "include/OpenCL/opencl_kernels.h"
-    #include "include/OpenCL/opencl_parsers.h"
-#elif defined(USING_CUDA)
-    #include "include/CUDA/cuda_kernels.h"
-#else
-    #include "include/CPU/vector_functions.h"
-#endif
+#include <arrayfire.h>
 
 #ifndef ULL
     #define ULL
-typedef unsigned long long ull;
+    typedef unsigned long long ull;
 #endif
+
+class Column;
 
 class AFParser {
 private:

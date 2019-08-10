@@ -1,15 +1,8 @@
 #include "include/AFDataFrame.h"
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
+#include "include/KernelInterface.h"
 #include "include/Logger.h"
-#if defined(USING_OPENCL)
-#include "include/OpenCL/opencl_kernels.h"
-#include "include/OpenCL/opencl_parsers.h"
-#elif defined(USING_CUDA)
-#include "include/CUDA/cuda_kernels.h"
-#else
-#include "include/CPU/vector_functions.h"
-#endif
 #ifndef ULL
 #define ULL
     typedef unsigned long long ull;
@@ -19,66 +12,60 @@ using namespace TPCDI_Utils;
 using namespace af;
 
 AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _data(std::move(other._data)),
-                                                         _nameToIdx(std::move(other._nameToIdx)),
-                                                         _idxToName(std::move(other._idxToName)),
+                                                         _nameToCol(std::move(other._nameToCol)),
+                                                         _colToName(std::move(other._colToName)),
                                                          _name(std::move(other._name)) {
-}
-
-AFDataFrame::AFDataFrame(AFDataFrame const &other) : _data(other._data),
-                                                     _nameToIdx(other._nameToIdx),
-                                                     _idxToName(other._idxToName),
-                                                     _name(other._name) {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
     _data = std::move(other._data);
-    _nameToIdx = std::move(other._nameToIdx);
-    _idxToName = std::move(other._idxToName);
+    _nameToCol = std::move(other._nameToCol);
+    _colToName = std::move(other._colToName);
     _name = std::move(other._name);
     return *this;
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame const &other) noexcept {
     _data = other._data;
-    _nameToIdx = other._nameToIdx;
+    _nameToCol = other._nameToCol;
     _name = other._name;
     return *this;
 }
 
-void AFDataFrame::add(Column &column, const char *name) {
+void AFDataFrame::add(Column &column, std::string const &name) {
     _data.emplace_back(column);
-    if (name) nameColumn(name, (int)(_data.size() - 1));
+    if (!name.empty()) nameColumn(name, (int)(_data.size() - 1));
 }
 
-void AFDataFrame::add(Column &&column, const char *name) {
+void AFDataFrame::add(Column &&column, std::string const &name) {
     _data.emplace_back(std::move(column));
-    if (name) nameColumn(name, (int)(_data.size() - 1));
+    if (!name.empty()) nameColumn(name, (int)(_data.size() - 1));
 }
 
-void AFDataFrame::insert(Column &column, unsigned int index, const char *name) {
-    _idxToName.erase(index);
-    for (auto &i : _nameToIdx) {
+void AFDataFrame::insert(Column &column, unsigned int index, std::string const &name) {
+    _colToName.erase(index);
+    for (auto &i : _nameToCol) {
         if (i.second >= index) {
             i.second += 1;
-            _idxToName.erase(i.second);
-            _idxToName.insert(std::make_pair(i.second, i.first));
+            _colToName.erase(i.second);
+            _colToName.insert(std::make_pair(i.second, i.first));
         }
     }
     _data.insert(_data.begin() + index, column);
-    if (name) nameColumn(name, index);
+    if (!name.empty()) nameColumn(name, index);
 }
 
-void AFDataFrame::insert(Column &&column, unsigned int index, const char *name) { insert(column, index, name); }
+void AFDataFrame::insert(Column &&column, unsigned int index, std::string const &name) { insert(column, index, name); }
 
 void AFDataFrame::remove(unsigned int index) {
     _data.erase(_data.begin() + index);
-    _nameToIdx.erase(_idxToName[index]);
-    _idxToName.erase(index);
-    for (auto &i : _nameToIdx) {
+    _nameToCol.erase(_colToName[index]);
+    _colToName.erase(index);
+    for (auto &i : _nameToCol) {
         if (i.second >= index) {
             i.second -= 1;
-            _idxToName.erase(i.second);
-            _idxToName.insert(std::make_pair(i.second, i.first));
+            _colToName.erase(i.second);
+            _colToName.insert(std::make_pair(i.second, i.first));
         }
     }
 }
@@ -89,7 +76,7 @@ AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const
     for (int i = 0; i < size; i++) {
         int n = columns[i];
         output.add(Column(_data[n]));
-        if (_idxToName.count(n)) output.nameColumn(_idxToName.at(n), i);
+        if (_colToName.count(n)) output.nameColumn(_colToName.at(n), i);
     }
     return output;
 }
@@ -99,8 +86,8 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
     output.name(name.empty() ? _name : name);
     unsigned int i = 0;
     for (auto &a : _data) {
-        if (_idxToName.count(i)) {
-            output.add(a.select(index), _idxToName.at(i++).c_str());
+        if (_colToName.count(i)) {
+            output.add(a.select(index), _colToName.at(i++));
         } else {
             output.add(a.select(index));
         }
@@ -110,7 +97,7 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
 
 AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
     int columns[size];
-    for (int i = 0; i < size; i++) columns[i] = _nameToIdx.at(names[i]);
+    for (int i = 0; i < size; i++) columns[i] = _nameToCol.at(names[i]);
     return project(columns, size, name);
 }
 
@@ -119,7 +106,7 @@ AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
     AFDataFrame output = *this;
 
     for (size_t i = 0; i < rhs._data.size(); ++i)
-        output.add(Column(rhs._data[i]), (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+        output.add(Column(rhs._data[i]), (rhs.name() + "." + rhs._colToName.at(i)));
 
     return output;
 }
@@ -162,7 +149,7 @@ void AFDataFrame::sortBy(unsigned int const *columns, unsigned int const size, b
 
 void AFDataFrame::sortBy(std::string const *columns, unsigned int const size, bool const *isAscending) {
     unsigned int seqnum[size];
-    for (int j = 0; j < size; ++j) seqnum[j] = _nameToIdx[columns[j]];
+    for (int j = 0; j < size; ++j) seqnum[j] = _nameToCol[columns[j]];
     sortBy(seqnum, size, isAscending);
 }
 
@@ -186,13 +173,13 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
 
     AFDataFrame result;
     for (size_t i = 0; i < _data.size(); i++) {
-      result.add(_data[i].select(idx.first), _idxToName.at(i).c_str());
+      result.add(_data[i].select(idx.first), _colToName.at(i));
     }
 
     for (size_t i = 0; i < rhs._data.size(); i++) {
         if (i == rhs_column) continue;
         result.add(rhs._data[i].select(idx.second),
-                   (rhs.name() + "." + rhs._idxToName.at(i)).c_str());
+                   (rhs.name() + "." + rhs._colToName.at(i)));
     }
 
     return result;
@@ -225,9 +212,9 @@ std::string AFDataFrame::name(std::string const& str) {
 }
 
 void AFDataFrame::nameColumn(std::string const& name, unsigned int column) {
-    if (_idxToName.count(column)) _nameToIdx.erase(_idxToName.at(column));
-    _nameToIdx[name] = column;
-    _idxToName[column] = name;
+    if (_colToName.count(column)) _nameToCol.erase(_colToName.at(column));
+    _nameToCol[name] = column;
+    _colToName[column] = name;
 }
 
 void AFDataFrame::flushToHost() {
@@ -238,8 +225,8 @@ void AFDataFrame::flushToHost() {
 void AFDataFrame::clear() {
     _data.clear();
     _name.clear();
-    _idxToName.clear();
-    _nameToIdx.clear();
+    _colToName.clear();
+    _nameToCol.clear();
 }
 
 
