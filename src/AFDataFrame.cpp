@@ -99,7 +99,7 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
     output.name(name.empty() ? _name : name);
     unsigned int i = 0;
     for (auto &a : _data) {
-        if (_idxToName.count(i++)) {
+        if (_idxToName.count(i)) {
             output.add(a.select(index), _idxToName.at(i++).c_str());
         } else {
             output.add(a.select(index));

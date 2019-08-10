@@ -25,38 +25,82 @@ std::unordered_map<af::dtype, DataType> Column::_typeMap({{u8, UCHAR}, // NOLINT
                                                             {f64, DOUBLE}});
 
 Column::Column(af::array const &data, DataType const type) : _device(data), _type(type) {
-    if (type == STRING) _generateStringIndex();
+    if (type == STRING) {
+        _device = af::flat(_device);
+        _generateStringIndex();
+    } else if (type != DATE && type != DATETIME && type != TIME) {
+        _device = TPCDI_Utils::hflat(_device);
+    }
 }
 Column::Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) {
-    if (type == STRING) _generateStringIndex();
+    if (type == STRING) {
+        _device = af::flat(_device);
+        _generateStringIndex();
+    } else if (type != DATE && type != DATETIME && type != TIME) {
+        _device = TPCDI_Utils::hflat(_device);
+    }
 }
-Column::Column(af::array const &data) : _type(_typeMap.at(data.type())), _device(data) { }
-Column::Column(af::array &&data) : _type(_typeMap.at(std::move(data).type())), _device(data) { }
-Column::Column(af::array const &data, af::array const &index) : _device(data), _idx(index) { }
-Column::Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) { }
+Column::Column(af::array const &data) : _type(_typeMap.at(data.type())), _device(data) {
+    _device = TPCDI_Utils::hflat(_device);
+}
+Column::Column(af::array &&data) : _type(_typeMap.at(std::move(data).type())), _device(data) {
+    _device = TPCDI_Utils::hflat(_device);
+}
+Column::Column(af::array const &data, af::array const &index) : _device(data), _idx(index) {
+    _device = af::flat(_device);
+}
+Column::Column(af::array &&data, af::array &&index) : _device(std::move(data)), _idx(std::move(index)) {
+    _device = af::flat(_device);
+}
 Column::Column::Column(Column &&other) noexcept :  _device(std::move(other._device)), _idx(std::move(other._idx)),
     _type(other._type), _host(other._host), _host_idx(other._host_idx) {
     other._host_idx = nullptr;
     other._host = nullptr;
 }
-
 Column::Column(Column::Proxy &&data, Column::Proxy &&idx) {
     _device = data;
+    _device = af::flat(_device);
     _idx = idx;
     _device.eval();
     _idx.eval();
 }
-
 Column::Column(Column::Proxy const &data, Column::Proxy const &idx) {
-    _device = data; _idx = idx;
+    _device = data;
+    _device = af::flat(_device);
+    _idx = idx;
     _device.eval();
     _idx.eval();
 }
-
-Column::Column(Column::Proxy &&data, DataType const type) : _type(type) { _device = data; _device.eval(); }
-
-Column::Column(Column::Proxy const &data, DataType const type) : _type(type) { _device = data; _device.eval(); }
-
+Column::Column(Column::Proxy &&data, DataType const type) : _type(type) {
+    _device = data;
+    if (type == STRING) {
+        _device = af::flat(_device);
+        _generateStringIndex();
+    } else if (type != DATE && type != DATETIME && type != TIME) {
+        _device = TPCDI_Utils::hflat(_device);
+    }
+    _device.eval();
+}
+Column::Column(Column::Proxy const &data, DataType const type) : _type(type) {
+    _device = data;
+    if (type == STRING) {
+        _device = af::flat(_device);
+        _generateStringIndex();
+    } else if (type != DATE && type != DATETIME && type != TIME) {
+        _device = TPCDI_Utils::hflat(_device);
+    }
+    _device.eval();
+}
+Column::Column(Proxy const &data) : _type(_typeMap.at(data.type())) {
+    _device = data;
+    _device = TPCDI_Utils::hflat(_device);
+    _device.eval();
+}
+Column::Column(Proxy &&data) : _type(_typeMap.at(std::move(data).type())) {
+    _device = data;
+    _device = TPCDI_Utils::hflat(_device);
+    _device.eval();
+}
 Column &Column::operator=(Column &&other) noexcept {
     _device = std::move(other._device);
     _idx = std::move(other._idx);
@@ -132,26 +176,9 @@ af::array Column::operator==(Column const &other) {
     return _device == other._device;
 }
 
-af::array Column::operator==(af::array const &other) {
-    if (_type == STRING || _type == DATE || _type == TIME || _type == DATETIME) {
-        auto lhs = hash(false);
-        return lhs == other;
-    }
-    return _device == other;
-}
+af::array Column::operator!= (Column const &other) { return !(*this == other); }
 
 #define ASSIGN(OP) \
-af::array Column::operator OP(af::array const &other) { \
-    af::array lhs; \
-    if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
-    if (length() != other.dims(1)) { throw std::runtime_error("Mismatch column length"); } \
-    if (_type == DATE || _type == TIME || _type == DATETIME) { \
-        lhs = hash(false); \
-        return lhs OP other; \
-    } \
-    return _device OP other; \
-} \
-\
 af::array Column::operator OP(Column const &other) { \
     if (_type != other._type) { throw std::runtime_error("Mismatch column type"); } \
     if (_type == STRING) { throw std::runtime_error("Invalid column type"); } \
@@ -166,11 +193,20 @@ ASSIGN(>)
 ASSIGN(<=)
 ASSIGN(>=)
 #undef ASSIGN
-
-af::array Column::operator==(char const *other) {
-    if (_type != STRING) throw std::runtime_error("Type mismatch");
-    return stringComp(_device, other, _idx);
+#define ASSIGN(OP) \
+Column Column::operator OP(Column const &other) { \
+    if (_type == STRING || _type == DATE || _type == TIME || _type == DATETIME || \
+        other._type == STRING || other._type == DATE || other._type == TIME || other._type == DATETIME) { \
+        throw std::runtime_error("Operation on invalid column type"); \
+    } \
+    return Column(_device OP other._device); \
 }
+ASSIGN(+)
+ASSIGN(-)
+ASSIGN(*)
+ASSIGN(/)
+#undef ASSIGN
+
 
 Column Column::concatenate(Column const &bottom) const {
     using namespace BatchFunctions;
@@ -346,3 +382,69 @@ template void Column::cast<long long>();
 template void Column::cast<double>();
 template void Column::cast<float>();
 template void Column::cast<unsigned long long>();
+
+af::array operator==(char const* lhs, Column const &rhs) {
+    if (rhs._type != STRING) throw std::runtime_error("Type mismatch");
+    return stringComp(rhs._device, lhs, rhs._idx);
+}
+af::array operator==(Column const &lhs, char const* rhs) { return rhs == lhs; }
+af::array operator!=(char const* lhs, Column const &rhs) { return !(lhs == rhs); }
+af::array operator!=(Column const &lhs, char const* rhs) { return !(rhs == lhs); }
+
+#define ASSIGN(OP) \
+template<typename T> \
+af::array operator OP(T const &lhs, Column const &rhs) { \
+    if (rhs._type == STRING || rhs._type == DATE || rhs._type == TIME || rhs._type == DATETIME) { \
+        throw std::runtime_error("Operation on invalid column type"); \
+    } \
+    return lhs OP rhs._device; \
+} \
+template<typename T> \
+af::array operator OP(Column const &lhs, T const &rhs) { return rhs OP lhs; }
+ASSIGN(==)
+ASSIGN(!=)
+ASSIGN(>=)
+ASSIGN(<=)
+ASSIGN(>)
+ASSIGN(<)
+#undef ASSIGN
+
+#define ASSIGN(OP) \
+template<typename T> \
+Column operator OP(T const &lhs, Column const &rhs) { \
+    if (rhs._type == STRING || rhs._type == DATE || rhs._type == TIME || rhs._type == DATETIME) { \
+        throw std::runtime_error("Operation on invalid column type"); \
+    } \
+    return Column(lhs OP rhs._device); \
+} \
+template<typename T> \
+Column operator OP(Column const &lhs, T const &rhs) { return rhs OP lhs; }
+ASSIGN(+)
+ASSIGN(-)
+ASSIGN(*)
+ASSIGN(/)
+#undef ASSIGN
+
+#define ASSIGN(TP) \
+template af::array operator== <TP>(Column const &lhs, TP const &rhs); \
+template af::array operator!= <TP>(TP const &lhs, Column const &rhs); \
+template af::array operator>= <TP>(Column const &lhs, TP const &rhs); \
+template af::array operator<= <TP>(TP const &lhs, Column const &rhs); \
+template af::array operator> <TP>(Column const &lhs, TP const &rhs); \
+template af::array operator< <TP>(TP const &lhs, Column const &rhs); \
+template Column operator+ <TP>(Column const &lhs, TP const &rhs); \
+template Column operator- <TP>(TP const &lhs, Column const &rhs); \
+template Column operator* <TP>(Column const &lhs, TP const &rhs); \
+template Column operator/ <TP>(TP const &lhs, Column const &rhs);
+ASSIGN(float)
+ASSIGN(double)
+ASSIGN(char)
+ASSIGN(unsigned char)
+ASSIGN(short)
+ASSIGN(unsigned short)
+ASSIGN(int)
+ASSIGN(unsigned int)
+ASSIGN(long long)
+ASSIGN(unsigned long long)
+ASSIGN(bool)
+#undef ASSIGN

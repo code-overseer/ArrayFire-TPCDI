@@ -378,13 +378,12 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), u32)), dimCompany.columns() - 1, "BatchID");
     dimCompany.add(TPCDI_Utils::endDate(dimCompany.rows()), "EndDate");
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
-
     nameDimCompany(dimCompany);
     std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
     auto s0 = dimCompany.project(order, 3, "S0");
     s0.sortBy(order + 1, 2);
     auto s2 = s0.project(order + 1, 1, "S2");
-    auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1, "S1");
+    auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1);
     s2 = s2.select(range(dim4(s2.rows() - 1), 0, u64), "S2");
     s1 = s1.zip(s2);
     s1 = s1.select(s1("CompanyID") == s1("S2.CompanyID"), "S1");
@@ -401,8 +400,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
-    array a ;
-    a< 0;
+
     return dimCompany;
 }
 

@@ -34,6 +34,8 @@ public:
     Column(Proxy const &data, DataType type);
     Column(Proxy &&data, Proxy &&idx);
     Column(Proxy const &data, Proxy const &idx);
+    explicit Column(Proxy const &data);
+    explicit Column(Proxy &&data);
     Column(Column const &other) = default;
     virtual ~Column() { if (_host) free(_host); if (_host_idx) free(_host_idx); }
     Column& operator=(Column &&other) noexcept;
@@ -75,19 +77,49 @@ public:
     inline size_t length() const { return (_type == STRING) ? _idx.dims(1) : _device.dims(1); }
 
     #define ASSIGN(OP) \
-    af::array operator OP (Column const &other); \
-    af::array operator OP (af::array const &other);
+    af::array operator OP (Column const &other);
     ASSIGN(==)
+    ASSIGN(!=)
     ASSIGN(>=)
     ASSIGN(<=)
     ASSIGN(>)
     ASSIGN(<)
     #undef ASSIGN
-    af::array operator!= (Column const &other) { return !(*this == other); }
-    af::array operator!= (af::array const &other) { return !(*this == other); }
-    af::array operator ==(char const *other);
-    inline af::array operator !=(char const *other) { return !(*this == other); }
-};
+    #define ASSIGN(OP) \
+    Column operator OP (Column const &other);
+    ASSIGN(+)
+    ASSIGN(-)
+    ASSIGN(*)
+    ASSIGN(/)
+    #undef ASSIGN
 
+    #define ASSIGN(OP) \
+    template<typename T> \
+    friend af::array operator OP(T const &lhs, Column const &rhs); \
+    template<typename T> \
+    friend af::array operator OP(Column const &lhs, T const &rhs);
+    ASSIGN(==)
+    ASSIGN(!=)
+    ASSIGN(>=)
+    ASSIGN(<=)
+    ASSIGN(>)
+    ASSIGN(<)
+    #undef ASSIGN
+
+    #define ASSIGN(OP) \
+    template<typename T> \
+    friend Column operator OP(T const &lhs, Column const &rhs); \
+    template<typename T> \
+    friend Column operator OP(Column const &lhs, T const &rhs);
+    ASSIGN(+)
+    ASSIGN(-)
+    ASSIGN(*)
+    ASSIGN(/)
+    #undef ASSIGN
+    friend af::array operator ==(char const* lhs, Column const &rhs);
+    friend af::array operator ==(Column const &lhs, char const*rhs);
+    friend af::array operator !=(char const* lhs, Column const &rhs);
+    friend af::array operator !=(Column const &lhs, char const*rhs);
+};
 
 #endif //ARRAYFIRE_TPCDI_COLUMN_H
