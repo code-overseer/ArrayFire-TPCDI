@@ -43,6 +43,8 @@ AFDataFrame loadTradeType(char const* directory);
 AFDataFrame loadAudit(char const* directory);
 
 AFDataFrame loadStagingSecurity(char const* directory);
+AFDataFrame loadStagingCompany(char const *directory);
+AFDataFrame loadStagingFinancial(char const *directory);
 
 Finwire loadStagingFinwire(char const *directory);
 
