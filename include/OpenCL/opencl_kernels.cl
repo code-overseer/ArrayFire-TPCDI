@@ -28,3 +28,40 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
         r[left] = ir[i] + k;
     }
 }
+
+__kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,
+ulong const size, ulong const rows, ulong const loops) {
+
+    ulong const id = get_global_id(0);
+    ulong const r = id / loops;
+    ulong const l = id % loops;
+    if (r < rows) {
+        ulong const istart = idx[3 * r];
+        ulong const len = idx[3 * r + 1];
+        ulong const ostart = idx[3 * r + 2];
+        bool b = l < len;
+        bool c = l != len - 1;
+        output[b * (ostart + l) + !b * (size - 1)] = b * input[istart + b * l] * c;
+    }
+}
+
+__kernel void str_concat(__global uchar *output, __global ulong const *out_idx, __global uchar const *left,
+__global ulong const *left_idx,  __global uchar const *right, __global ulong const *right_idx,
+ulong const size, ulong const rows) {
+    ulong const id = get_global_id(0);
+    ulong const r = id / loops;
+    ulong const l = id % loops;
+    if (r < rows) {
+        ulong const l_start = left_idx[2 * id];
+        ulong const r_start = right_idx[2 * id];
+        ulong const o_start = out_idx[2 * id];
+        ulong const l_len = left_idx[2 * id + 1] - 1;
+        ulong const o_len = out_idx[2 * id + 1];
+
+        bool b = l < l_len;
+        bool c = (l < o_len) ^ b;
+        bool d = l != o_len - 1;
+
+        output[c * (o_start + l) + !c * (size - 1)] = (b * left[l_start + b * l] + c * right[r_start + c * l]) * d;
+    }
+}

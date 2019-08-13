@@ -58,7 +58,8 @@ int main(int argc, char *argv[]) {
     }
 
     Logger::startTimer();
-    DimCompany();
+//    DimCompany();
+    test_String(DIR::WORDS);
     Logger::logTime();
     return 0;
 }

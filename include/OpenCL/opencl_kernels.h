@@ -147,10 +147,7 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     cl_context context = get_context((cl_mem)output);
     cl_command_queue queue = create_queue(context);
 
-    char options[128];
-    sprintf(options, "-D LOOP_LENGTH=%llu", loops);
-    // Build the OpenCL program and get the kernel
-    cl_program program = build_parse_program(context, options);
+    cl_program program = build_program(context, get_kernel_string());
     cl_kernel kernel = create_kernel(program, "string_gather");
 
     cl_int err = CL_SUCCESS;
@@ -160,16 +157,17 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
     err |= clSetKernelArg(kernel, arg++, sizeof(ull), &output_size);
-    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+    err |= clSetKernelArg(kernel, arg++, sizeof(ull), &rows);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &loops);
 
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
         throw (err);
     }
-
+    auto num = rows * loops;
     // Set launch configuration parameters and launch kernel
     size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    size_t global = local * (num / local + ((num % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);

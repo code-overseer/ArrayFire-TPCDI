@@ -337,12 +337,13 @@ Column Column::right(unsigned int length) const {
 
 Column Column::trim(unsigned int start, unsigned int length) const {
     if (type() != STRING) throw std::runtime_error("Expected String");
-    if (!where(anyTrue(flat(_idx.row(1) <= (length + start)))).isempty()) throw std::runtime_error("Some strings are too short");
+    if (start == 0 || length == 0) throw std::invalid_argument("start and length must be > 0");
+    auto len = length + 1;
     auto idx = _idx;
-    idx.row(1) = length + 1;
-    auto out = Column(stringGather(_device, idx), std::move(idx));
-    out._device(out.irow(0) + length) = 0;
-    return out;
+    auto b = idx.row(1) > len;
+    idx(0, b) += start;
+    idx(1, b) = len;
+    return Column(stringGather(_device, idx), std::move(idx));
 }
 
 void Column::_generateStringIndex() {

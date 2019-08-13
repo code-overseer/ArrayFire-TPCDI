@@ -1,7 +1,3 @@
-//
-// Created by Bryan Wong on 2019-06-20.
-//
-
 #include "include/BatchFunctions.h"
 
 af::array BatchFunctions::batchEqual(af::array const &rhs, af::array const &lhs) {

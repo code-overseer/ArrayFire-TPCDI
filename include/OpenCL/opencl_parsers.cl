@@ -31,25 +31,6 @@ __kernel void parser(__global PARSE_TYPE *output, __global ulong const *idx, __g
     }
 }
 
-__kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,
-    ulong const out_length, ulong const row_num) {
-
-    ulong const id = get_global_id(0);
-    if (id < row_num) {
-        ulong const istart = idx[3 * id];
-        ulong const len = idx[3 * id + 1];
-        ulong const ostart = idx[3 * id + 2];
-        bool b;
-        bool c;
-        #pragma unroll LOOP_LENGTH
-        for (ulong i = 0; i < LOOP_LENGTH; ++i) {
-            b = i < len;
-            c = i != len - 1;
-            output[b * (ostart + i) + !b * (out_length - 1)] = b * input[istart + b * i] * c;
-        }
-    }
-}
-
 __kernel void str_cmp(__global bool *output, __global uchar const *left, __global uchar const *right,
         __global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
 

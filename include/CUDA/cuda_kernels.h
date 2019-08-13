@@ -74,17 +74,15 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
 __global__ static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
 
     ull const id = blockIdx.x * blockDim.x + threadIdx.x;
-    if (id < rows) {
-        ull const istart = idx[3 * id];
-        ull const len = idx[3 * id + 1];
-        ull const ostart = idx[3 * id + 2];
-        bool b;
-        bool c;
-        for (ull i = 0; i < loops; ++i) {
-            b = i < len;
-            c = i != len - 1;
-            output[b * (ostart + i) + !b * (size - 1)] = b * input[istart + b * i];
-        }
+    ull const r = id / loops;
+    ull const l = id % loops;
+    if (r < rows) {
+        ull const istart = idx[3 * r];
+        ull const len = idx[3 * r + 1];
+        ull const ostart = idx[3 * r + 2];
+        bool b = l < len;
+        bool c = l != len - 1;
+        output[b * (ostart + l) + !b * (size - 1)] = b * input[istart + b * l] * c;
     }
 }
 
@@ -119,6 +117,28 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
     }
 }
 
+__global__ static void str_concat(unsigned char *output, ull const *out_idx, unsigned char const *left,
+ull const *left_idx,  unsigned char const *right,  ull const *right_idx, ull const out_length,
+ull const rows, ulong const loops) {
+
+    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const r = id / loops;
+    ull const l = id % loops;
+    if (r < rows) {
+        ull const l_start = left_idx[2 * id];
+        ull const r_start = right_idx[2 * id];
+        ull const o_start = out_idx[2 * id];
+        ull const l_len = left_idx[2 * id + 1] - 1;
+        ull const o_len = out_idx[2 * id + 1];
+
+        bool b = l < l_len;
+        bool c = (l < o_len) ^ b;
+        bool d = l != o_len - 1;
+
+        output[c * (o_start + l) + !c * (size - 1)] = (b * left[l_start + b * l] + c * right[r_start + c * l]) * d;
+    }
+}
+
 void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     ull const threadCount = bag_size * set_size;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
@@ -148,7 +168,7 @@ void inline launchNumericParse(T *output, ull const * idx, unsigned char const *
 
 void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
-    ull const threadCount = rows;
+    ull const threadCount = rows * loops;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
