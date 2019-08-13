@@ -56,6 +56,9 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
             long long j = i * (i < len);
             unsigned char digit = input[s + j];
             bool b = len > 0 && i < len && digit >= '0' && digit <= '9';
+//        for (long long i = 0; i < len; ++i) {
+//            unsigned char digit = input[s + i];
+//            bool b = digit >= '0' && digit <= '9';
             frac |= digit == '.';
             dec += b && frac;
             bool c = !dec && b;
