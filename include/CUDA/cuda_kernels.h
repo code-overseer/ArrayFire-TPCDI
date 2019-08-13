@@ -11,7 +11,7 @@
 typedef unsigned long long ull;
 #endif
 
-#define THREAD_LIMIT 1024;
+#define THREAD_LIMIT 1024
 
 __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
 
@@ -29,7 +29,7 @@ __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull cons
     ull const id = blockIdx.x * blockDim.x + threadIdx.x;
 
     bool b = id < equals * l_max * r_max;
-    ull i = id / l_max / r_maxz * b;
+    ull i = id / l_max / r_max * b;
     ull j = id / r_max % l_max;
     ull k = id % r_max;
     ull left = l_cnt[i];
@@ -49,7 +49,7 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
         long long const s = idx[2 * id];
         long long const len = idx[2 * id + 1] - 1;
         T number = 0;
-        uchar dec = 0;
+        unsigned char dec = 0;
         bool frac = 0;
         bool neg = input[s] == '-';
         for (long long i = 0; i < loops; ++i) {
@@ -133,7 +133,7 @@ ull const rows, ulong const loops) {
         bool c = (l < o_len) ^ b;
         bool d = l != o_len - 1;
 
-        output[c * (o_start + l) + !c * (size - 1)] = (b * left[l_start + b * l] + c * right[r_start + c * l]) * d;
+        output[c * (o_start + l) + !c * (out_length - 1)] = (b * left[l_start + b * l] + c * right[r_start + c * l]) * d;
     }
 }
 
@@ -143,6 +143,7 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
     bag_set<<<grid, block>>>(result, bag, set, bag_size, set_size);
+    cudaDeviceSynchronize();
 }
 
 void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
@@ -152,6 +153,7 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
     join_scatter<<<grid, block>>>(l_idx, r_idx, l_cnt, r_cnt, outpos, left, right, equals, left_max, right_max, out_size);
+    cudaDeviceSynchronize();
 }
 
 template<typename T>
@@ -161,7 +163,9 @@ void inline launchNumericParse(T *output, ull const * idx, unsigned char const *
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
 
-    parser<T><<<grid, block>>>(out_ptr, idx_ptr, in_ptr, rows, loops);
+    parser<T><<<grid, block>>>(output, idx, input, rows, loops);
+    cudaDeviceSynchronize();
+
 }
 
 void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
@@ -170,7 +174,8 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
-    string_gather<<<grid, block>>>(out_ptr, idx_ptr, in_ptr, output_size, rows, loops);
+    string_gather<<<grid, block>>>(output, idx, input, output_size, rows, loops);
+    cudaDeviceSynchronize();
 }
 
 void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
@@ -181,6 +186,7 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
     dim3 block(THREAD_LIMIT, 1, 1);
 
     str_cmp<<<grid, block>>>(output, left, right, l_idx, r_idx, rows, loops);
+    cudaDeviceSynchronize();
 }
 
 void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
@@ -190,7 +196,8 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
 
-    str_cmp<<<grid, block>>>(out_ptr, left_ptr, right_ptr, l_idx_ptr, rows, loops);
+    str_cmp<<<grid, block>>>(output, left, right, l_idx, rows, loops);
+    cudaDeviceSynchronize();
 }
 
 #endif

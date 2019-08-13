@@ -345,7 +345,7 @@ AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
     std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
     auto tmp = dimCompany.project(columns, 4, "DC");
     auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
-
+    s_Financial("CO_NAME_OR_CIK").left(1).printColumn();
     auto fin1 = s_Financial.select(cik);
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
     financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");

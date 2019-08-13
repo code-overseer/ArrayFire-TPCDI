@@ -2,6 +2,7 @@
 #define ARRAYFIRE_TPCDI_SINGLE_THREADED_H
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
@@ -36,7 +37,7 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
 void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
     for (ull i = 0; i < rows; ++i) {
         for (ull j = 0; j < idx[3 * i + 1]; ++j) {
-            output[idx[3 * i + 2] + j] = input[idx[3 * i] + j];
+            output[idx[3 * i + 2] + j] = input[idx[3 * i] + j] * (j != (idx[3 * i + 1] - 1));
         }
     }
 }
