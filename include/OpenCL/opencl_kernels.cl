@@ -47,7 +47,7 @@ ulong const size, ulong const rows, ulong const loops) {
 
 __kernel void str_concat(__global uchar *output, __global ulong const *out_idx, __global uchar const *left,
 __global ulong const *left_idx,  __global uchar const *right, __global ulong const *right_idx,
-ulong const size, ulong const rows) {
+ulong const size, ulong const rows, ulong const loops) {
     ulong const id = get_global_id(0);
     ulong const r = id / loops;
     ulong const l = id % loops;

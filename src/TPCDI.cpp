@@ -211,7 +211,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
     frame.add(parser.parse<unsigned char>(20));
     frame.add(parser.parse<unsigned long long>(21));
-
+    nameStagingProspect(frame);
     return frame;
 }
 
