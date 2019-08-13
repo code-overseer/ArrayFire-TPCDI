@@ -46,25 +46,20 @@ template<typename T>
 __global__ static void parser(T *output, ull const *idx, unsigned char const *input, ull const rows, ull const loops) {
     ull const id = blockIdx.x * blockDim.x + threadIdx.x;
     if (id < rows) {
-        ull const s = idx[2 * id];
-        ull const len = idx[2 * id + 1] - 1;
+        long long const s = idx[2 * id];
+        long long const len = idx[2 * id + 1] - 1;
         T number = 0;
-        ull dec = 0;
-        // Multiple accesses to input[s+j] inefficient
-        for (ull i = 0; i < loops; ++i) {
-            ull j = i * (i < len);
-            dec += (input[s + j] == '.') * j;
-        }
-
+        uchar dec = 0;
+        bool frac = 0;
         bool neg = input[s] == '-';
-        int p = (int)(dec + !dec * len) - 1 - neg;
-
-        for (ull i = 0; i < loops; ++i) {
-            ull j = i * (i < len);
-            unsigned char c = input[s + j];
-            bool d = c != '-' && c != '.';
-            number += (len > 0 && d && i < len) * (c - '0') * (T)pow(10.0, p);
-            p -= d;
+        for (long long i = 0; i < loops; ++i) {
+            long long j = i * (i < len);
+            unsigned char digit = input[s + j];
+            bool b = len > 0 && i < len && digit >= '0' && digit <= '9';
+            frac |= digit == '.';
+            dec += b && frac;
+            bool c = !dec && b;
+            number = number * (c * 10 + !c) + b * (digit - '0') / (T)pow(10.0, dec);
         }
 
         output[id] = number * (!neg - neg);

@@ -203,43 +203,35 @@ af::array inline stringComp(af::array const &lhs, char const *rhs, af::array con
 template<typename T> af::array inline numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
     using namespace TPCDI_Utils;
-    auto const loops = sum<ull>(max(indexer.row(1), 1));
+    auto const loops = sum<ull>(max(indexer.row(1), 1)) - 1;
     auto const rows = indexer.elements() / 2;
-    auto output = array(1, rows, GetAFType<T>().af_type);
-    static int abc = 0;
-    abc++;
+    auto output = constant(0, dim4(1, rows), GetAFType<T>().af_type);
 
     #ifdef USING_AF
-    auto neg = hflat(input((array)indexer.row(0)) == '-');
-    neg.eval();
-
-    auto dec = constant(0, dim4(1, rows), u8);
+    auto dec = constant(0, output.dims(), u8);
+    auto frac = constant(0, output.dims(), b8);
+    auto neg = frac;
+    auto digit_idx = indexer.row(0) + 0;
+    auto len = indexer.row(1) - 1;
+    neg(input(digit_idx) == '-') = 1;
     for (int i = 0; i < loops; ++i) {
-        auto j = i < indexer.row(1);
-        dec(j) += hflat((input(indexer(0, j) + i) == '.') * i).as(dec.type());
+        auto j = i < len && len > 0;
+        digit_idx(j) = digit_idx(j) + (i > 0);
+        auto b = hflat(input(digit_idx) >= '0' && input(digit_idx) <= '9') && j;
+        frac = frac || hflat(input(digit_idx) == '.');
+        dec += (b && frac);
+        output = output * pow(10, (!dec && b)) + b * hflat(input(digit_idx) - '0') / pow(10, dec.as(output.type()));
     }
-    auto power = ((dec + !dec * indexer.row(1)) - neg - 1).as(u8);
-    for (int i = 0; i < loops; ++i) {
-        auto j = i < indexer.row(1);
-        auto k = indexer(0, j) + i;
-        j(j) = j(j) && hflat(input(k) != '.' && input(k) != '-');
-        j.eval();
-        k = k(j);
-        k.eval();
-        if (k.isempty()) continue;
-        output(j) += hflat(input(k) - '0').as(output.type()) * pow(10, power(j)).as(output.type());
-        power -= j;
-        power.eval();
-    }
-
+    output = output * (!neg - neg);
     output.eval();
 
     dec = array();
+    digit_idx = array();
     neg = array();
-    power = array();
+    len = array();
     deviceGC();
     #else
-    auto out_ptr = output.device<T>();
+    auto out_ptr = output.template device<T>();
     auto idx_ptr = indexer.device<ull>();
     auto in_ptr = input.device<unsigned char>();
     af::sync();

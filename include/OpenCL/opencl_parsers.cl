@@ -5,27 +5,24 @@ __kernel void parser(__global PARSE_TYPE *output, __global ulong const *idx, __g
         ulong const row_num) {
     ulong const id = get_global_id(0);
     if (id < row_num) {
-        ulong const s = idx[2 * id];
-        ulong const len = idx[2 * id + 1] - 1;
+        long const s = idx[2 * id];
+        long const len = idx[2 * id + 1] - 1;
         PARSE_TYPE number = 0;
-        uint dec = 0;
-        // two loops is slightly slower but, better precision parsing
-        #pragma unroll LOOP_LENGTH
-        for (ulong i = 0; i < LOOP_LENGTH; ++i) {
-            ulong j = i * (i < len);
-            dec += (input[s + j] == '.') * j;
-        }
+        uchar dec = 0;
+        bool frac = 0;
         bool neg = input[s] == '-';
-
-        int p = (int)(dec + !dec * len) - 1 - neg;
-
         #pragma  unroll LOOP_LENGTH
-        for (ulong i = 0; i < LOOP_LENGTH; ++i) {
-            ulong j = i * (i < len);
-            uchar c = input[s + j];
-            bool d = c != '-' && c != '.';
-            number += (len > 0 && d && i < len) * (c - '0') * (PARSE_TYPE)pown(10.0, p);
-            p -= d;
+        for (long i = 0; i < LOOP_LENGTH; ++i) {
+            long j = i * (i < len);
+            uchar digit = input[s + j];
+            bool b = len > 0 && i < len && digit >= '0' && digit <= '9';
+//        for (long i = 0; i < len; ++i) {
+//            uchar digit = input[s + i];
+//            bool b = digit >= '0' && digit <= '9';
+            frac |= digit == '.';
+            dec += b && frac;
+            bool c = !dec && b;
+            number = number * (c * 10 + !c) + b * (digit - '0') / (PARSE_TYPE)pown(10.0, dec);
         }
         output[id] = number * (!neg - neg);
     }
