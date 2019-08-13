@@ -58,9 +58,9 @@ int main(int argc, char *argv[]) {
     }
 
     Logger::startTimer();
-//    DimCompany();
+    DimCompany();
 //    DimBroker();
-    Financial();
+//    Financial();
     Logger::logTime();
     return 0;
 }

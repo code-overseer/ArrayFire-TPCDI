@@ -19,8 +19,8 @@ __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull
 
 	 ull i = id / set_size;
 	 ull j = id % set_size;
-
-	 if (id < bag_size * set_size && set[j] == bag[2 * i]) result[i] = 1;
+	 bool b = id < bag_size * set_size;
+	 if (b && set[j] == bag[i * b]) result[i] = 1;
 }
 
 __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,

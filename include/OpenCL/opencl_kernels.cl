@@ -1,12 +1,12 @@
-__kernel void is_exist_kernel(__global char *result, __global ulong const *bag,
+__kernel void intersect_kernel(__global char *result, __global ulong const *bag,
         __global ulong const *set, ulong const bag_size, ulong const set_size) {
 
     ulong const id = get_global_id(0);
 
     ulong const i = id / set_size;
     ulong const j = id % set_size;
-
-    if (id < bag_size * set_size && set[j] == bag[2 * i]) result[i] = 1;
+    bool b = id < bag_size * set_size;
+    if (b && set[j] == bag[i * b]) result[i] = 1;
 }
 
 __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, __global ulong const *cl,

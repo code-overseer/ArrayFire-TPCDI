@@ -13,8 +13,8 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     ull start = 0;
     for (int n = 0; n < bag_size; ++n) {
         for (ull i = start; i < set_size; start = ++i) {
-            if (set[i] > bag[2 * n]) break;
-            if (set[i] != bag[2 * n]) continue;
+            if (set[i] > bag[n]) break;
+            if (set[i] != bag[n]) continue;
             result[n] = 1;
             break;
         }
@@ -63,25 +63,25 @@ template<> inline double convert<double>(const unsigned char *start) {
     return std::strtod((char const*)start, nullptr);
 }
 template<> inline unsigned char convert<unsigned char>(const unsigned char *start) {
-    return (unsigned char)std::strtoul((char const*)start, nullptr, 0);
+    return (unsigned char)std::strtoul((char const*)start, nullptr, 10);
 }
 template<> inline unsigned short convert<unsigned short>(const unsigned char *start) {
-    return (unsigned short)std::strtoul((char const*)start, nullptr, 0);
+    return (unsigned short)std::strtoul((char const*)start, nullptr, 10);
 }
 template<> inline unsigned int convert<unsigned int>(const unsigned char *start) {
-    return std::strtoul((char const*)start, nullptr, 0);
+    return std::strtoul((char const*)start, nullptr, 10);
 }
 template<> inline ull convert<ull>(const unsigned char *start) {
-    return std::strtoull((char const*)start, nullptr, 0);
+    return std::strtoull((char const*)start, nullptr, 10);
 }
 template<> inline short convert<short>(const unsigned char *start) {
-    return (short)std::strtol((char const*)start, nullptr, 0);
+    return (short)std::strtol((char const*)start, nullptr, 10);
 }
 template<> inline int convert<int>(const unsigned char *start) {
-    return (int)std::strtol((char const*)start, nullptr, 0);
+    return (int)std::strtol((char const*)start, nullptr, 10);
 }
 template<> inline long long convert<long long>(const unsigned char *start) {
-    return std::strtoll((char const*)start, nullptr, 0);
+    return std::strtoll((char const*)start, nullptr, 10);
 }
 template<typename T> void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
     for (ull i = 0; i < rows; ++i) {

@@ -18,7 +18,7 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     // Build the OpenCL program and get the kernel
     cl_program program = build_program(context, KERNELS);
 
-    cl_kernel kernel = create_kernel(program, "is_exist_kernel");
+    cl_kernel kernel = create_kernel(program, "intersect_kernel");
     cl_int err = CL_SUCCESS;
     int arg = 0;
     // Set input parameters for the kernel
