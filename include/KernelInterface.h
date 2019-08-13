@@ -108,7 +108,10 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
 
 af::array inline stringGather(af::array const &input, af::array &indexer) {
     using namespace af;
-    indexer = join(0, indexer, scan(indexer.row(1), 1, AF_BINARY_ADD, false));
+    indexer = join(0, indexer, indexer.elements() < 3 ?
+    constant(0, 1, indexer.type()) :
+    scan(indexer.row(1), 1, AF_BINARY_ADD, false));
+
     indexer.eval();
     auto const out_size = sum<ull>(indexer.row(1));
     auto const loops = sum<ull>(max(indexer.row(1), 1));
@@ -206,7 +209,7 @@ template<typename T> af::array inline numericParse(af::array const &input, af::a
     auto const loops = sum<ull>(max(indexer.row(1), 1)) - 1;
     auto const rows = indexer.elements() / 2;
     auto output = constant(0, dim4(1, rows), GetAFType<T>().af_type);
-
+    if (!loops) return output;
     #ifdef USING_AF
     auto dec = constant(0, output.dims(), u8);
     auto frac = constant(0, output.dims(), b8);

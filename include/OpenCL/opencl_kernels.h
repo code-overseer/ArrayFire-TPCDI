@@ -100,47 +100,6 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
 
 }
 
-template<typename T>
-void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
-    // Get OpenCL context from memory buffer and create a Queue
-    cl_context context = get_context((cl_mem)output);
-    cl_command_queue queue = create_queue(context);
-
-    char options[128];
-    sprintf(options, "-D LOOP_LENGTH=%llu -D PARSE_TYPE=%s", loops, GetAFType<T>().str);
-    // Build the OpenCL program and get the kernel
-    cl_program program = build_parse_program(context, options);
-    cl_kernel kernel = create_kernel(program, "parser");
-
-    cl_int err = CL_SUCCESS;
-    int arg = 0;
-    // Set input parameters for the kernel
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
-    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
-    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
-
-    if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
-        throw (err);
-    }
-    
-    // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
-    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
-    if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
-        throw (err);
-    }
-
-    err = clFinish(queue);
-    if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
-        throw (err);
-    }
-}
-
 void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
     // Get OpenCL context from memory buffer and create a Queue
@@ -168,6 +127,47 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     // Set launch configuration parameters and launch kernel
     size_t local = LOCAL_GROUP_SIZE;
     size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw (err);
+    }
+
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw (err);
+    }
+}
+
+template<typename T>
+void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
+
+    char options[128];
+    sprintf(options, "-D LOOP_LENGTH=%llu -D PARSE_TYPE=%s", loops, GetAFType<T>().str);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_parse_program(context, options);
+    cl_kernel kernel = create_kernel(program, "parser");
+
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &idx);
+    err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &input);
+    err |= clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw (err);
+    }
+
+    // Set launch configuration parameters and launch kernel
+    size_t local = LOCAL_GROUP_SIZE;
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);

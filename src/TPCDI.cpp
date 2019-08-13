@@ -253,7 +253,6 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
         dimBroker.add(parser.parse<unsigned int>(0));
         dimBroker.add(parser.parse<unsigned int>(1));
         for (int i = 2;  i <= 7; ++i) dimBroker.add(parser.parse<char*>(i));
-        print(dimBroker.columns());
         dimBroker = dimBroker.select(dimBroker(5) == "314", "DimBroker");
         dimBroker.remove(5);
     }

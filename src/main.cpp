@@ -59,12 +59,7 @@ int main(int argc, char *argv[]) {
 
     Logger::startTimer();
 //    DimCompany();
-    for (int i = 0; i < 250; ++i) {
-//        Logger::startTimer("Indi");
-        test_SignedInt(DIR::INT);
-//        Logger::logTime("Indi");
-        af::deviceGC();
-    }
+    DimBroker();
     Logger::logTime();
     return 0;
 }
