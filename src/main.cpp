@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
     #else
         setBackend(AF_BACKEND_CPU);
     #endif
+
     if (argc == 2 && !strcmp(argv[1], "-i")) {
         info();
         return 0;

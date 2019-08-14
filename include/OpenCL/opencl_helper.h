@@ -1,6 +1,5 @@
 #ifndef ARRAYFIRE_TPCDI_OPENCL_HELPER_H
 #define ARRAYFIRE_TPCDI_OPENCL_HELPER_H
-
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -9,6 +8,7 @@
 #include <cstring>
 #include <exception>
 #include "include/TPCDI_Utils.h"
+#include <arrayfire.h>
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
 #else
@@ -105,6 +105,22 @@ static void printKernelBuildError(cl_context context, cl_program program) {
 
     free(log);
     free(devices);
+}
+
+static cl_uint getAddressBits() {
+    auto k = af::constant(0, 1);
+    auto f = k.device<float>();
+    cl_context context = get_context((cl_mem)f);
+    size_t size;
+    auto err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &size);
+    auto devices = (cl_device_id*) malloc(size);
+    err = clGetDeviceInfo(devices[0], CL_DEVICE_ADDRESS_BITS, NULL, NULL, &size);
+    void *output = malloc(size);
+    err = clGetDeviceInfo(devices[0], CL_DEVICE_ADDRESS_BITS, size, output, NULL);
+    printf("Address Bits: %u\n", *((uint32_t*)output));
+    k.unlock();
+    free(devices);
+    free(output);
 }
 
 static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
