@@ -5,6 +5,7 @@
 #include <string>
 #include <thread>
 #include <cstring>
+#define GC_RATIO 8
 using namespace af;
 using namespace BatchFunctions;
 
@@ -189,3 +190,13 @@ std::string TPCDI_Utils::flattenCustomerMgmt(char const *directory) {
 
     return data;
 }
+
+void TPCDI_Utils::callGC() {
+    size_t alloc;
+    size_t locked;
+
+    deviceMemInfo(&alloc, nullptr, &locked, nullptr);
+    if (alloc / locked > GC_RATIO) deviceGC();
+}
+
+

@@ -25,11 +25,11 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
         std::string txt = TPCDI_Utils::loadFile(_filename);
         if (txt.back() != '\n') txt += '\n';
         _data = array(txt.size() + 1, txt.c_str()).as(u8);
-        _data = _data(where(_data != '\r'));
+        _data = _data(_data != '\r');
     }
     _data.eval();
     _generateIndexer(delimiter, hasHeader);
-    af::sync();
+    callGC();
 }
 
 AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, bool const hasHeader) : _filename(nullptr),
@@ -39,7 +39,7 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
     _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(delimiter, false);
-    af::sync();
+    callGC();
 }
 
 AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _filename(nullptr),
@@ -48,7 +48,7 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
     _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(delimiter, hasHeader);
-    af::sync();
+    callGC();
 }
 
 AFParser::~AFParser() {

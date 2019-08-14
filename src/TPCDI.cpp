@@ -56,6 +56,7 @@ AFDataFrame loadDimDate(char const *directory) {
         frame.add(parser.parse<unsigned int>(i + 1));
     }
     frame.add(parser.parse<bool>(17));
+    callGC();
     return frame;
 }
 
@@ -75,6 +76,7 @@ AFDataFrame loadDimTime(char const* directory) {
     }
     frame.add(parser.parse<bool>(8));
     frame.add(parser.parse<bool>(9));
+    callGC();
     return frame;
 }
 
@@ -90,6 +92,7 @@ AFDataFrame loadIndustry(char const* directory) {
     frame.nameColumn("IN_ID", 0);
     frame.nameColumn("IN_NAME", 1);
     frame.nameColumn("IN_SC_ID", 2);
+    callGC();
     return frame;
 }
 
@@ -102,6 +105,7 @@ AFDataFrame loadStatusType(char const* directory) {
     frame.add(parser.parse<char*>(0), "ST_ID");
     frame.add(parser.parse<char*>(1), "ST_NAME");
     frame.name("StatusType");
+    callGC();
     return frame;
 }
 
@@ -116,6 +120,7 @@ AFDataFrame loadTaxRate(char const* directory) {
     frame.add(parser.parse<char*>(0), "TX_ID");
     frame.add(parser.parse<char*>(1), "TX_NAME");
     frame.add(parser.parse<float>(2), "TX_RATE");
+    callGC();
     return frame;
 }
 
@@ -128,6 +133,7 @@ AFDataFrame loadTradeType(char const* directory) {
 
     for (int i = 0;  i < 2; ++i) frame.add(parser.parse<char*>(i));
     for (int i = 2;  i < 4; ++i) frame.add(parser.parse<unsigned int>(i));
+    callGC();
     return frame;
 }
 
@@ -152,7 +158,7 @@ AFDataFrame loadAudit(char const* directory) {
     frame.add(parser.parse<char*>(3));
     frame.add(parser.parse<int>(4));
     frame.add(parser.parse<double>(5));
-
+    callGC();
     return frame;
 }
 
@@ -182,11 +188,11 @@ AFDataFrame loadStagingFinancial(char const *directory) {
 
 Finwire loadStagingFinwire(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
-    FinwireParser parser(finwireFiles);
-    Finwire finwire = parser.extractData();
+    Finwire finwire = FinwireParser(finwireFiles).extractData();
     nameStagingCompany(finwire.company);
     nameStagingFinancial(finwire.financial);
     nameStagingSecurity(finwire.security);
+    callGC();
     return finwire;
 }
 
@@ -212,6 +218,7 @@ AFDataFrame loadStagingProspect(char const *directory) {
     frame.add(parser.parse<unsigned char>(20));
     frame.add(parser.parse<unsigned long long>(21));
     nameStagingProspect(frame);
+    callGC();
     return frame;
 }
 
@@ -231,14 +238,14 @@ AFDataFrame loadStagingCustomer(char const* directory) {
 
     frame.add(parser.parse<unsigned char>(5));
     frame.add(parser.asDate(6, true, YYYYMMDD));
-
+    callGC();
     for (int i = 7; i < 32; ++i) frame.add(parser.parse<char*>(i));
-
+    callGC();
     frame.add(parser.parse<unsigned long long>(32));
     frame.add(parser.parse<unsigned short>(33));
     frame.add(parser.parse<unsigned long long>(34));
     frame.add(parser.parse<char*>(35));
-
+    callGC();
     nameStagingProspect(frame);
     return frame;
 }
@@ -264,6 +271,7 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     auto date = dimDate(1)(af::span, 0);
     dimBroker.add(Column(tile(date, dim4(1, length)), DATE));
     dimBroker.add(TPCDI_Utils::endDate(length));
+    callGC();
     return dimBroker;
 }
 
@@ -277,6 +285,7 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<double>(2));
     frame.add(parser.parse<char*>(3));
+    callGC();
     return frame;
 }
 
@@ -290,6 +299,7 @@ AFDataFrame loadStagingWatches(char const* directory) {
     frame.add(parser.parse<char*>(1));
     frame.add(parser.asDateTime(2, YYYYMMDD));
     frame.add(parser.parse<char*>(3));
+    callGC();
     return frame;
 }
 
@@ -334,7 +344,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
-
+    callGC();
     return dimCompany;
 }
 
@@ -367,7 +377,7 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
                                    "DILUTED_SH_OUT" }, "Financial");
     // Renames columns
     nameFinancial(financial);
-
+    callGC();
     return financial;
 }
 
@@ -441,6 +451,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
     auto out = AFDataFrame::setCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
     security("IsCurrent")(out.first) = 0;
     security("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
+    callGC();
     return security;
 }
 
@@ -473,6 +484,7 @@ Column inline marketingNameplate(array const &networth, array const &income, arr
     out(55, span) = '\n';
     out = out(out > 0);
     out(out == '\n') = 0;
+    callGC();
     return Column(out, STRING);
 }
 
@@ -488,13 +500,13 @@ AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate) {
     prospect.insert(Column(array(prospect("SK_RecordDateID").data())), 2, "SK_UpdateDateID");
     prospect.insert(Column(constant(1, dim, u32)), 3, "BatchID");
     prospect.insert(Column(constant(0, dim, b8)), 4, "IsCustomer");
+    callGC();
     auto tmp = marketingNameplate(prospect("NetWorth").data(), prospect("Income").data(),
                                   prospect("NumberCreditCards").data(),
                                   prospect("NumberChildren").data(), prospect("Age").data(),
                                   prospect("CreditRating").data(),
                                   prospect("NumberCars").data());
     prospect.add(std::move(tmp), "MarketingNameplate");
-
     return prospect;
 }
 
@@ -511,6 +523,7 @@ AFDataFrame loadStagingTrade(char const* directory) {
     frame.add(parser.parse<bool>(4));
     frame.add(parser.parse<char*>(5));
     frame.add(parser.parse<unsigned int>(6));
+    callGC();
     frame.add(parser.parse<double>(7));
     frame.add(parser.parse<unsigned int>(8));
     frame.add(parser.parse<unsigned long long>(9));
@@ -518,6 +531,7 @@ AFDataFrame loadStagingTrade(char const* directory) {
     frame.add(parser.parse<double>(11));
     frame.add(parser.parse<double>(12));
     frame.add(parser.parse<double>(13));
+    callGC();
     return frame;
 }
 
@@ -530,7 +544,7 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<char*>(2));
-    return frame;
+    callGC();    return frame;
 }
 
 Customer splitCustomer(AFDataFrame &&s_Customer) {

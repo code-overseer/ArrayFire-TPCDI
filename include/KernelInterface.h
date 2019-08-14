@@ -114,7 +114,8 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     scan(indexer.row(1), 1, AF_BINARY_ADD, false));
 
     indexer.eval();
-    auto const out_size = sum<ull>(indexer.row(1));
+
+    auto const out_size = sum<ull>(sum(indexer(seq(1,2), end), 0));
     auto const loops = sum<ull>(max(indexer.row(1), 1));
     auto const rows = indexer.elements() / 3;
     auto output = array(out_size, u8);

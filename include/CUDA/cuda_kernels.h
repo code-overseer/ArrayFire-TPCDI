@@ -9,7 +9,6 @@
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
-typedef long long ll;
 #endif
 
 #define THREAD_LIMIT 1024
@@ -53,8 +52,8 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
         unsigned char dec = 0;
         bool frac = 0;
         bool neg = input[s] == '-';
-        for (ll i = 0; i < loops; ++i) {
-            ll j = i * (i < len);
+        for (long long i = 0; i < loops; ++i) {
+            long long j = i * (i < len);
             unsigned char digit = input[s + j];
             bool b = len > 0 && i < len && digit >= '0' && digit <= '9';
 //        for (long long i = 0; i < len; ++i) {
@@ -94,7 +93,7 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
         ull const len = l_idx[2 * id + 1];
         bool out = output[id];
 
-        for (ll i = 0; i < loops; ++i) {
+        for (long long i = 0; i < loops; ++i) {
             out &= (len < i || left[l_start + i] == right[r_start + i]);
         }
 
@@ -109,9 +108,9 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
         ulong const l_start = l_idx[2 * id];
         bool out = output[id];
 
-        for (ll i = 0; i < loops; ++i) {
+        for (long long i = 0; i < loops; ++i) {
             out &= left[l_start + i] == right[i];
-        }
+        }ow to
         output[id] = out;
     }
 }

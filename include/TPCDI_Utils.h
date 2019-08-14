@@ -26,6 +26,7 @@ namespace TPCDI_Utils {
     void fillBlanks(int &count, std::string fieldName, StrToInt &tracker, String &data, bool isAtt = false);
     void depthFirstAppend(String &data, Node *node, StrToInt &tracker,  String branch, Node *root);
     void learnFieldNames(Node *node, StrToInt &tracker, String branch, Node *root);
+    void callGC();
     std::string flattenCustomerMgmt(char const *directory);
 }
 

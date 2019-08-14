@@ -40,6 +40,7 @@ af::array FinwireParser::filterRowsByCategory(const FinwireParser::RecordType &t
 }
 
 AFDataFrame FinwireParser::extractCmp() const {
+    callGC();
     auto rows = filterRowsByCategory(CMP);
     af::array start = _indexer(0, rows);
     AFDataFrame output;
@@ -56,6 +57,7 @@ AFDataFrame FinwireParser::extractCmp() const {
 }
 
 AFDataFrame FinwireParser::extractFin() const {
+    callGC();
     auto rows = filterRowsByCategory(FIN);
     af::array start = _indexer(0, rows);
 
@@ -77,6 +79,7 @@ AFDataFrame FinwireParser::extractFin() const {
 }
 
 AFDataFrame FinwireParser::extractSec() const {
+    callGC();
     auto rows = filterRowsByCategory(SEC);
     af::array start = _indexer(0, rows);
     AFDataFrame output;
