@@ -41,6 +41,7 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     set.unlock();
     result.unlock();
 #endif
+
     bag = bag(span, result);
     bag.eval();
 }
