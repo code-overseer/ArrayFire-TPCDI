@@ -138,8 +138,7 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     input.unlock();
     indexer.unlock();
     #endif
-    indexer.row(0) = (array)indexer.row(2);
-    indexer = indexer.rows(0, 1);
+    indexer = join(0, indexer.row(2), indexer.row(1));
     indexer.eval();
     return output;
 }
