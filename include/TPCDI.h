@@ -70,9 +70,9 @@ AFDataFrame loadDimAccount(Customer &stagingCustomer);
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate);
 
-AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany);
+AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompany);
 
-AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType);
+AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType);
 
 AFDataFrame loadProspect(AFDataFrame &s_Prospect, AFDataFrame &batchDate);
 

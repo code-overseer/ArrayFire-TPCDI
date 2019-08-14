@@ -58,9 +58,9 @@ int main(int argc, char *argv[]) {
     }
 
     Logger::startTimer();
-    DimCompany();
+//    DimCompany();
 //    DimBroker();
-//    Financial();
+    Financial();
     Logger::logTime();
     return 0;
 }
@@ -111,11 +111,11 @@ void experiment() {
     industry.flushToHost();
     
     print("Financial");
-    auto financial = loadFinancial(finwire.financial, dimCompany);
+    auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
     financial.flushToHost();
     
     print("DimSecurity");
-    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
+    auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
     dimSecurity.flushToHost();
     dimCompany.flushToHost();
     statusType.flushToHost();
@@ -175,7 +175,7 @@ void DimSecurity() {
     finwire.company.clear();
 
     print("DimSecurity");
-    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
+    auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
 }
 
 void Financial() {
@@ -200,7 +200,7 @@ void Financial() {
     finwire.company.clear();
 
     print("Financial");
-    auto financial = loadFinancial(finwire.financial, dimCompany);
+    auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
 }
 
 void DimBroker() {
@@ -230,13 +230,13 @@ void FinWire() {
     finwire.company.clear();
 
     print("DimSecurity");
-    auto dimSecurity = loadDimSecurity(finwire.security, dimCompany, statusType);
+    auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
     dimSecurity.flushToHost();
     statusType.flushToHost();
     finwire.security.clear();
 
     print("Financial");
-    auto financial = loadFinancial(finwire.financial, dimCompany);
+    auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
     financial.flushToHost();
     finwire.clear();
 

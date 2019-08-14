@@ -5,12 +5,15 @@
 #include <cstring>
 #include <vector>
 #include <unordered_map>
+#include <initializer_list>
 #include <arrayfire.h>
 #include "Enums.h"
 #include "Column.h"
 
 class AFDataFrame {
 private:
+    typedef std::initializer_list<std::string> str_list;
+    typedef std::initializer_list<bool> bool_list;
     std::vector<Column> _data;
     std::string _name;
     std::unordered_map<std::string, unsigned int> _nameToCol;
@@ -29,13 +32,15 @@ public:
     void remove(unsigned int index);
     AFDataFrame select(af::array const &index, std::string const &name = "") const;
     AFDataFrame project(int const *columns, int size, std::string const &name = "") const;
-    AFDataFrame project(std::string const *names, int size, std::string const &name = "") const;
+    AFDataFrame project(std::string const *columns, int size, std::string const &name = "") const;
+    AFDataFrame project(str_list columns, std::string const &name = "") const;
     AFDataFrame unionize(AFDataFrame &frame) const;
     AFDataFrame unionize(AFDataFrame &&frame) const { return unionize(frame); }
     AFDataFrame zip(AFDataFrame const &rhs) const;
     void sortBy(unsigned int col, bool isAscending = true);
     void sortBy(unsigned int const *columns, unsigned int size, const bool *isAscending = nullptr);
     void sortBy(std::string const *columns, unsigned int size, bool const *isAscending = nullptr);
+    void sortBy(str_list columns, bool_list isAscending = bool_list());
     AFDataFrame equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const;
     void nameColumn(const std::string& name, unsigned int column);
     std::string name(const std::string& str);

@@ -45,37 +45,6 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     bag.eval();
 }
 
-af::array inline set_intersect(af::array const &lhs, af::array const &rhs) {
-    bool leftBig = lhs.elements() > rhs.elements();
-    auto const big_size = leftBig ? lhs.elements() : rhs.elements();
-    auto const small_size = !leftBig ? lhs.elements() : rhs.elements();
-    #ifdef USING_AF
-    return af::setIntersect(lhs, rhs, true);
-    #endif
-    auto result = constant(0, af::dim4(1, big_size), b8);
-    auto result_ptr = result.device<char>();
-    auto small_ptr = leftBig ? rhs.device<ull>() : lhs.device<ull>();
-    auto big_ptr = !leftBig ? rhs.device<ull>() : lhs.device<ull>();
-    af::sync();
-    launchBagSet(result_ptr, big_ptr, small_ptr, big_size, small_size);
-
-    lhs.unlock();
-    rhs.unlock();
-    result.unlock();
-    af::array output = leftBig ? lhs(result) : rhs(result);
-
-    return output;
-}
-
-af::array inline simpleSetIntersect(af::array const &lhs, af::array const &rhs, bool isUnique = false) {
-    if (!isUnique) {
-        auto right = af::setUnique(rhs, false);
-        auto left = af::setUnique(lhs, false);
-        return set_intersect(left, right);
-    }
-    return set_intersect(lhs, rhs);
-}
-
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace TPCDI_Utils;

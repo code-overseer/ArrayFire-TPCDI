@@ -294,16 +294,12 @@ AFDataFrame loadStagingWatches(char const* directory) {
 }
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
-    auto dimCompany = s_Company.equiJoin(industry,5,0);
 
-    dimCompany = dimCompany.equiJoin(statusType, 4, 0);
-    {
-        std::string order[15] = {
-                "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING","CEO_NAME", "ADDR_LINE_1",
-                "ADDR_LINE_2", "POSTAL_CODE","CITY","STATE_PROVINCE","COUNTRY","DESCRIPTION","FOUNDING_DATE", "PTS"
-        };
-        dimCompany = dimCompany.project(order, 15, "DimCompany");
-    }
+    auto dimCompany = s_Company.equiJoin(industry,5,0).equiJoin(statusType, 4, 0).project(
+            { "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING",
+              "CEO_NAME", "ADDR_LINE_1","ADDR_LINE_2", "POSTAL_CODE","CITY","STATE_PROVINCE",
+              "COUNTRY","DESCRIPTION","FOUNDING_DATE", "PTS"
+            }, "DimCompany");
 
     dimCompany("PTS").toDate();
     dimCompany.nameColumn("EffectiveDate", "PTS");
@@ -315,22 +311,24 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
     nameDimCompany(dimCompany);
 
-    std::string order[3] = { "SK_CompanyID", "CompanyID", "EffectiveDate"};
-    auto s0 = dimCompany.project(order, 3, "S0");
-    s0.sortBy(order + 1, 2);
-    auto s2 = s0.project(order + 1, 1, "S2");
+    auto s0 = dimCompany.project({ "SK_CompanyID", "CompanyID", "EffectiveDate"}, "S0");
+    s0.sortBy({ "CompanyID", "EffectiveDate" });
+
+    auto s2 = s0.project({ "CompanyID" }, "S2");
     auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1);
     s2 = s2.select(range(dim4(s2.rows() - 1), 0, u64), "S2");
     s1 = s1.zip(s2);
     s1 = s1.select(s1("CompanyID") == s1("S2.CompanyID"), "S1");
-    auto end_date = s1.project(order + 2, 1, "EndDate");
-    s0 = s0.project(order, 2, "S0");
-    s1 = s0.project(order + 1, 1, "S1");
+    auto end_date = s1.project({ "EffectiveDate" }, "EndDate");
+
+    s0 = s0.project({ "SK_CompanyID", "CompanyID" }, "S0");
+    s1 = s0.project({ "CompanyID" }, "S1");
     s0 = s0.select(range(dim4(s0.rows() - 1), 0, u64), "S0");
     s1 = s1.select(range(dim4(s1.rows() - 1), 0, u64) + 1, "S1");
     s0 = s0.zip(s1);
     s0 = s0.select(s0("CompanyID") == s0("S1.CompanyID"), "S0");
-    s0 = s0.project(order, 1, "S0");
+    s0 = s0.project({ "SK_CompanyID" }, "S0");
+
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
     auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
@@ -340,55 +338,50 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     return dimCompany;
 }
 
-AFDataFrame loadFinancial(AFDataFrame &s_Financial, AFDataFrame &dimCompany) {
+AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompany) {
     AFDataFrame financial;
-    std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
-    auto tmp = dimCompany.project(columns, 4, "DC");
     auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
-    s_Financial("CO_NAME_OR_CIK").left(1).printColumn();
+
     auto fin1 = s_Financial.select(cik);
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
-    financial = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "CompanyID");
+    financial = fin1.equiJoin(
+            dimCompany.project({"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"}, "DC"),
+            "CO_NAME_OR_CIK", "CompanyID");
     financial.remove("CO_NAME_OR_CIK");
 
-    columns[1] = "Name";
-    tmp = dimCompany.project(columns, 4, "DC");
-    fin1 = s_Financial.select(!cik);
-    fin1 = fin1.equiJoin(tmp, "CO_NAME_OR_CIK", "Name");
+    fin1 = s_Financial.select(!cik).equiJoin(
+            dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"), "CO_NAME_OR_CIK", "Name");
     fin1.remove("CO_NAME_OR_CIK");
-    if (!fin1.isEmpty()) financial = financial.unionize(fin1);
-    af::sync();
-    fin1.clear();
-    tmp.clear();
-    financial("PTS").toDate();
 
+    if (!fin1.isEmpty()) financial = financial.unionize(std::move(fin1));
+    af::sync();
+
+    financial("PTS").toDate();
     financial = financial.select(
             financial("DC.EffectiveDate") <= financial("PTS") &&
             financial("DC.EndDate") > financial("PTS")
             );
 
-    std::string order[14] = {
-            "DC.SK_CompanyID", "YEAR", "QUARTER", "QTR_START_DATE","REVENUE", "EARNINGS",
-            "EPS", "DILUTED_EPS","MARGIN","INVENTORY","ASSETS","LIABILITIES","SH_OUT", "DILUTED_SH_OUT"
-    };
-    financial = financial.project(order, 14, "Financial");
+    financial = financial.project({ "DC.SK_CompanyID", "YEAR", "QUARTER", "QTR_START_DATE","REVENUE", "EARNINGS",
+                                   "EPS", "DILUTED_EPS","MARGIN","INVENTORY","ASSETS","LIABILITIES","SH_OUT",
+                                   "DILUTED_SH_OUT" }, "Financial");
     // Renames columns
     nameFinancial(financial);
 
     return financial;
 }
 
-AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType) {
+AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType) {
     AFDataFrame security;
-
     {
-        std::string columns[4] = {"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"};
-        auto dc = dimCompany.project(columns, 4, "DC");
         auto cik = s_Security("CO_NAME_OR_CIK").left(1) == "0";
 
         auto part1 = s_Security.select(cik);
         part1("CO_NAME_OR_CIK").cast<unsigned long long>();
-        part1 = part1.equiJoin(dc, "CO_NAME_OR_CIK", "CompanyID");
+        part1 = part1.equiJoin(
+                dimCompany.project({"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"}, "DC"),
+                "CO_NAME_OR_CIK",
+                "CompanyID");
         part1("PTS").toDate();
         part1.nameColumn("EffectiveDate", "PTS");
         part1 = part1.select(
@@ -396,56 +389,55 @@ AFDataFrame loadDimSecurity(AFDataFrame &s_Security, AFDataFrame &dimCompany, AF
                 part1("DC.EndDate") > part1("EffectiveDate"));
 
         part1.remove("CO_NAME_OR_CIK");
-        columns[1] = "Name";
-        dc = dimCompany.project(columns, 4, "DC");
 
-        auto part2 = s_Security.select(!cik);
-        part2 = part2.equiJoin(dc, "CO_NAME_OR_CIK", "Name");
+        auto part2 = s_Security.select(!cik).equiJoin(
+                dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"),
+                "CO_NAME_OR_CIK",
+                "Name");
         part2.remove("CO_NAME_OR_CIK");
+
         part2("PTS").toDate();
         part2.nameColumn("EffectiveDate", "PTS");
         part2 = part2.select(
                 part2("DC.EffectiveDate") <= part2("EffectiveDate") &&
                 part2("DC.EndDate") > part2("EffectiveDate"));
-        dc.clear();
-        s_Security.clear();
         security = part1.unionize(part2);
-        security = security.equiJoin(StatusType, "STATUS", "ST_ID");
     }
-    {
-        std::string order[11] = {
-                "SYMBOL","ISSUE_TYPE", "StatusType.ST_NAME" ,"NAME","EX_ID", "DC.SK_CompanyID",
-                "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "EffectiveDate"
-        };
-        security = security.project(order, 11, "DimSecurity");
-    }
+    security = security.equiJoin(StatusType, "STATUS", "ST_ID").project(
+            {"SYMBOL","ISSUE_TYPE", "StatusType.ST_NAME" ,"NAME","EX_ID", "DC.SK_CompanyID",
+             "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "EffectiveDate" }, "DimSecurity");
     auto length = security.rows();
-    security.insert(Column(range(dim4(1, length), 1, u64), ULONG), 0, "SK_SecurityID");
-    security.insert(Column(constant(1, dim4(1, length), b8), BOOL), security.columns() - 1, "IsCurrent");
-    security.insert(Column(constant(1, dim4(1, length), u32), UINT), security.columns() - 1, "BatchID");
+    security.insert(Column(range(dim4(1, length), 1, u64)), 0, "SK_SecurityID");
+    security.insert(Column(constant(1, dim4(1, length), b8)), security.columns() - 1, "IsCurrent");
+    security.insert(Column(constant(1, dim4(1, length), u32)), security.columns() - 1, "BatchID");
     security.add(TPCDI_Utils::endDate(length), "EndDate");
 
     nameDimSecurity(security);
 
-    std::string order[3] = { "SK_SecurityID", "Symbol", "EffectiveDate"};
-    auto s0 = security.project(order, 3, "S0");
-    s0.sortBy(order + 1, 2);
-    auto s2 = s0.project(order + 1, 1, "S2");
+    auto s0 = security.project({ "SK_SecurityID", "Symbol", "EffectiveDate"}, "S0");
+    s0.sortBy({"Symbol", "EffectiveDate"});
+
+    auto s2 = s0.project({"Symbol"}, "S2");
     auto s1 = s0.select(range(dim4(s0.rows() - 1), 0, u64) + 1);
     s2 = s2.select(range(dim4(s2.rows() - 1), 0, u64));
-    s1 = s1.zip(s2);
+    s1 = s1.zip(std::move(s2));
+
     s1 = s1.select(s1("Symbol") == s1("S2.Symbol"));
-    auto end_date = s1.project(order + 2, 1, "EndDate");
+    auto end_date = s1.project({ "EffectiveDate" }, "EndDate");
     if (end_date.isEmpty()) return security;
-    s0 = s0.project(order, 2, "S0");
-    s1 = s0.project(order + 1, 1, "S1");
+
+    s0 = s0.project({ "SK_SecurityID", "Symbol" }, "S0");
+    s1 = s0.project({"Symbol"}, "S1");
     s0 = s0.select(range(dim4(s0.rows() - 1), 0, u64));
     s1 = s1.select(range(dim4(s1.rows() - 1), 0, u64) + 1);
-    s0 = s0.zip(s1);
+    s0 = s0.zip(std::move(s1));
+
     s0 = s0.select(s0("Symbol") == s0("S1.Symbol"));
-    s0.project(order, 1, "S0");
-    s0 = s0.zip(end_date);
+    s0.project({ "SK_SecurityID" }, "S0");
+    s0 = s0.zip(std::move(end_date));
+
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
+
     auto out = AFDataFrame::setCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
     security("IsCurrent")(out.first) = 0;
     security("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);

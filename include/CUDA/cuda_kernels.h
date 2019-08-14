@@ -9,13 +9,14 @@
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
+typedef long long ll;
 #endif
 
 #define THREAD_LIMIT 1024
 
 __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
 
-    const ull id = blockIdx.x * blockDim.x + threadIdx.x;
+    const ull id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
 
 	 ull i = id / set_size;
 	 ull j = id % set_size;
@@ -26,7 +27,7 @@ __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull
 __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                          ull  *l, ull *r, ull const equals, ull const l_max, ull const r_max, ull const dump) {
 
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
 
     bool b = id < equals * l_max * r_max;
     ull i = id / l_max / r_max * b;
@@ -44,7 +45,7 @@ __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull cons
 }
 template<typename T>
 __global__ static void parser(T *output, ull const *idx, unsigned char const *input, ull const rows, ull const loops) {
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (id < rows) {
         long long const s = idx[2 * id];
         long long const len = idx[2 * id + 1] - 1;
@@ -52,8 +53,8 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
         unsigned char dec = 0;
         bool frac = 0;
         bool neg = input[s] == '-';
-        for (long long i = 0; i < loops; ++i) {
-            long long j = i * (i < len);
+        for (ll i = 0; i < loops; ++i) {
+            ll j = i * (i < len);
             unsigned char digit = input[s + j];
             bool b = len > 0 && i < len && digit >= '0' && digit <= '9';
 //        for (long long i = 0; i < len; ++i) {
@@ -71,7 +72,7 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
 
 __global__ static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
 
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     ull const r = id / loops;
     ull const l = id % loops;
     if (r < rows) {
@@ -86,14 +87,14 @@ __global__ static void string_gather(unsigned char *output, ull const *idx, unsi
 
 __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right,
                                ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (id < rows) {
         ull const l_start = l_idx[2 * id];
         ull const r_start = r_idx[2 * id];
         ull const len = l_idx[2 * id + 1];
         bool out = output[id];
 
-        for (ull i = 0; i < loops; ++i) {
+        for (ll i = 0; i < loops; ++i) {
             out &= (len < i || left[l_start + i] == right[r_start + i]);
         }
 
@@ -103,12 +104,12 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
 
 __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
         ull const rows, ull const loops) {
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (id < rows) {
         ulong const l_start = l_idx[2 * id];
         bool out = output[id];
 
-        for (ulong i = 0; i < loops; ++i) {
+        for (ll i = 0; i < loops; ++i) {
             out &= left[l_start + i] == right[i];
         }
         output[id] = out;
@@ -119,7 +120,7 @@ __global__ static void str_concat(unsigned char *output, ull const *out_idx, uns
 ull const *left_idx,  unsigned char const *right,  ull const *right_idx, ull const out_length,
 ull const rows, ulong const loops) {
 
-    ull const id = blockIdx.x * blockDim.x + threadIdx.x;
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     ull const r = id / loops;
     ull const l = id % loops;
     if (r < rows) {

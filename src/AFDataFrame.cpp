@@ -95,10 +95,14 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
     return output;
 }
 
-AFDataFrame AFDataFrame::project(std::string const *names, int size, std::string const &name) const {
-    int columns[size];
-    for (int i = 0; i < size; i++) columns[i] = _nameToCol.at(names[i]);
-    return project(columns, size, name);
+AFDataFrame AFDataFrame::project(std::string const *columns, int size, std::string const &name) const {
+    int order[size];
+    for (int i = 0; i < size; i++) order[i] = _nameToCol.at(columns[i]);
+    return project(order, size, name);
+}
+
+AFDataFrame AFDataFrame::project(str_list const columns, std::string const &name) const {
+    return project(columns.begin(), columns.size(), name);
 }
 
 AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
@@ -148,9 +152,15 @@ void AFDataFrame::sortBy(unsigned int const *columns, unsigned int const size, b
 }
 
 void AFDataFrame::sortBy(std::string const *columns, unsigned int const size, bool const *isAscending) {
-    unsigned int seqnum[size];
-    for (int j = 0; j < size; ++j) seqnum[j] = _nameToCol[columns[j]];
-    sortBy(seqnum, size, isAscending);
+    unsigned int order[size];
+    for (int j = 0; j < size; ++j) order[j] = _nameToCol[columns[j]];
+    sortBy(order, size, isAscending);
+}
+
+void AFDataFrame::sortBy(str_list const columns, bool_list const isAscending) {
+    if (isAscending.size() && isAscending.size() != columns.size())
+        throw std::runtime_error("column number and order type size do not match");
+    sortBy(columns.begin(), columns.size(), isAscending.size() ? isAscending.begin() : nullptr);
 }
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
@@ -203,7 +213,8 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     lhs = join(0, lhs, idx.as(lhs.type()));
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
-    auto const equalSet = hflat(simpleSetIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
+    auto const equalSet = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
+
     bagSetIntersect(lhs, equalSet);
     bagSetIntersect(rhs, equalSet);
 
