@@ -25,7 +25,6 @@ Column FinwireParser::_extract(array &start, unsigned int const length, FinwireP
         start += length;
     }
     auto out = stringGather(_data, idx);
-    out(accum(idx.row(1), 1) - 1) = 0; // finwire files have no delimiter, need to add manually
     out.eval();
     idx.eval();
     return Column(std::move(out), std::move(idx));

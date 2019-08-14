@@ -110,7 +110,7 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
 
         for (long long i = 0; i < loops; ++i) {
             out &= left[l_start + i] == right[i];
-        }ow to
+        }
         output[id] = out;
     }
 }
@@ -123,11 +123,11 @@ ull const rows, ulong const loops) {
     ull const r = id / loops;
     ull const l = id % loops;
     if (r < rows) {
-        ull const l_start = left_idx[2 * id];
-        ull const r_start = right_idx[2 * id];
-        ull const o_start = out_idx[2 * id];
-        ull const l_len = left_idx[2 * id + 1] - 1;
-        ull const o_len = out_idx[2 * id + 1];
+        ull const l_start = left_idx[2 * r];
+        ull const r_start = right_idx[2 * r];
+        ull const o_start = out_idx[2 * r];
+        ull const l_len = left_idx[2 * r + 1] - 1;
+        ull const o_len = out_idx[2 * r + 1];
 
         bool b = l < l_len;
         bool c = (l < o_len) ^ b;

@@ -20,6 +20,9 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
 
     cl_kernel kernel = create_kernel(program, "intersect_kernel");
     cl_int err = CL_SUCCESS;
+    auto work_items = bag_size * set_size;
+    auto groups = work_items / INT32_MAX + (work_items % INT32_MAX) ? 1 : 0;
+
     int arg = 0;
     // Set input parameters for the kernel
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &result);
@@ -32,11 +35,9 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
         printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
         throw (err);
     }
-
-    auto num = bag_size * set_size;
     // Set launch configuration parameters and launch kernel
     size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    size_t global = local * (work_items / local + ((work_items % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -110,6 +111,7 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     cl_kernel kernel = create_kernel(program, "string_gather");
 
     cl_int err = CL_SUCCESS;
+    auto work_items = rows * loops;
     int arg = 0;
     // Set input parameters for the kernel
     err |= clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
@@ -123,10 +125,9 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
         printf("OpenCL Error(%d): Failed to set kernel arguments\n", err);
         throw (err);
     }
-    auto num = rows * loops;
     // Set launch configuration parameters and launch kernel
     size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    size_t global = local * (work_items / local + ((work_items % local) ? 1 : 0));
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to enqueue kernel\n", err);

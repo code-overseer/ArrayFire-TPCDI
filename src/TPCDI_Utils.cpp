@@ -30,7 +30,7 @@ std::string TPCDI_Utils::loadFile(char const *filename) {
     return text;
 }
 
-void inline bulk_loader(char const *file, std::string *data, unsigned long *sizes, bool const hasHeader) {
+static void bulk_loader(char const *file, std::string *data, unsigned long *sizes, bool const hasHeader) {
     *data = TPCDI_Utils::loadFile(file);
     if (hasHeader) {
         auto pos = data->find_first_of('\n');
@@ -47,8 +47,10 @@ std::string TPCDI_Utils::collect(std::vector<std::string> const &files, bool con
     std::vector<unsigned long> sizes((size_t)num);
 
     std::thread threads[limit];
-    for (unsigned long i = 0; i < num / limit + 1; ++i) {
-        auto jlim = (i == num / limit) ? num % limit : limit;
+    auto remainder = num % limit;
+    auto ilim = num / limit + (remainder ? 1 : 0);
+    for (unsigned long i = 0; i < ilim; ++i) {
+        auto jlim = ((i == ilim - 1) && remainder) ? remainder : limit;
         for (decltype(i) j = 0; j < jlim; ++j) {
             auto n = i * limit + j;
             auto d = data.data() + n;

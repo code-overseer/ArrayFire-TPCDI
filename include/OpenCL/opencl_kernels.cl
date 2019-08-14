@@ -52,11 +52,11 @@ ulong const size, ulong const rows, ulong const loops) {
     ulong const r = id / loops;
     ulong const l = id % loops;
     if (r < rows) {
-        ulong const l_start = left_idx[2 * id];
-        ulong const r_start = right_idx[2 * id];
-        ulong const o_start = out_idx[2 * id];
-        ulong const l_len = left_idx[2 * id + 1] - 1;
-        ulong const o_len = out_idx[2 * id + 1];
+        ulong const l_start = left_idx[2 * r];
+        ulong const r_start = right_idx[2 * r];
+        ulong const o_start = out_idx[2 * r];
+        ulong const l_len = left_idx[2 * r + 1] - 1;
+        ulong const o_len = out_idx[2 * r + 1];
 
         bool b = l < l_len;
         bool c = (l < o_len) ^ b;
