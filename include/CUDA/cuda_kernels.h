@@ -23,6 +23,24 @@ __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull
 	 if (b && set[j] == bag[i * b]) result[i] = 1;
 }
 
+__global__ void hash_intersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+                               unsigned int const buckets, ull const bag_size) {
+    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+
+    if (id < bag_size) {
+        ull const val = bag[id];
+        unsigned int const key = val % buckets;
+        unsigned int const len = ht_occ[key];
+        ull const ptr = ht_ptr[key];
+
+        char out = 0;
+        for (unsigned int i = 0; i < len; ++i) {
+            out |= (ht_val[ptr + i] == val);
+        }
+        result[id] = out;
+    }
+}
+
 __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                          ull  *l, ull *r, ull const equals, ull const l_max, ull const r_max, ull const dump) {
 
@@ -146,6 +164,16 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
     bag_set<<<grid, block>>>(result, bag, set, bag_size, set_size);
+    cudaDeviceSynchronize();
+}
+
+void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+                                unsigned int const buckets, ull const bag_size) {
+    ull const threadCount = bag_size;
+    ull const blocks = (threadCount/THREAD_LIMIT) + 1;
+    dim3 grid(blocks, 1, 1);
+    dim3 block(THREAD_LIMIT, 1, 1);
+    hash_intersect<<<grid, block>>>(result, bag, ht_val, ht_ptr, ht_occ, buckets, bag_size);
     cudaDeviceSynchronize();
 }
 
