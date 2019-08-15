@@ -162,7 +162,7 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
     auto const rows = l_idx.elements() / 2;
     af::sync();
 
-    launchStringComp(out_ptr, left_ptr, right_ptr, l_idx_ptr, r_idx_ptr, rows, loops);
+    launchStringComp(out_ptr, left_ptr, right_ptr, l_idx_ptr, r_idx_ptr, rows);
 
     out.unlock();
     lhs.unlock();

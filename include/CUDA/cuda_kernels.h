@@ -119,21 +119,24 @@ __global__ static void str_concat(unsigned char *output, ull const *out_idx, uns
 ull const *left_idx,  unsigned char const *right,  ull const *right_idx, ull const out_length,
 ull const rows, ulong const loops) {
 
-    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
-    ull const r = id / loops;
-    ull const l = id % loops;
-    if (r < rows) {
-        ull const l_start = left_idx[2 * r];
-        ull const r_start = right_idx[2 * r];
-        ull const o_start = out_idx[2 * r];
-        ull const l_len = left_idx[2 * r + 1] - 1;
-        ull const o_len = out_idx[2 * r + 1];
+    ull i = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+    ull j = i / loops;
+    ull k = i % loops;
+    if (j < rows) {
+        ull const l_start = left_idx[2 * j];
+        ull const r_start = right_idx[2 * j];
+        ull const o_start = out_idx[2 * j];
+        ull const l_end = left_idx[2 * j + 1] - 1;
+        ull const o_end = out_idx[2 * j + 1] - 1;
+        ull const r_end = right_idx[2 * j + 1] - 1;
 
-        bool b = l < l_len;
-        bool c = (l < o_len) ^ b;
-        bool d = l != o_len - 1;
-
-        output[c * (o_start + l) + !c * (out_length - 1)] = (b * left[l_start + b * l] + c * right[r_start + c * l]) * d;
+        bool const b = k < o_end;
+        bool const c = k < l_end;
+        bool const d = e ^ b;
+        i = b * k + !b * o_end;
+        j = c * k + !c * l_end;
+        k = d * (k - l_len) + !b * r_end;
+        output[o_start + i] = c * left[l_start + j] + d * right[r_start + k];
     }
 }
 

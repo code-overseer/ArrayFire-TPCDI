@@ -15,11 +15,6 @@
 #include <CL/cl.h>
 #endif
 
-static std::string& get_kernel_string() {
-    static std::string kernel = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
-    return kernel;
-}
-
 static cl_context get_context(cl_mem x) {
     cl_context context;
     cl_int err = clGetMemObjectInfo(x, CL_MEM_CONTEXT, sizeof(cl_context), &context, NULL);
@@ -44,7 +39,8 @@ static void printProgramBuildError(cl_context context, cl_program program) {
     free(devices);
 }
 
-static cl_program build_program(cl_context context, const std::string& kernel_string, char const *options = nullptr) {
+static cl_program build_program(cl_context context) {
+    static std::string kernel = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
     static cl_program program = nullptr;
     static cl_context previous = context;
     if (program) {
@@ -53,15 +49,15 @@ static cl_program build_program(cl_context context, const std::string& kernel_st
     }
 
     cl_int err;
-    const char *source = kernel_string.c_str();
-    size_t length = kernel_string.size();
+    const char *source = kernel.c_str();
+    size_t length = kernel.size();
     program = clCreateProgramWithSource(context, 1, &source, &length, &err);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to create program\n", err);
         throw std::runtime_error("Terminated");
     }
 
-    err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
+    err = clBuildProgram(program, 0, NULL, nullptr, NULL, NULL);
     if (err != CL_SUCCESS) {
         printf("OpenCL Error(%d): Failed to build program\n", err);
         printProgramBuildError(context, program);
@@ -70,11 +66,11 @@ static cl_program build_program(cl_context context, const std::string& kernel_st
     return program;
 }
 
-static cl_program build_parse_program(cl_context context, char const *options = nullptr) {
+static cl_program build_single_use_program(cl_context context, char const *options) {
     static cl_program program = nullptr;
     if (program) clReleaseProgram(program);
     cl_int err;
-    static std::string kernel_str = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_parsers.cl");
+    static std::string kernel_str = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_single_use.cl");
     static const char *source = kernel_str.c_str();
     static size_t length = kernel_str.size();
 

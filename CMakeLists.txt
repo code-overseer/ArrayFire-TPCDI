@@ -59,7 +59,7 @@ add_executable(ArrayFire-TPCDI
         include/AFTypes.h
         include/Column.h
         include/KernelInterface.h
-        include/ColumnNames.h)
+        include/ColumnNames.h include/AFHashTable.h src/AFHashTable.cpp)
 
 if (USING_CUDA)
     set_source_files_properties(src/AFDataFrame.cpp

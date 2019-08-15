@@ -26,9 +26,9 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
     ulong pos = outpos[i];
 
     if (b && !(j / left) && !(k / right)) {
-        left = pos + left * k + j;
-        l[left] = il[i] + j;
-        r[left] = ir[i] + k;
+        pos += (left * k + j);
+        l[pos] = il[i] + j;
+        r[pos] = ir[i] + k;
     }
 }
 
@@ -40,31 +40,49 @@ ulong const size, ulong const rows, ulong const loops) {
     ulong const l = id % loops;
     if (r < rows) {
         ulong const istart = idx[3 * r];
-        ulong const len = idx[3 * r + 1];
+        ulong const len = idx[3 * r + 1] - 1;
         ulong const ostart = idx[3 * r + 2];
-        bool b = l < len;
-        bool c = l != len - 1;
-        output[b * (ostart + l) + !b * (size - 1)] = b * input[istart + b * l] * c;
+        bool const b = l < len;
+        ulong const k = b * l + !b * len;
+        output[ostart + k] = b * input[istart + k];
+    }
+}
+
+__kernel void str_cmp(__global bool *output, __global uchar const *left, __global uchar const *right,
+__global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
+    ulong const id = get_global_id(0);
+    if (id < rows) {
+        ulong const l_start = l_idx[2 * id];
+        ulong const len = l_idx[2 * id + 1];
+        ulong const r_start = r_idx[2 * id];
+        bool out = output[id];
+        for (ulong i = 0; i < len; ++i) {
+            out &= left[l_start + i] == right[r_start + i];
+        }
+        output[id] = out;
     }
 }
 
 __kernel void str_concat(__global uchar *output, __global ulong const *out_idx, __global uchar const *left,
 __global ulong const *left_idx,  __global uchar const *right, __global ulong const *right_idx,
 ulong const size, ulong const rows, ulong const loops) {
-    ulong const id = get_global_id(0);
-    ulong const r = id / loops;
-    ulong const l = id % loops;
-    if (r < rows) {
-        ulong const l_start = left_idx[2 * r];
-        ulong const r_start = right_idx[2 * r];
-        ulong const o_start = out_idx[2 * r];
-        ulong const l_len = left_idx[2 * r + 1] - 1;
-        ulong const o_len = out_idx[2 * r + 1];
+    ulong i = get_global_id(0);
+    ulong j = i / loops;
+    ulong k = i % loops;
+    if (j < rows) {
+        ulong const l_start = left_idx[2 * j];
+        ulong const r_start = right_idx[2 * j];
+        ulong const o_start = out_idx[2 * j];
+        ulong const l_end = left_idx[2 * j + 1] - 1;
+        ulong const o_end = out_idx[2 * j + 1] - 1;
+        ulong const r_end = right_idx[2 * j + 1] - 1;
 
-        bool b = l < l_len;
-        bool c = (l < o_len) ^ b;
-        bool d = l != o_len - 1;
-
-        output[c * (o_start + l) + !c * (size - 1)] = (b * left[l_start + b * l] + c * right[r_start + c * l]) * d;
+        bool const b = k < o_end;
+        bool const c = k < l_end;
+        bool const d = c ^ b;
+        i = b * k + !b * o_end;
+        j = c * k + !c * l_end;
+        k = d * (k - l_end) + !b * r_end;
+        output[o_start + i] = c * left[l_start + j] + d * right[r_start + k];
     }
 }
