@@ -1,7 +1,3 @@
-//
-// Created by Bryan Wong on 2019-08-03.
-//
-
 #ifndef ARRAYFIRE_TPCDI_AFTYPES_H
 #define ARRAYFIRE_TPCDI_AFTYPES_H
 #include <arrayfire.h>

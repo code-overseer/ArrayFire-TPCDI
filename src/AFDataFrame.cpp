@@ -2,6 +2,7 @@
 #include "include/TPCDI_Utils.h"
 #include "include/BatchFunctions.h"
 #include "include/KernelInterface.h"
+#include "include/AFHashTable.h"
 #include "include/Logger.h"
 #ifndef ULL
 #define ULL
@@ -213,12 +214,13 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     lhs = join(0, lhs, idx.as(lhs.type()));
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
-    auto const equalSet = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
 
-    bagSetIntersect(lhs, equalSet);
-    bagSetIntersect(rhs, equalSet);
+    AFHashTable ht(hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true)));
 
-    auto equals = equalSet.elements();
+    lhs = hashIntersect(lhs, ht);
+    rhs = hashIntersect(rhs, ht);
+
+    auto equals = ht.elements();
     joinScatter(lhs, rhs, equals);
 
     return { lhs, rhs };

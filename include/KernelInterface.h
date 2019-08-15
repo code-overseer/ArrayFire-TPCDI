@@ -2,6 +2,7 @@
 #define ARRAYFIRE_TPCDI_KERNELINTERFACE_H
 #include <arrayfire.h>
 #include <algorithm>
+#include "include/AFHashTable.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;
@@ -15,7 +16,7 @@ typedef unsigned long long ull;
 #include "include/CPU/single_threaded.h"
 #endif
 
-void inline bagSetIntersect(af::array &bag, af::array const &set) {
+af::array inline bagSetIntersect(af::array const &bag, af::array const &set) {
     using namespace af;
     auto const bag_size = bag.row(0).elements();
     auto const set_size = set.elements();
@@ -41,9 +42,41 @@ void inline bagSetIntersect(af::array &bag, af::array const &set) {
     set.unlock();
     result.unlock();
 #endif
+//    af_print(result)
 
-    bag = bag(span, result);
-    bag.eval();
+    return bag(span, result);
+}
+
+af::array inline hashIntersect(af::array const &bag, AFHashTable const &ht) {
+    using namespace af;
+    using namespace TPCDI_Utils;
+    auto const bag_size = bag.row(0).elements();
+
+    #ifdef USING_AF
+    auto len = sum<ull>(max(ht.getOcc(), 1));
+    auto result = constant(0, dim4(1, bag_size), b8);
+    auto keys = bag.row(0) % ht.buckets();
+
+    for (ull i = 0; i < len; ++i) {
+        auto idx = ht.getOcc(keys) > 0 && i < ht.getOcc(keys) && result == 0;
+        af::array k = keys(idx);
+        result(idx) = result(idx) || (ht.getValues(ht.getPtr(k) + i) == bag(0, idx));
+    }
+    result.eval();
+    #else
+    auto result = constant(0, dim4(1, bag_size), b8);
+    auto result_ptr = result.device<char>();
+    auto bag_ptr = bag.row(0).device<ull>();
+    af::sync();
+
+    launchHashIntersect(result_ptr, bag_ptr, ht.values(), ht.pointers(), ht.occupancy(), ht.buckets(), bag_size);
+
+    bag.unlock();
+    ht.unlock();
+    result.unlock();
+    #endif
+
+    return bag(span, result);
 }
 
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {

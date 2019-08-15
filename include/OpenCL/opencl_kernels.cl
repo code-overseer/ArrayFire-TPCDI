@@ -12,6 +12,23 @@ __kernel void intersect_kernel(__global char *result, __global ulong const *bag,
 
 }
 
+__kernel void hash_intersect(__global char *result, __global ulong const *bag, __global ulong const *ht_val,
+                            __global ulong const *ht_ptr, __global ulong const *ht_occ, uint const buckets, ulong const bag_size) {
+    ulong id = get_global_id(0);
+    if (id < bag_size) {
+        ulong const val = bag[id];
+        uint const key = val % buckets;
+        uint const len = ht_occ[key];
+        ulong const ptr = ht_ptr[key];
+
+        char out = 0;
+        for (uint i = 0; i < len; ++i) {
+            out |= (ht_val[ptr + i] == val);
+        }
+        result[id] = out;
+    }
+}
+
 __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, __global ulong const *cl,
         __global ulong const *cr, __global ulong const *outpos,  __global ulong *l, __global ulong *r,
         ulong const equals, ulong const left_max, ulong const right_max, ulong const out_size) {
