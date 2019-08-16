@@ -23,7 +23,7 @@ __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull
 	 if (b && set[j] == bag[i * b]) result[i] = 1;
 }
 
-__global__ void hash_intersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+__global__ static void hash_intersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
                                unsigned int const buckets, ull const bag_size) {
     ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
 
@@ -70,13 +70,9 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
         unsigned char dec = 0;
         bool frac = 0;
         bool neg = input[s] == '-';
-        for (long long i = 0; i < loops; ++i) {
-            long long j = i * (i < len);
-            unsigned char digit = input[s + j];
-            bool b = len > 0 && i < len && digit >= '0' && digit <= '9';
-//        for (long long i = 0; i < len; ++i) {
-//            unsigned char digit = input[s + i];
-//            bool b = digit >= '0' && digit <= '9';
+        for (long long i = 0; i < len; ++i) {
+            unsigned char digit = input[s + i];
+            bool b = digit >= '0' && digit <= '9';
             frac |= digit == '.';
             dec += b && frac;
             bool c = !dec && b;
@@ -103,7 +99,7 @@ __global__ static void string_gather(unsigned char *output, ull const *idx, unsi
 }
 
 __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right,
-                               ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
+                               ull const *l_idx, ull const *r_idx, ull const rows) {
     ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (id < rows) {
         ull const l_start = l_idx[2 * id];
@@ -111,7 +107,7 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
         ull const len = l_idx[2 * id + 1];
         bool out = output[id];
 
-        for (long long i = 0; i < loops; ++i) {
+        for (long long i = 0; i < len; ++i) {
             out &= (len < i || left[l_start + i] == right[r_start + i]);
         }
 
@@ -150,10 +146,10 @@ ull const rows, ulong const loops) {
 
         bool const b = k < o_end;
         bool const c = k < l_end;
-        bool const d = e ^ b;
+        bool const d = c ^ b;
         i = b * k + !b * o_end;
         j = c * k + !c * l_end;
-        k = d * (k - l_len) + !b * r_end;
+        k = d * (k - l_end) + !b * r_end;
         output[o_start + i] = c * left[l_start + j] + d * right[r_start + k];
     }
 }
@@ -210,13 +206,13 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
 }
 
 void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
-                      ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
+                      ull const *l_idx, ull const *r_idx, ull const rows) {
     ull const threadCount = rows;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
 
-    str_cmp<<<grid, block>>>(output, left, right, l_idx, r_idx, rows, loops);
+    str_cmp<<<grid, block>>>(output, left, right, l_idx, r_idx, rows);
     cudaDeviceSynchronize();
 }
 

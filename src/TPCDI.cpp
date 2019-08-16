@@ -6,7 +6,9 @@
 #include "include/BatchFunctions.h"
 #include "include/Logger.h"
 #include "include/ColumnNames.h"
-
+#ifdef ITT_ENABLED
+    #include <ittnotify.h>
+#endif
 namespace fs = boost::filesystem;
 namespace xml = rapidxml;
 using namespace af;
@@ -49,6 +51,7 @@ AFDataFrame loadDimDate(char const *directory) {
     strcat(file, "Date.txt");
     AFDataFrame frame;
     AFParser parser(file, '|', false);
+
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDate(1, true, YYYYMMDD));
     for (int i = 2;  i < 17; i += 2) {
@@ -56,6 +59,7 @@ AFDataFrame loadDimDate(char const *directory) {
         frame.add(parser.parse<unsigned int>(i + 1));
     }
     frame.add(parser.parse<bool>(17));
+
     callGC();
     return frame;
 }
@@ -65,8 +69,8 @@ AFDataFrame loadDimTime(char const* directory) {
     strcpy(file, directory);
     strcat(file, "Time.txt");
     AFDataFrame frame;
-    AFParser parser(file, '|', false);
 
+    AFParser parser(file, '|', false);
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asTime(1, true));
 
@@ -76,6 +80,7 @@ AFDataFrame loadDimTime(char const* directory) {
     }
     frame.add(parser.parse<bool>(8));
     frame.add(parser.parse<bool>(9));
+
     callGC();
     return frame;
 }
@@ -139,7 +144,6 @@ AFDataFrame loadTradeType(char const* directory) {
 
 AFDataFrame loadAudit(char const* directory) {
     AFDataFrame frame;
-
     std::string dir(directory);
     std::vector<std::string> auditFiles;
     fs::directory_iterator end_itr;
@@ -149,15 +153,23 @@ AFDataFrame loadAudit(char const* directory) {
         if( n == std::string::npos) continue;
         auditFiles.push_back( i->path().string() );
     }
-
     std::sort(auditFiles.begin(), auditFiles.end());
+
+    Logger::startCollection();
+    Logger::startTask("Audit Load");
     AFParser parser(auditFiles, ',', true);
+    Logger::endLastTask();
+
+    Logger::startTask("Audit Parse");
     frame.add(parser.parse<char*>(0));
     frame.add(parser.parse<unsigned int>(1));
     frame.add(parser.asDate(2, true, YYYYMMDD));
     frame.add(parser.parse<char*>(3));
     frame.add(parser.parse<int>(4));
     frame.add(parser.parse<double>(5));
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return frame;
 }
@@ -201,8 +213,13 @@ AFDataFrame loadStagingProspect(char const *directory) {
     strcpy(file, directory);
     strcat(file, "Prospect.csv");
     AFDataFrame frame;
-    AFParser parser(file, ',', false);
+    Logger::startCollection();
 
+    Logger::startTask("Staging Prospect Load");
+    AFParser parser(file, ',', false);
+    Logger::endLastTask();
+
+    Logger::startTask("Staging Prospect Parse");
     for (int i = 0;  i < 12; ++i) frame.add(parser.parse<char*>(i));
 
     frame.add(parser.parse<unsigned long long>(12));
@@ -217,21 +234,29 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
     frame.add(parser.parse<unsigned char>(20));
     frame.add(parser.parse<unsigned long long>(21));
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     nameStagingProspect(frame);
     callGC();
     return frame;
 }
 
 AFDataFrame loadStagingCustomer(char const* directory) {
-
-    std::string data = TPCDI_Utils::flattenCustomerMgmt(directory);
-    
-    AFParser parser(data, '|', false);
     AFDataFrame frame;
+    Logger::startCollection();
+
+    Logger::startTask("Flattening XML");
+    std::string data = TPCDI_Utils::flattenCustomerMgmt(directory);
+    Logger::endLastTask();
+
+    Logger::startTask("Customer Load");
+    AFParser parser(data, '|', false);
+    Logger::endLastTask();
+
+    Logger::startTask("Customer Parse");
     frame.add(parser.parse<char*>(0));
-
     frame.add(parser.asDateTime(1, YYYYMMDD));
-
     frame.add(parser.parse<unsigned long long>(2));
 
     for (int i = 3; i < 5; ++i) frame.add(parser.parse<char*>(i));
@@ -245,6 +270,8 @@ AFDataFrame loadStagingCustomer(char const* directory) {
     frame.add(parser.parse<unsigned short>(33));
     frame.add(parser.parse<unsigned long long>(34));
     frame.add(parser.parse<char*>(35));
+    Logger::endLastTask();
+
     callGC();
     nameStagingProspect(frame);
     return frame;
@@ -255,14 +282,23 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     strcpy(file, directory);
     strcat(file, "HR.csv");
     AFDataFrame dimBroker;
-    {
-        AFParser parser(file, ',');
-        dimBroker.add(parser.parse<unsigned int>(0));
-        dimBroker.add(parser.parse<unsigned int>(1));
-        for (int i = 2;  i <= 7; ++i) dimBroker.add(parser.parse<char*>(i));
-        dimBroker = dimBroker.select(dimBroker(5) == "314", "DimBroker");
-        dimBroker.remove(5);
-    }
+    Logger::startCollection();
+
+    Logger::startTask("HR Load");
+    AFParser parser(file, ',');
+    Logger::endLastTask();
+
+    Logger::startTask("HR Parse");
+    dimBroker.add(parser.parse<unsigned int>(0));
+    dimBroker.add(parser.parse<unsigned int>(1));
+    for (int i = 2;  i <= 7; ++i) dimBroker.add(parser.parse<char*>(i));
+    Logger::endLastTask();
+
+    Logger::startTask("Broker Select");
+    dimBroker = dimBroker.select(dimBroker(5) == "314", "DimBroker");
+    Logger::endLastTask();
+
+    dimBroker.remove(5);
     auto length = dimBroker.rows();
     dimBroker.insert(Column(range(dim4(1, length), 1, u64)), 0);
     dimBroker.add(Column(constant(1, dim4(1, length), b8)));
@@ -271,6 +307,7 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     auto date = dimDate(1)(af::span, 0);
     dimBroker.add(Column(tile(date, dim4(1, length)), DATE));
     dimBroker.add(TPCDI_Utils::endDate(length));
+    Logger::pauseCollection();
     callGC();
     return dimBroker;
 }
@@ -280,11 +317,20 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     strcpy(file, directory);
     strcat(file, "CashTransaction.txt");
     AFDataFrame frame;
+    Logger::startCollection();
+
+    Logger::startTask("Cash Load");
     AFParser parser(file, '|', false);
+    Logger::endLastTask();
+
+    Logger::startTask("Cash Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<double>(2));
     frame.add(parser.parse<char*>(3));
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return frame;
 }
@@ -294,22 +340,34 @@ AFDataFrame loadStagingWatches(char const* directory) {
     strcpy(file, directory);
     strcat(file, "WatchHistory.txt");
     AFDataFrame frame;
+    Logger::startCollection();
+
+    Logger::startTask("Watch Load");
     AFParser parser(file, '|', false);
+    Logger::endLastTask();
+
+    Logger::startTask("Watch Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.parse<char*>(1));
     frame.add(parser.asDateTime(2, YYYYMMDD));
     frame.add(parser.parse<char*>(3));
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return frame;
 }
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
+    Logger::startCollection();
 
-    auto dimCompany = s_Company.equiJoin(industry,5,0).equiJoin(statusType, 4, 0).project(
+    Logger::startTask("DimCompany Industry Status Join");
+    auto dimCompany = s_Company.equiJoin(industry,5,0).equiJoin(statusType,4,0).project(
             { "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING",
               "CEO_NAME", "ADDR_LINE_1","ADDR_LINE_2", "POSTAL_CODE","CITY","STATE_PROVINCE",
               "COUNTRY","DESCRIPTION","FOUNDING_DATE", "PTS"
             }, "DimCompany");
+    Logger::endLastTask();
 
     dimCompany("PTS").toDate();
     dimCompany.nameColumn("EffectiveDate", "PTS");
@@ -318,9 +376,12 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), u32)), dimCompany.columns() - 1, "BatchID");
     dimCompany.add(TPCDI_Utils::endDate(dimCompany.rows()), "EndDate");
 
+    Logger::startTask("DimCompany LowGrade Addition");
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
+    Logger::endLastTask();
     nameDimCompany(dimCompany);
 
+    Logger::startTask("DimCompany Update EndDate");
     auto s0 = dimCompany.project({ "SK_CompanyID", "CompanyID", "EffectiveDate"}, "S0");
     s0.sortBy({ "CompanyID", "EffectiveDate" });
 
@@ -341,27 +402,40 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
 
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
+    Logger::startTask("DimCompany EndDate ID");
     auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
+    Logger::endLastTask();
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return dimCompany;
 }
 
 AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompany) {
     AFDataFrame financial;
-    auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
+    Logger::startCollection();
 
+    Logger::startTask("Financial CIK Trim");
+    auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
+    Logger::endLastTask();
+
+    Logger::startTask("Financial CIK Join");
     auto fin1 = s_Financial.select(cik);
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
     financial = fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"}, "DC"),
             "CO_NAME_OR_CIK", "CompanyID");
     financial.remove("CO_NAME_OR_CIK");
+    Logger::endLastTask();
 
+    Logger::startTask("Financial Name Join");
     fin1 = s_Financial.select(!cik).equiJoin(
             dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"), "CO_NAME_OR_CIK", "Name");
     fin1.remove("CO_NAME_OR_CIK");
+    Logger::endLastTask();
 
     if (!fin1.isEmpty()) financial = financial.unionize(std::move(fin1));
     af::sync();
@@ -375,17 +449,23 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
     financial = financial.project({ "DC.SK_CompanyID", "YEAR", "QUARTER", "QTR_START_DATE","REVENUE", "EARNINGS",
                                    "EPS", "DILUTED_EPS","MARGIN","INVENTORY","ASSETS","LIABILITIES","SH_OUT",
                                    "DILUTED_SH_OUT" }, "Financial");
+    Logger::pauseCollection();
     // Renames columns
     nameFinancial(financial);
+
     callGC();
     return financial;
 }
 
 AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType) {
     AFDataFrame security;
+    Logger::startCollection();
     {
+        Logger::startTask("Financial CIK Trim");
         auto cik = s_Security("CO_NAME_OR_CIK").left(1) == "0";
+        Logger::endLastTask();
 
+        Logger::startTask("DimSecurity CIK Join");
         auto part1 = s_Security.select(cik);
         part1("CO_NAME_OR_CIK").cast<unsigned long long>();
         part1 = part1.equiJoin(
@@ -397,9 +477,10 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
         part1 = part1.select(
                 part1("DC.EffectiveDate") <= part1("EffectiveDate") &&
                 part1("DC.EndDate") > part1("EffectiveDate"));
-
         part1.remove("CO_NAME_OR_CIK");
+        Logger::endLastTask();
 
+        Logger::startTask("DimSecurity Name Join");
         auto part2 = s_Security.select(!cik).equiJoin(
                 dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"),
                 "CO_NAME_OR_CIK",
@@ -412,10 +493,15 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
                 part2("DC.EffectiveDate") <= part2("EffectiveDate") &&
                 part2("DC.EndDate") > part2("EffectiveDate"));
         security = part1.unionize(part2);
+        Logger::endLastTask();
     }
+
+    Logger::startTask("DimSecurity Status Join");
     security = security.equiJoin(StatusType, "STATUS", "ST_ID").project(
             {"SYMBOL","ISSUE_TYPE", "StatusType.ST_NAME" ,"NAME","EX_ID", "DC.SK_CompanyID",
              "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "EffectiveDate" }, "DimSecurity");
+    Logger::endLastTask();
+
     auto length = security.rows();
     security.insert(Column(range(dim4(1, length), 1, u64)), 0, "SK_SecurityID");
     security.insert(Column(constant(1, dim4(1, length), b8)), security.columns() - 1, "IsCurrent");
@@ -424,6 +510,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
 
     nameDimSecurity(security);
 
+    Logger::startTask("DimSecurity Update EndDate");
     auto s0 = security.project({ "SK_SecurityID", "Symbol", "EffectiveDate"}, "S0");
     s0.sortBy({"Symbol", "EffectiveDate"});
 
@@ -447,10 +534,14 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
     s0 = s0.zip(std::move(end_date));
 
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
-
+    Logger::startTask("DimSecurity EndDate ID");
     auto out = AFDataFrame::setCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
     security("IsCurrent")(out.first) = 0;
     security("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
+    Logger::endLastTask();
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return security;
 }
@@ -459,6 +550,8 @@ Column inline marketingNameplate(array const &networth, array const &income, arr
                          array const &age, array const &credit, array const &cars) {
     array val(12, 6, "+HighValue\0\0+Expenses\0\0\0+Boomer\0\0\0\0\0+MoneyAlert\0+Spender\0\0\0\0+Inherited\0\0");
     val = val.as(u8);
+    Logger::startCollection();
+    Logger::startTask("Marketing Nameplate Column");
     auto idx = constant(0, 6, networth.dims(1), b8);
     idx(0, networth > 1000000 || income > 200000) = 1;
     idx(1, cards > 5 || children > 3) = 1;
@@ -484,6 +577,9 @@ Column inline marketingNameplate(array const &networth, array const &income, arr
     out(55, span) = '\n';
     out = out(out > 0);
     out(out == '\n') = 0;
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return Column(out, STRING);
 }
@@ -515,7 +611,13 @@ AFDataFrame loadStagingTrade(char const* directory) {
     strcpy(file, directory);
     strcat(file, "Trade.txt");
     AFDataFrame frame;
+    Logger::startCollection();
+
+    Logger::startTask("Trade Load");
     AFParser parser(file, '|', false);
+    Logger::endLastTask();
+
+    Logger::startTask("Trade Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<char*>(2));
@@ -531,6 +633,9 @@ AFDataFrame loadStagingTrade(char const* directory) {
     frame.add(parser.parse<double>(11));
     frame.add(parser.parse<double>(12));
     frame.add(parser.parse<double>(13));
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
     callGC();
     return frame;
 }
@@ -540,11 +645,21 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
     strcpy(file, directory);
     strcat(file, "TradeHistory.txt");
     AFDataFrame frame;
+    Logger::startCollection();
+
+    Logger::startTask("Trade History Load");
     AFParser parser(file, '|', false);
+    Logger::endLastTask();
+
+    Logger::startTask("Trade History Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<char*>(2));
-    callGC();    return frame;
+    Logger::endLastTask();
+
+    Logger::pauseCollection();
+    callGC();
+    return frame;
 }
 
 Customer splitCustomer(AFDataFrame &&s_Customer) {

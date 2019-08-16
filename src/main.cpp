@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
         } else if (!strcmp(argv[i],"-d")) {
             setDevice(std::stoi(argv[++i]));
         } else if (!strcmp(argv[i],"-o")) {
-            Logger::output() = argv[++i];
+            Logger::directory = argv[++i];
         } else if (!strcmp(argv[i],"-I")) {
             info();
         }
