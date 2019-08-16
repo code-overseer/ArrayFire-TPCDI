@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#ifdef ITT_ENABLED
+#ifdef ENABLE_ITT
     #include <ittnotify.h>
 #endif
 
@@ -18,27 +18,27 @@ namespace Logger {
     void logTime(std::string const &name = "main", bool show = true);
     void sendToCSV();
 
-    #ifdef ITT_ENABLED
+    #ifdef ENABLE_ITT
     static __itt_domain* _domain = __itt_domain_create("AF_tpcdi");
     #endif
     inline void startCollection() {
-        #ifdef ITT_ENABLED
+        #ifdef ENABLE_ITT
         __itt_resume();
         #endif
     }
     inline void pauseCollection() {
-        #ifdef ITT_ENABLED
+        #ifdef ENABLE_ITT
         __itt_pause();
         #endif
     }
     inline void startTask(char const* taskname) {
-        #ifdef ITT_ENABLED
+        #ifdef ENABLE_ITT
         auto task = __itt_string_handle_create(taskname);
         __itt_task_begin(_domain, __itt_null, __itt_null, task);
         #endif
     }
     inline void endLastTask() {
-        #ifdef ITT_ENABLED
+        #ifdef ENABLE_ITT
         __itt_task_end(_domain);
         #endif
     }

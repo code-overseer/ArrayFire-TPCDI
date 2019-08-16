@@ -17,7 +17,12 @@ if (APPLE)
     add_definitions( -DCL_LOG_ERRORS=stderr )
 else()
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
+    if ( NOT DISABLE_ITT )
+        add_definitions( -DENABLE_ITT )
+        include(FindITT.cmake)
+    endif()
 endif()
+
 set(CMAKE_CXX_STANDARD 14)
 INCLUDE_DIRECTORIES(.)
 INCLUDE_DIRECTORIES(rapidxml)
@@ -47,6 +52,7 @@ add_executable(ArrayFire-TPCDI
         src/FinwireParser.cpp
         src/TPCDI_Utils.cpp
         src/Column.cpp
+        src/AFHashTable.cpp
         include/AFParser.hpp
         include/Enums.h
         include/BatchFunctions.h
@@ -60,7 +66,8 @@ add_executable(ArrayFire-TPCDI
         include/AFTypes.h
         include/Column.h
         include/KernelInterface.h
-        include/ColumnNames.h include/AFHashTable.h src/AFHashTable.cpp)
+        include/ColumnNames.h
+        include/AFHashTable.h)
 
 if (USING_CUDA)
     set_source_files_properties(src/AFDataFrame.cpp
@@ -79,12 +86,6 @@ elseif(USING_OPENCL)
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE include/OpenCL/opencl_kernels.h
             include/OpenCL/opencl_helper.h)
     TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${OpenCL_LIBRARIES} )
-endif()
-
-if (NOT APPLE AND NOT NO_VTUNE)
-    add_definitions( -DITT_ENABLED )
-    INCLUDE_DIRECTORIES( /home/jw5514/vtune_amplifier_2019.4.0.597835/include )
-    TARGET_LINK_LIBRARIES( ArrayFire-TPCDI /home/jw5514/vtune_amplifier_2019.4.0.597835/lib64 )
 endif()
 
 
