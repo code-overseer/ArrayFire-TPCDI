@@ -8,7 +8,7 @@ else()
 endif()
 
 if (USING_AF)
-    add_definitions( -DUSING_AF)
+    add_definitions( -DUSING_AF )
 endif()
 
 if (APPLE)
@@ -16,10 +16,9 @@ if (APPLE)
     add_definitions( -DCL_SILENCE_DEPRECATION )
     add_definitions( -DCL_LOG_ERRORS=stderr )
 else()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread")
     if ( NOT DISABLE_ITT )
-        add_definitions( -DENABLE_ITT )
-        include(FindITT.cmake)
+        include( "${CMAKE_SOURCE_DIR}/FindITT.cmake" )
     endif()
 endif()
 
@@ -68,6 +67,11 @@ add_executable(ArrayFire-TPCDI
         include/KernelInterface.h
         include/ColumnNames.h
         include/AFHashTable.h)
+
+if (ITT_FOUND)
+   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lm")
+   TARGET_LINK_LIBRARIES( ArrayFire-TPCDI libittnotify.a ${CMAKE_DL_LIBS} )
+endif()
 
 if (USING_CUDA)
     set_source_files_properties(src/AFDataFrame.cpp

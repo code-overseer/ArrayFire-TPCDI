@@ -3,17 +3,23 @@
 #include "include/TPCDI_Utils.h"
 #include "include/KernelInterface.h"
 #include <fstream>
+#include <include/Logger.h>
+
 using namespace af;
 using namespace TPCDI_Utils;
 
 FinwireParser::FinwireParser(std::vector<std::string> const &files) {
+    Logger::startTask("Finwire files concat");
     auto text = collect(files);
     if (text.back() != '\n') text += '\n';
+    Logger::endLastTask();
+    Logger::startTask("Finwire load");
     _data = array(text.size(), text.c_str()).as(u8);
     _data.eval();
     auto row_end = hflat(where64(_data == '\n'));
     auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
+    Logger::endLastTask();
 }
 
 Column FinwireParser::_extract(array &start, unsigned int const length, FinwireParser::RecordType const &type) const {
@@ -40,32 +46,41 @@ af::array FinwireParser::filterRowsByCategory(const FinwireParser::RecordType &t
 
 AFDataFrame FinwireParser::extractCmp() const {
     callGC();
-    auto rows = filterRowsByCategory(CMP);
-    af::array start = _indexer(0, rows);
     AFDataFrame output;
     ull const *lengths = _CMPLengths;
+
+    Logger::startTask("CMP columns extraction");
+    auto rows = filterRowsByCategory(CMP);
+    af::array start = _indexer(0, rows);
 
     while(*lengths) {
         output.add(_extract(start, *lengths, CMP));
         ++lengths;
     }
+    Logger::endLastTask();
+    Logger::startTask("CMP columns parsing");
     output(0).toDateTime(YYYYMMDD);
     output(3).cast<unsigned long long>();
     output(7).toDate(false, YYYYMMDD);
+    Logger::endLastTask();
     return output;
 }
 
 AFDataFrame FinwireParser::extractFin() const {
     callGC();
-    auto rows = filterRowsByCategory(FIN);
-    af::array start = _indexer(0, rows);
-
     AFDataFrame output;
     ull const *lengths = _FINLengths;
+
+    Logger::startTask("FIN columns extraction");
+    auto rows = filterRowsByCategory(FIN);
+    af::array start = _indexer(0, rows);
     while(*lengths) {
         output.add(_extract(start, *lengths, FIN));
         ++lengths;
     }
+    Logger::endLastTask();
+
+    Logger::startTask("FIN columns parsing");
     output(0).toDateTime(YYYYMMDD);
     output(2).cast<unsigned short>();
     output(3).cast<unsigned char>();
@@ -74,24 +89,29 @@ AFDataFrame FinwireParser::extractFin() const {
     for (int i = 6; i < 14; ++i) output(i).cast<double>();
     output(14).cast<unsigned long long>();
     output(15).cast<unsigned long long>();
+    Logger::endLastTask();
     return output;
 }
 
 AFDataFrame FinwireParser::extractSec() const {
     callGC();
+    ull const *lengths = _SECLengths;
+    AFDataFrame output;
+
+    Logger::startTask("SEC columns extraction");
     auto rows = filterRowsByCategory(SEC);
     af::array start = _indexer(0, rows);
-    AFDataFrame output;
-    ull const *lengths = _SECLengths;
     while(*lengths) {
         output.add(_extract(start, *lengths, SEC));
         ++lengths;
     }
-
+    Logger::endLastTask();
+    Logger::startTask("SEC columns parsing");
     output(0).toDateTime(YYYYMMDD);
     output(7).cast<unsigned long long>();
     output(8).toDate(false, YYYYMMDD);
     output(9).toDate(false, YYYYMMDD);
     output(10).cast<double>();
+    Logger::endLastTask();
     return output;
 }

@@ -176,34 +176,42 @@ AFDataFrame loadAudit(char const* directory) {
 
 AFDataFrame loadStagingSecurity(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
+    Logger::startCollection();
     FinwireParser parser(finwireFiles);
     auto sec = parser.extractSec();
+    Logger::pauseCollection();
     nameStagingSecurity(sec);
     return sec;
 }
 
 AFDataFrame loadStagingCompany(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
+    Logger::startCollection();
     FinwireParser parser(finwireFiles);
     auto cmp = parser.extractCmp();
+    Logger::pauseCollection();
     nameStagingCompany(cmp);
     return cmp;
 }
 
 AFDataFrame loadStagingFinancial(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
+    Logger::startCollection();
     FinwireParser parser(finwireFiles);
     auto fin = parser.extractFin();
+    Logger::pauseCollection();
     nameStagingFinancial(fin);
     return fin;
 }
 
 Finwire loadStagingFinwire(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
+    Logger::startCollection();
     Finwire finwire = FinwireParser(finwireFiles).extractData();
     nameStagingCompany(finwire.company);
     nameStagingFinancial(finwire.financial);
     nameStagingSecurity(finwire.security);
+    Logger::pauseCollection();
     callGC();
     return finwire;
 }
