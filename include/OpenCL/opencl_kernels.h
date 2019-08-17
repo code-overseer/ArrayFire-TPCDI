@@ -267,11 +267,12 @@ void inline launchNumericParse(T *output, ull const * idx, unsigned char const *
     cl_context context = get_context((cl_mem)output);
     cl_command_queue queue = create_queue(context);
 
-    char options[128];
-    sprintf(options, "-D LOOP_LENGTH=%llu -D PARSE_TYPE=%s", loops, GetAFType<T>().str);
     // Build the OpenCL program and get the kernel
-    cl_program program = build_single_use_program(context, options);
-    cl_kernel kernel = create_kernel(program, "parser");
+    cl_program program = build_program(context);
+
+    char kernel_name[128];
+    sprintf(kernel_name, "parser_%s", GetAFType<T>().str);
+    cl_kernel kernel = create_kernel(program, kernel_name);
 
     cl_int err = CL_SUCCESS;
     int arg = 0;

@@ -103,3 +103,39 @@ ulong const size, ulong const rows, ulong const loops) {
         output[o_start + i] = c * left[l_start + j] + d * right[r_start + k];
     }
 }
+
+#define PARSER_FUNC(TYPE) \
+__kernel void parser_##TYPE (__global TYPE *output, __global ulong const *idx, __global uchar const *input, \
+    ulong const row_num) { \
+    ulong const id = get_global_id(0); \
+    if (id < row_num) { \
+        long const s = idx[2 * id]; \
+        long const len = idx[2 * id + 1] - 1; \
+        TYPE number = 0; \
+        uchar dec = 0; \
+        bool frac = 0; \
+        bool neg = input[s] == '-'; \
+        for (long i = 0; i < len; ++i) { \
+            uchar digit = input[s + i]; \
+            bool b = digit >= '0' && digit <= '9'; \
+            frac |= digit == '.'; \
+            dec += b && frac; \
+            bool c = !dec && b; \
+            number = number * (c * 10 + !c) + b * (digit - '0') / (TYPE)pown(10.0, dec); \
+        } \
+        output[id] = number * (!neg - neg); \
+    } \
+}
+
+PARSER_FUNC(bool)
+PARSER_FUNC(uchar)
+PARSER_FUNC(float)
+PARSER_FUNC(double)
+PARSER_FUNC(ushort)
+PARSER_FUNC(short)
+PARSER_FUNC(uint)
+PARSER_FUNC(int)
+PARSER_FUNC(ulong)
+PARSER_FUNC(long)
+
+#undef PARSER_FUNC
