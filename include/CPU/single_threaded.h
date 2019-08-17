@@ -21,6 +21,20 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     }
 }
 
+void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+                                unsigned int const buckets, ull const bag_size) {
+    for (ull i = 0; i < bag_size; ++i) {
+        auto key = bag[i] % buckets;
+        auto val = result[i];
+        auto len = ht_occ[key];
+        auto ptr = ht_ptr[key];
+        for (uint j = 0; j < len && !val; ++j) {
+            val = bag[i] == ht_val[ptr + j];
+        }
+        result[i] = val;
+    }
+}
+
 void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos, ull *l, ull *r,
                              ull const equals, ull const left_max, ull const right_max, ull const out_size) {
     for (int i = 0; i < equals; ++i) {
@@ -43,7 +57,7 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
 }
 
 void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
-                    ull const *l_idx, ull const *r_idx, ull const rows, ull const loops) {
+                    ull const *l_idx, ull const *r_idx, ull const rows) {
     for (int i = 0; i < rows; ++i) {
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)(right + r_idx[2 * i]));
     }
@@ -54,7 +68,6 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)right);
     }
 }
-
 template<typename T> inline T convert(const unsigned char *start);
 template<> inline float convert<float>(const unsigned char *start) {
     return std::strtof((char const*)start, nullptr);
@@ -83,6 +96,7 @@ template<> inline int convert<int>(const unsigned char *start) {
 template<> inline long long convert<long long>(const unsigned char *start) {
     return std::strtoll((char const*)start, nullptr, 10);
 }
+
 template<typename T> void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
     for (ull i = 0; i < rows; ++i) {
         auto start = input + idx[2 * i];

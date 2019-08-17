@@ -16,7 +16,7 @@ if (APPLE)
     add_definitions( -DCL_SILENCE_DEPRECATION )
     add_definitions( -DCL_LOG_ERRORS=stderr )
 else()
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -gdwarf-3")
     if ( NOT DISABLE_ITT )
         include( "${CMAKE_SOURCE_DIR}/FindITT.cmake" )
     endif()
@@ -52,7 +52,7 @@ add_executable(ArrayFire-TPCDI
         src/TPCDI_Utils.cpp
         src/Column.cpp
         src/AFHashTable.cpp
-        include/AFParser.hpp
+        include/AFParser.h
         include/Enums.h
         include/BatchFunctions.h
         include/Tests.h
@@ -91,7 +91,6 @@ elseif(USING_OPENCL)
             include/OpenCL/opencl_helper.h)
     TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${OpenCL_LIBRARIES} )
 endif()
-
 
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${ArrayFire_Unified_LIBRARIES} )
 TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${Boost_LIBRARIES} )

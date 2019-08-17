@@ -6,7 +6,7 @@
 //  Copyright © 2019 Bryan Wong. All rights reserved.
 //
 
-#include "include/AFParser.hpp"
+#include "include/AFParser.h"
 #include "include/BatchFunctions.h"
 #include "include/TPCDI_Utils.h"
 #include "include/Column.h"
@@ -43,7 +43,7 @@ _length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nul
 }
 
 AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _filename(nullptr),
-_length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr){
+_length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
     _data = array(text.size() + 1, text.c_str()).as(u8);
     _data = _data(where(_data != '\r'));
     _data.eval();

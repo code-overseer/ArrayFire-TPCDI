@@ -5,7 +5,7 @@
 #ifndef ARRAYFIRE_TPCDI_TESTS_H
 #define ARRAYFIRE_TPCDI_TESTS_H
 
-#include "AFParser.hpp"
+#include "AFParser.h"
 #include "AFDataFrame.h"
 
 void test_SignedInt(char const *filepath);

@@ -5,7 +5,7 @@
 #ifndef ARRAYFIRE_TPCDI_FINWIREPARSER_H
 #define ARRAYFIRE_TPCDI_FINWIREPARSER_H
 
-#include "AFParser.hpp"
+#include "AFParser.h"
 #include "AFDataFrame.h"
 #include <functional>
 #include <string>

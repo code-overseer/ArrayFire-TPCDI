@@ -61,8 +61,11 @@ int main(int argc, char *argv[]) {
     Logger::startTimer();
 //    DimCompany();
 //    DimBroker();
-    Financial();
+//    Financial();
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
     Logger::logTime();
+
     return 0;
 }
 
