@@ -17,12 +17,9 @@ private:
     af::array _indexer = af::array(0, u64);
     ull _length = 0;
     ull _width = 0;
-    /* Excluding commas */
-    ull* _maxColumnWidths = nullptr;
-    /* Excluding comma after the column */
-    ull* _cumulativeMaxColumnWidths = nullptr;
+    char _delimiter = 0;
     char const* _filename = nullptr;
-    void _generateIndexer(char delimiter, bool hasHeader);
+    void _generateIndexer(bool hasHeader);
 public:
     AFParser(char const *filename, char delimiter, bool hasHeader = false);
     AFParser(std::string const &text, char delimiter, bool hasHeader = false);

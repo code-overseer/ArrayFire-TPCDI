@@ -63,7 +63,6 @@ AFDataFrame FinwireParser::extractCmp() const {
     output(0).toDateTime(YYYYMMDD);
     output(3).cast<unsigned long long>();
     output(7).toDate(false, YYYYMMDD);
-    output(3).printColumn();
     Logger::endLastTask();
     return output;
 }

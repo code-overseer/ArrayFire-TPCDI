@@ -19,50 +19,44 @@ using namespace af;
 using namespace BatchFunctions;
 using namespace TPCDI_Utils;
 
-AFParser::AFParser(char const *filename, char const delimiter, bool const hasHeader) : _filename(filename),
-_length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
-    {
-        std::string txt = TPCDI_Utils::loadFile(_filename);
-        if (txt.back() != '\n') txt += '\n';
-        _data = array(txt.size() + 1, txt.c_str()).as(u8);
-        _data = _data(_data != '\r');
-    }
+AFParser::AFParser(char const *filename, char const delimiter, bool const hasHeader) : _filename(filename), _delimiter(delimiter) {
+    std::string txt = TPCDI_Utils::loadFile(_filename);
+    if (txt.back() != '\n') txt += '\n';
+    _data = array(txt.size() + 1, txt.c_str()).as(u8);
+    txt = "";
+    _data = _data(_data != '\r');
     _data.eval();
-    _generateIndexer(delimiter, hasHeader);
+    _generateIndexer(hasHeader);
     callGC();
 }
 
-AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, bool const hasHeader) : _filename(nullptr),
-_length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
+AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, bool const hasHeader) : _delimiter(delimiter) {
     auto text = collect(files, hasHeader);
     _data = array(text.size() + 1, text.c_str()).as(u8);
     _data = _data(where(_data != '\r'));
     _data.eval();
-    _generateIndexer(delimiter, false);
+    _generateIndexer(false);
     callGC();
 }
 
-AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _filename(nullptr),
-_length(0), _width(0), _maxColumnWidths(nullptr), _cumulativeMaxColumnWidths(nullptr) {
+AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _delimiter(delimiter) {
     _data = array(text.size() + 1, text.c_str()).as(u8);
     _data = _data(where(_data != '\r'));
     _data.eval();
-    _generateIndexer(delimiter, hasHeader);
+    _generateIndexer(hasHeader);
     callGC();
 }
 
 AFParser::~AFParser() {
-    if (_maxColumnWidths) af::freeHost(_maxColumnWidths);
-    if (_cumulativeMaxColumnWidths) af::freeHost(_cumulativeMaxColumnWidths);
-    af::deviceGC();
+    callGC();
 }
 
-void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
+void AFParser::_generateIndexer(bool hasHeader) {
     _indexer = where64(_data == '\n');
     _indexer = hflat(_indexer);
     _length = _indexer.elements();
     {
-        auto col_end = where64(_data == delimiter);
+        auto col_end = where64(_data == _delimiter);
         _width = col_end.elements() / _length;
         col_end = moddims(col_end, _width++, _length);
         col_end.eval();
@@ -82,25 +76,12 @@ void AFParser::_generateIndexer(char const delimiter, bool hasHeader) {
         _indexer.eval();
         --_length;
     }
-
-    if (_maxColumnWidths) af::freeHost(_maxColumnWidths);
-    if (_cumulativeMaxColumnWidths) af::freeHost(_cumulativeMaxColumnWidths);
-    if (!_length) return;
-
-    auto tmp = max(diff1(_indexer,0),1);
-    tmp -= range(tmp.dims(), 0, u32) > 0;
-    _maxColumnWidths = tmp.host<ull>();
-    tmp = accum(tmp, 0) + range(tmp.dims(), 0, u32);
-    _cumulativeMaxColumnWidths = tmp.host<ull>();
-
 }
 
 template<typename T>
 Column AFParser::parse(int column) const {
     if (!_length) return Column(array(0, GetAFType<T>().af_type),  GetAFType<T>().df_type);
     unsigned int const i = column != 0;
-    auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return Column(af::constant(0, 1, _length, GetAFType<T>().af_type), GetAFType<T>().df_type);
 
     auto idx = _indexer.row(column) + i;
     idx = join(0, idx, (_indexer.row(column + 1) - idx) + 1);
@@ -119,8 +100,6 @@ template Column AFParser::parse<unsigned long long>(int column) const;
 template<> Column AFParser::parse<char*>(int column) const {
     if (!_length) return Column(array(0, u8), array(0,u64));
     unsigned int const i = column != 0;
-    auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return Column(constant(0, dim4(_length), u8), join(0, range(dim4(1, _length), 1, u64), constant(0, dim4(1, _length), u64)));
 
     auto idx = _indexer.row(column) + i;
     idx = join(0, idx, (_indexer.row(column + 1) - idx) + 1);
@@ -129,14 +108,11 @@ template<> Column AFParser::parse<char*>(int column) const {
 }
 template<> Column AFParser::parse<bool>(int column) const {
     if (!_length) return Column(array(0, b8), BOOL);
-    unsigned int const i = column != 0;
-    auto const maximum = _maxColumnWidths[column];
-    if (!maximum) return Column(af::constant(0, 1, _length), BOOL);
-    auto out = _indexer.row(column) + i;
+    auto out = _indexer.row(column) + (column != 0);
     out = _data(out);
     if (!out.dims(1)) return Column(array(0, b8), BOOL);
     out = out.row(0);
-    out(out == 'T' || out == 't' || out == '1' || out =='Y' || out == 'y' || out != 0) = 1;
+    out(out == 'T' || out == 't' || out == '1' || out =='Y' || out == 'y' || out != 0 || out != _delimiter) = 1;
     out(out != 1) = 0;
     out = moddims(out, dim4(out.dims(1), out.dims(0))).as(b8);
     out.eval();

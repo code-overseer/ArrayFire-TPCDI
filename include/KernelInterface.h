@@ -263,11 +263,11 @@ template<typename T> af::array inline numericParse(af::array const &input, af::a
     output = output * (!neg - neg);
     output.eval();
 
-    dec = array();
     digit_idx = array();
-    neg = array();
     len = array();
-    deviceGC();
+    dec = array();
+    neg = array();
+    callGC();
     #else
     auto out_ptr = output.template device<T>();
     auto idx_ptr = indexer.device<ull>();
