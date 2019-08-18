@@ -16,11 +16,12 @@
 #endif
 
 static cl_context get_context(cl_mem x) {
+    char msg[128];
     cl_context context;
     cl_int err = clGetMemObjectInfo(x, CL_MEM_CONTEXT, sizeof(cl_context), &context, NULL);
     if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to get context from Memory object\n", err);
-        throw (err);
+        sprintf(msg, "OpenCL Error(%d): Failed to get context from Memory object\n", err);
+        throw std::runtime_error(msg);
     }
     return context;
 }
@@ -40,6 +41,7 @@ static void printProgramBuildError(cl_context context, cl_program program) {
 }
 
 static cl_program build_program(cl_context context) {
+    char msg[128];
     static std::string kernel = Utils::loadFile(OCL_KERNEL_DIR);
     static cl_program program = nullptr;
     static cl_context previous = context;
@@ -51,18 +53,20 @@ static cl_program build_program(cl_context context) {
     cl_int err;
     const char *source = kernel.c_str();
     size_t length = kernel.size();
+
     program = clCreateProgramWithSource(context, 1, &source, &length, &err);
     if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to create program\n", err);
-        throw std::runtime_error("Terminated");
+        sprintf(msg, "OpenCL Error(%d): Failed to create program\n", err);
+        throw std::runtime_error(msg);
     }
 
     err = clBuildProgram(program, 0, NULL, nullptr, NULL, NULL);
     if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to build program\n", err);
+        sprintf(msg, "OpenCL Error(%d): Failed to build program\n", err);
         printProgramBuildError(context, program);
-        throw std::runtime_error("Terminated");
+        throw std::runtime_error(msg);
     }
+
     return program;
 }
 
@@ -81,11 +85,12 @@ static void printKernelBuildError(cl_context context, cl_program program) {
 }
 
 static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
+    char msg[128];
     cl_int err;
     cl_kernel kernel = clCreateKernel(program, kernel_name, &err);
     if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to create kernel %s\n", err, kernel_name);
-        throw std::runtime_error("Terminated");
+        sprintf(msg, "OpenCL Error(%d): Failed to create kernel %s\n", err, kernel_name);
+        throw std::runtime_error(msg);
     }
     return kernel;
 }
@@ -93,6 +98,7 @@ static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
 static cl_command_queue create_queue(cl_context context) {
     static cl_context prev = context;
     static cl_command_queue queue = nullptr;
+    char msg[128];
     if (queue) {
         if (prev != context) prev = context;
         else return queue;
@@ -101,8 +107,8 @@ static cl_command_queue create_queue(cl_context context) {
     cl_device_id device;
     cl_int err = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &device, NULL);
     if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to get device from context\n", err);
-        throw std::runtime_error("Terminated");
+        sprintf(msg, "OpenCL Error(%d): Failed to get device from context\n", err);
+        throw std::runtime_error(msg);
     }
 
     #ifdef IS_APPLE
@@ -111,8 +117,8 @@ static cl_command_queue create_queue(cl_context context) {
     queue = clCreateCommandQueueWithProperties(context, device, 0, &err);
     #endif
     if (err != CL_SUCCESS) {
-        printf("OpenCL Error(%d): Failed to command queue\n", err);
-        throw std::runtime_error("Terminated");
+        sprintf(msg, "OpenCL Error(%d): Failed to command queue\n", err);
+        throw std::runtime_error(msg);
     }
     return queue;
 }

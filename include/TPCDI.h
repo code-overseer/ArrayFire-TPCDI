@@ -1,9 +1,4 @@
 
-
-//
-// Created by Bryan Wong on 2019-06-28.
-//
-
 #ifndef ARRAYFIRE_TPCDI_TPCDI_H
 #define ARRAYFIRE_TPCDI_TPCDI_H
 

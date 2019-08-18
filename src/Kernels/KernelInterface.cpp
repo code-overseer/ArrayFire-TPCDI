@@ -1,11 +1,11 @@
 #ifndef ARRAYFIRE_TPCDI_KERNELINTERFACE_CPP
 #define ARRAYFIRE_TPCDI_KERNELINTERFACE_CPP
 
-#include "include/KernelInterface.h"
-#include "include/Kernels.h"
-#include "include/AFHashTable.h"
-#include "include/AFTypes.h"
-#include "include/Utils.h"
+#include "KernelInterface.h"
+#include "Kernels.h"
+#include "AFHashTable.h"
+#include "AFTypes.h"
+#include "Utils.h"
 #include <algorithm>
 #ifndef ULL
 #define ULL
