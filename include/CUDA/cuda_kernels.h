@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <arrayfire.h>
 #include "include/AFTypes.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #ifndef ULL
     #define ULL
 typedef unsigned long long ull;

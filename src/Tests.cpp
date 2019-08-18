@@ -1,11 +1,11 @@
 #include "include/Tests.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include "include/KernelInterface.h"
 #ifndef ULL
 #define ULL
     typedef unsigned long long ull;
 #endif
-using namespace TPCDI_Utils;
+using namespace Utils;
 
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);

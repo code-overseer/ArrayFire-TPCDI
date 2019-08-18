@@ -126,7 +126,7 @@ void inline nameFinancial(AFDataFrame &financial) {
     financial.nameColumn("FI_OUT_DILUT", 13);
 }
 
-void inline  nameDimSecurity(AFDataFrame &dimSecurity) {
+void inline nameDimSecurity(AFDataFrame &dimSecurity) {
     dimSecurity.name("DimSecurity");
     dimSecurity.nameColumn("SK_SecurityID", 0);
     dimSecurity.nameColumn("Symbol", 1);

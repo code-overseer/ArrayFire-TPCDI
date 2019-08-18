@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include <arrayfire.h>
 #ifdef IS_APPLE
 #include <OpenCL/opencl.h>
@@ -40,7 +40,7 @@ static void printProgramBuildError(cl_context context, cl_program program) {
 }
 
 static cl_program build_program(cl_context context) {
-    static std::string kernel = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
+    static std::string kernel = Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
     static cl_program program = nullptr;
     static cl_context previous = context;
     if (program) {
@@ -70,7 +70,7 @@ static cl_program build_single_use_program(cl_context context, char const *optio
     static cl_program program = nullptr;
     if (program) clReleaseProgram(program);
     cl_int err;
-    static std::string kernel_str = TPCDI_Utils::loadFile(OCL_KERNEL_DIR"/opencl_single_use.cl");
+    static std::string kernel_str = Utils::loadFile(OCL_KERNEL_DIR"/opencl_single_use.cl");
     static const char *source = kernel_str.c_str();
     static size_t length = kernel_str.size();
 

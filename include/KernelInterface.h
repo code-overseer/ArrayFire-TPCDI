@@ -1,12 +1,9 @@
 #ifndef ARRAYFIRE_TPCDI_KERNELINTERFACE_H
 #define ARRAYFIRE_TPCDI_KERNELINTERFACE_H
+
 #include <arrayfire.h>
 #include <algorithm>
 #include "include/AFHashTable.h"
-#ifndef ULL
-    #define ULL
-typedef unsigned long long ull;
-#endif
 #include "AFTypes.h"
 #if defined(USING_OPENCL)
 #include "include/OpenCL/opencl_kernels.h"
@@ -15,7 +12,10 @@ typedef unsigned long long ull;
 #else
 #include "include/CPU/single_threaded.h"
 #endif
-
+#ifndef ULL
+#define ULL
+typedef unsigned long long ull;
+#endif
 af::array inline bagSetIntersect(af::array const &bag, af::array const &set) {
     using namespace af;
     auto const bag_size = bag.row(0).elements();
@@ -49,7 +49,7 @@ af::array inline bagSetIntersect(af::array const &bag, af::array const &set) {
 
 af::array inline hashIntersect(af::array const &bag, AFHashTable const &ht) {
     using namespace af;
-    using namespace TPCDI_Utils;
+    using namespace Utils;
     auto const bag_size = bag.row(0).elements();
 
     #ifdef USING_AF
@@ -81,7 +81,7 @@ af::array inline hashIntersect(af::array const &bag, AFHashTable const &ht) {
 
 void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
-    using namespace TPCDI_Utils;
+    using namespace Utils;
     auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
     left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
     left_count = left_count(left_count > 0);
@@ -144,12 +144,12 @@ void inline joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
 af::array inline stringGather(af::array const &input, af::array &indexer) {
     using namespace af;
     indexer = join(0, indexer, indexer.elements() < 3 ?
-    constant(0, 1, indexer.type()) :
-    scan(indexer.row(1), 1, AF_BINARY_ADD, false));
+                               constant(0, 1, indexer.type()) :
+                               scan(indexer.row(1), 1, AF_BINARY_ADD, false));
 
     indexer.eval();
 
-    auto const out_size = sum<ull>(sum(indexer(seq(1,2), end), 0));
+    auto const out_size = sum<ull>(sum(indexer(seq(1, 2), end), 0));
     auto const loops = sum<ull>(max(indexer.row(1), 1));
     auto const rows = indexer.elements() / 3;
     auto output = array(out_size, u8);
@@ -177,7 +177,8 @@ af::array inline stringGather(af::array const &input, af::array &indexer) {
     return output;
 }
 
-af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
+af::array inline
+stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
     auto out = l_idx.row(1) == r_idx.row(1);
     auto loops = sum<ull>(max(l_idx(1, out)));
@@ -187,7 +188,7 @@ af::array inline stringComp(af::array const &lhs, af::array const &rhs, af::arra
         out(out) = out(out) && TPCDI_Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
     #else
-    auto out_ptr = (bool*)out.device<char>();
+    auto out_ptr = (bool *) out.device<char>();
     auto left_ptr = lhs.device<unsigned char>();
     auto right_ptr = rhs.device<unsigned char>();
     auto l_idx_ptr = l_idx.device<ull>();
@@ -218,7 +219,7 @@ af::array inline stringComp(af::array const &lhs, char const *rhs, af::array con
     }
     #else
     auto right = array(loops, rhs).as(u8);
-    auto out_ptr = (bool*)out.device<char>();
+    auto out_ptr = (bool *) out.device<char>();
     auto left_ptr = lhs.device<unsigned char>();
     auto right_ptr = right.device<unsigned char>();
     auto l_idx_ptr = l_idx.device<ull>();
@@ -238,9 +239,10 @@ af::array inline stringComp(af::array const &lhs, char const *rhs, af::array con
     return out;
 }
 
-template<typename T> af::array inline numericParse(af::array const &input, af::array const &indexer) {
+template<typename T>
+af::array inline numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
-    using namespace TPCDI_Utils;
+    using namespace Utils;
     auto const loops = sum<ull>(max(indexer.row(1), 1)) - 1;
     auto const rows = indexer.elements() / 2;
     auto output = constant(0, dim4(1, rows), GetAFType<T>().af_type);

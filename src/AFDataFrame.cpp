@@ -1,5 +1,5 @@
 #include "include/AFDataFrame.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include "include/BatchFunctions.h"
 #include "include/KernelInterface.h"
 #include "include/AFHashTable.h"
@@ -9,7 +9,7 @@
     typedef unsigned long long ull;
 #endif
 using namespace BatchFunctions;
-using namespace TPCDI_Utils;
+using namespace Utils;
 using namespace af;
 
 AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _data(std::move(other._data)),

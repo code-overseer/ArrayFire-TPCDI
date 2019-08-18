@@ -49,7 +49,7 @@ add_executable(ArrayFire-TPCDI
         src/TPCDI.cpp
         src/Logger.cpp
         src/FinwireParser.cpp
-        src/TPCDI_Utils.cpp
+        src/Utils.cpp
         src/Column.cpp
         src/AFHashTable.cpp
         include/AFParser.h
@@ -59,7 +59,7 @@ add_executable(ArrayFire-TPCDI
         include/AFDataFrame.h
         include/TPCDI.h
         include/FinwireParser.h
-        include/TPCDI_Utils.h
+        include/Utils.h
         include/Logger.h
         include/CPU/single_threaded.h
         include/AFTypes.h

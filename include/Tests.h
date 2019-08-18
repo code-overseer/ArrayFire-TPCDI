@@ -9,17 +9,27 @@
 #include "AFDataFrame.h"
 
 void test_SignedInt(char const *filepath);
+
 void test_Float(char const *filepath);
+
 void test_UnsignedInt(char const *filepath);
+
 void test_UnsignedLong(char const *filepath);
+
 void test_SignedLong(char const *filepath);
+
 void test_Double(char const *filepath);
+
 void test_String(char const *filepath);
 
 void test_Date(char const *filepath);
+
 void test_Time(char const *filepath);
+
 void test_stringToBool(char const *filepath);
+
 void test_UChar(char const *filepath);
+
 void test_StringHash(char const *filepath);
 
 void testSetJoin();

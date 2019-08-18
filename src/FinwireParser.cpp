@@ -1,12 +1,12 @@
 #include "include/FinwireParser.h"
 #include "include/BatchFunctions.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include "include/KernelInterface.h"
 #include <fstream>
 #include <include/Logger.h>
 
 using namespace af;
-using namespace TPCDI_Utils;
+using namespace Utils;
 
 FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     Logger::startTask("Finwire files concat");

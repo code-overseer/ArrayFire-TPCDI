@@ -1,4 +1,4 @@
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include "include/BatchFunctions.h"
 #include "include/Column.h"
 #include <fstream>
@@ -19,7 +19,7 @@ void printStr(array str_array, std::ostream &out) {
     af::freeHost(d);
 }
 
-std::string TPCDI_Utils::loadFile(char const *filename) {
+std::string Utils::loadFile(char const *filename) {
     std::ifstream file(filename);
     std::string text;
     file.seekg(0, std::ios::end);
@@ -31,7 +31,7 @@ std::string TPCDI_Utils::loadFile(char const *filename) {
 }
 
 static void bulk_loader(char const *file, std::string *data, unsigned long *sizes, bool const hasHeader) {
-    *data = TPCDI_Utils::loadFile(file);
+    *data = Utils::loadFile(file);
     if (hasHeader) {
         auto pos = data->find_first_of('\n');
         data->erase(0, (pos != std::string::npos) ? pos + 1 : std::string::npos);
@@ -40,7 +40,7 @@ static void bulk_loader(char const *file, std::string *data, unsigned long *size
     *sizes = data->size();
 }
 
-std::string TPCDI_Utils::collect(std::vector<std::string> const &files, bool const hasHeader) {
+std::string Utils::collect(std::vector<std::string> const &files, bool const hasHeader) {
     auto const num = files.size();
     auto const limit = std::thread::hardware_concurrency() - 1;
     std::vector<std::string> data((size_t)num);
@@ -69,19 +69,19 @@ std::string TPCDI_Utils::collect(std::vector<std::string> const &files, bool con
     return output;
 }
 
-af::array TPCDI_Utils::where64(af::array const &input) {
+af::array Utils::where64(af::array const &input) {
     auto b = flat(input > 0);
     auto output = b * range(b.dims(), 0, u64);
     return output(b);
 }
 
-Column TPCDI_Utils::endDate(int length) {
+Column Utils::endDate(int length) {
     auto a = join(0, af::constant(9999, 1, u16), af::constant(12, 1, u16), af::constant(31, 1, u16));
     a = tile(a, dim4(1, length));
     return Column(std::move(a), DATE);
 }
 
-void TPCDI_Utils::fillBlanks(int &count, String fieldName, StrToInt &tracker, String &data, bool isAtt) {
+void Utils::fillBlanks(int &count, String fieldName, StrToInt &tracker, String &data, bool isAtt) {
     if (!tracker.count(fieldName)) {
         char msg[32];
         char const* type = (isAtt) ? "attribute" : "element";
@@ -94,7 +94,7 @@ void TPCDI_Utils::fillBlanks(int &count, String fieldName, StrToInt &tracker, St
     }
 }
 
-void TPCDI_Utils::depthFirstAppend(String &data, Node *node, StrToInt &tracker, String branch, Node *const root) {
+void Utils::depthFirstAppend(String &data, Node *node, StrToInt &tracker, String branch, Node *const root) {
     static int count = 0;
     if (node == root) {
         count = 0;
@@ -133,7 +133,7 @@ void TPCDI_Utils::depthFirstAppend(String &data, Node *node, StrToInt &tracker, 
     }
 }
 
-void TPCDI_Utils::learnFieldNames(Node* node, StrToInt &tracker, String branch, Node* const root) {
+void Utils::learnFieldNames(Node* node, StrToInt &tracker, String branch, Node* const root) {
     static int count = 0;
     if (node == root) {
         count = 0;
@@ -163,7 +163,7 @@ void TPCDI_Utils::learnFieldNames(Node* node, StrToInt &tracker, String branch, 
     if (node == root) tracker.insert(std::make_pair(std::string("End"), count));
 }
 
-std::string TPCDI_Utils::flattenCustomerMgmt(char const *directory) {
+std::string Utils::flattenCustomerMgmt(char const *directory) {
     using namespace rapidxml;
     char file[128];
     strcpy(file, directory);
@@ -193,7 +193,7 @@ std::string TPCDI_Utils::flattenCustomerMgmt(char const *directory) {
     return data;
 }
 
-void TPCDI_Utils::callGC() {
+void Utils::callGC() {
     size_t alloc;
     size_t locked;
 

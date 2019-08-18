@@ -12,7 +12,7 @@
 namespace fs = boost::filesystem;
 namespace xml = rapidxml;
 using namespace af;
-using namespace TPCDI_Utils;
+using namespace Utils;
 using namespace BatchFunctions;
 
 std::vector<std::string> inline collectFinwireFiles(char const *directory) {
@@ -255,7 +255,7 @@ AFDataFrame loadStagingCustomer(char const* directory) {
     Logger::startCollection();
 
     Logger::startTask("Flattening XML");
-    std::string data = TPCDI_Utils::flattenCustomerMgmt(directory);
+    std::string data = Utils::flattenCustomerMgmt(directory);
     Logger::endLastTask();
 
     Logger::startTask("Customer Load");
@@ -314,7 +314,7 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     dimDate.sortBy(0);
     auto date = dimDate(1)(af::span, 0);
     dimBroker.add(Column(tile(date, dim4(1, length)), DATE));
-    dimBroker.add(TPCDI_Utils::endDate(length));
+    dimBroker.add(Utils::endDate(length));
     Logger::pauseCollection();
     callGC();
     return dimBroker;
@@ -382,7 +382,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.insert(Column(range(dim4(1, dimCompany.rows()), 1, u64)), 0, "SK_CompanyID");
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), b8)), dimCompany.columns() - 1, "IsCurrent");
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), u32)), dimCompany.columns() - 1, "BatchID");
-    dimCompany.add(TPCDI_Utils::endDate(dimCompany.rows()), "EndDate");
+    dimCompany.add(Utils::endDate(dimCompany.rows()), "EndDate");
 
     Logger::startTask("DimCompany LowGrade Addition");
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
@@ -514,7 +514,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
     security.insert(Column(range(dim4(1, length), 1, u64)), 0, "SK_SecurityID");
     security.insert(Column(constant(1, dim4(1, length), b8)), security.columns() - 1, "IsCurrent");
     security.insert(Column(constant(1, dim4(1, length), u32)), security.columns() - 1, "BatchID");
-    security.add(TPCDI_Utils::endDate(length), "EndDate");
+    security.add(Utils::endDate(length), "EndDate");
 
     nameDimSecurity(security);
 

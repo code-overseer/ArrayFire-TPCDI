@@ -8,7 +8,7 @@
 
 #include "include/AFParser.h"
 #include "include/BatchFunctions.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include "include/Column.h"
 #include "include/KernelInterface.h"
 #include "include/AFTypes.h"
@@ -17,10 +17,10 @@
 #include <utility>
 using namespace af;
 using namespace BatchFunctions;
-using namespace TPCDI_Utils;
+using namespace Utils;
 
 AFParser::AFParser(char const *filename, char const delimiter, bool const hasHeader) : _filename(filename), _delimiter(delimiter) {
-    std::string txt = TPCDI_Utils::loadFile(_filename);
+    std::string txt = Utils::loadFile(_filename);
     if (txt.back() != '\n') txt += '\n';
     _data = array(txt.size() + 1, txt.c_str()).as(u8);
     txt = "";

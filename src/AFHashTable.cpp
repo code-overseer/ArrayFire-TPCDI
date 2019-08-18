@@ -1,6 +1,6 @@
 #include "include/AFHashTable.h"
 #include "include/Column.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include <cmath>
 #include <exception>
 
@@ -22,7 +22,7 @@ unsigned int AFHashTable::_getPrime(ull x) {
 }
 
 AFHashTable::AFHashTable(Column const &col) {
-    _values = TPCDI_Utils::hflat(af::setUnique(col.data().as(u64), false));
+    _values = Utils::hflat(af::setUnique(col.data().as(u64), false));
     _generate();
 }
 
@@ -36,7 +36,7 @@ void AFHashTable::_generate() {
     af::sort(keys, _values, keys, _values, 1);
 
     auto bins = af::accum(af::join(1, af::constant(0, 1, b8), diff1(keys, 1) > 0), 1);
-    bins = TPCDI_Utils::hflat(histogram(bins, bins.elements())).as(_occ.type());
+    bins = Utils::hflat(histogram(bins, bins.elements())).as(_occ.type());
     bins = bins(bins > 0);
     _occ(setUnique(keys, true)) = bins;
     _occ.eval();
@@ -48,14 +48,14 @@ void AFHashTable::_generate() {
 AFHashTable::AFHashTable(af::array &&set) {
     if (set.type() != u64) throw std::runtime_error("Expected unsigned int64 array");
     _values = std::move(set);
-    _values = TPCDI_Utils::hflat(_values);
+    _values = Utils::hflat(_values);
     _generate();
 }
 
 AFHashTable::AFHashTable(af::array const &set) {
     if (set.type() != u64) throw std::runtime_error("Expected unsigned int64 array");
     _values = set;
-    _values = TPCDI_Utils::hflat(_values);
+    _values = Utils::hflat(_values);
     _generate();
 }
 

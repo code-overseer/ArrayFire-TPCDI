@@ -1,5 +1,5 @@
 #include "include/Column.h"
-#include "include/TPCDI_Utils.h"
+#include "include/Utils.h"
 #include "include/BatchFunctions.h"
 #include "include/AFTypes.h"
 #include "include/KernelInterface.h"
@@ -23,7 +23,7 @@ Column::Column(af::array const &data, DataType const type) : _device(data), _typ
         _device = af::flat(_device);
         _generateStringIndex();
     } else if (type != DATE && type != DATETIME && type != TIME) {
-        _device = TPCDI_Utils::hflat(_device);
+        _device = Utils::hflat(_device);
     }
 }
 Column::Column(af::array &&data, DataType const type) : _device(std::move(data)), _type(type) {
@@ -31,14 +31,14 @@ Column::Column(af::array &&data, DataType const type) : _device(std::move(data))
         _device = af::flat(_device);
         _generateStringIndex();
     } else if (type != DATE && type != DATETIME && type != TIME) {
-        _device = TPCDI_Utils::hflat(_device);
+        _device = Utils::hflat(_device);
     }
 }
 Column::Column(af::array const &data) : _type(_typeMap.at(data.type())), _device(data) {
-    _device = TPCDI_Utils::hflat(_device);
+    _device = Utils::hflat(_device);
 }
 Column::Column(af::array &&data) : _type(_typeMap.at(std::move(data).type())), _device(data) {
-    _device = TPCDI_Utils::hflat(_device);
+    _device = Utils::hflat(_device);
 }
 Column::Column(af::array const &data, af::array const &index) : _device(data), _idx(index) {
     _device = af::flat(_device);
@@ -71,7 +71,7 @@ Column::Column(Column::Proxy &&data, DataType const type) : _type(type) {
         _device = af::flat(_device);
         _generateStringIndex();
     } else if (type != DATE && type != DATETIME && type != TIME) {
-        _device = TPCDI_Utils::hflat(_device);
+        _device = Utils::hflat(_device);
     }
     _device.eval();
 }
@@ -81,18 +81,18 @@ Column::Column(Column::Proxy const &data, DataType const type) : _type(type) {
         _device = af::flat(_device);
         _generateStringIndex();
     } else if (type != DATE && type != DATETIME && type != TIME) {
-        _device = TPCDI_Utils::hflat(_device);
+        _device = Utils::hflat(_device);
     }
     _device.eval();
 }
 Column::Column(Proxy const &data) : _type(_typeMap.at(data.type())) {
     _device = data;
-    _device = TPCDI_Utils::hflat(_device);
+    _device = Utils::hflat(_device);
     _device.eval();
 }
 Column::Column(Proxy &&data) : _type(_typeMap.at(std::move(data).type())) {
     _device = data;
-    _device = TPCDI_Utils::hflat(_device);
+    _device = Utils::hflat(_device);
     _device.eval();
 }
 Column &Column::operator=(Column &&other) noexcept {
@@ -131,7 +131,7 @@ af::array Column::_wordHash() const {
     for (ull i = 0; i < loop_length; ++i) {
         auto b = _idx.row(1) > i;
         auto j = (7 - (i % 8)) * 8;
-        output(k, b) = TPCDI_Utils::hflat(flat(output(k, b)) | flat(_device(_idx(0, b) + i) << j));
+        output(k, b) = Utils::hflat(flat(output(k, b)) | flat(_device(_idx(0, b) + i) << j));
         if (!j) ++k;
     }
     output.eval();
@@ -347,7 +347,7 @@ Column Column::trim(unsigned int start, unsigned int length) const {
 }
 
 void Column::_generateStringIndex() {
-    using namespace TPCDI_Utils;
+    using namespace Utils;
     _idx = af::diff1(af::join(1, af::constant(0, 1, u64), hflat(where64(_device == 0))), 1);
     _idx(0) += 1;
     _idx = _idx.elements() == 1 ? af::join(0, af::constant(0, 1, _idx.type()), _idx) :
@@ -356,7 +356,7 @@ void Column::_generateStringIndex() {
 
 template<typename T>
 void Column::cast() {
-    using namespace TPCDI_Utils;
+    using namespace Utils;
     if (_type == DATE || _type == TIME || _type == DATETIME) throw std::runtime_error("Invalid Type");
     if (_type == STRING) {
         _device = _device(_device != ' ');

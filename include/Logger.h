@@ -1,10 +1,12 @@
 #ifndef ARRAYFIRE_TPCDI_LOGGER_H
 #define ARRAYFIRE_TPCDI_LOGGER_H
+
 #include <unordered_map>
 #include <arrayfire.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
+
 #ifdef ENABLE_ITT
     #include <ittnotify.h>
 #endif
@@ -15,28 +17,34 @@ namespace Logger {
     static std::string directory;
 
     void startTimer(std::string const &name = "main");
+
     void logTime(std::string const &name = "main", bool show = true);
+
     void sendToCSV();
 
     #ifdef ENABLE_ITT
     static __itt_domain* _domain = __itt_domain_create("AF_tpcdi");
     #endif
+
     inline void startCollection() {
         #ifdef ENABLE_ITT
         __itt_resume();
         #endif
     }
+
     inline void pauseCollection() {
         #ifdef ENABLE_ITT
         __itt_pause();
         #endif
     }
-    inline void startTask(char const* taskname) {
+
+    inline void startTask(char const *taskname) {
         #ifdef ENABLE_ITT
         auto task = __itt_string_handle_create(taskname);
         __itt_task_begin(_domain, __itt_null, __itt_null, task);
         #endif
     }
+
     inline void endLastTask() {
         #ifdef ENABLE_ITT
         __itt_task_end(_domain);
