@@ -1,17 +1,126 @@
-#ifndef ARRAYFIRE_TPCDI_OPENCL_KERNELS_H
-#define ARRAYFIRE_TPCDI_OPENCL_KERNELS_H
-#include "opencl_helper.h"
+#ifndef ARRAYFIRE_TPCDI_OPENCL_KERNELS_CPP
+#define ARRAYFIRE_TPCDI_OPENCL_KERNELS_CPP
+
+#include "include/KernelLauncher.h"
 #include "include/AFTypes.h"
+#include "include/Utils.h"
 #include <arrayfire.h>
 #include <exception>
-#ifndef ULL
-#define ULL
-typedef unsigned long long ull;
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+#ifdef IS_APPLE
+#include <OpenCL/opencl.h>
+#else
+#include <CL/cl.h>
 #endif
 
-#define LOCAL_GROUP_SIZE 256
+static cl_context get_context(cl_mem x) {
+    cl_context context;
+    cl_int err = clGetMemObjectInfo(x, CL_MEM_CONTEXT, sizeof(cl_context), &context, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to get context from Memory object\n", err);
+        throw (err);
+    }
+    return context;
+}
 
-void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+static void printProgramBuildError(cl_context context, cl_program program) {
+    size_t size;
+    auto err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &size);
+    auto devices = (cl_device_id*) malloc(size);
+    err = clGetContextInfo(context, CL_CONTEXT_DEVICES, size, devices, NULL);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
+    char* log = (char*) malloc(size);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, size, log, NULL);
+    puts(log);
+
+    free(log);
+    free(devices);
+}
+
+static cl_program build_program(cl_context context) {
+    static std::string kernel = Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
+    static cl_program program = nullptr;
+    static cl_context previous = context;
+    if (program) {
+        if (context == previous) return program;
+        else clReleaseProgram(program);
+    }
+
+    cl_int err;
+    const char *source = kernel.c_str();
+    size_t length = kernel.size();
+    program = clCreateProgramWithSource(context, 1, &source, &length, &err);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to create program\n", err);
+        throw std::runtime_error("Terminated");
+    }
+
+    err = clBuildProgram(program, 0, NULL, nullptr, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to build program\n", err);
+        printProgramBuildError(context, program);
+        throw std::runtime_error("Terminated");
+    }
+    return program;
+}
+
+static void printKernelBuildError(cl_context context, cl_program program) {
+    size_t size;
+    auto err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &size);
+    auto devices = (cl_device_id*) malloc(size);
+    err = clGetContextInfo(context, CL_CONTEXT_DEVICES, size, devices, NULL);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
+    char* log = (char*) malloc(size);
+    err = clGetProgramBuildInfo(program, devices[0], CL_PROGRAM_BUILD_LOG, size, log, NULL);
+    puts(log);
+
+    free(log);
+    free(devices);
+}
+
+static cl_kernel create_kernel(cl_program program, const char *kernel_name) {
+    cl_int err;
+    cl_kernel kernel = clCreateKernel(program, kernel_name, &err);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to create kernel %s\n", err, kernel_name);
+        throw std::runtime_error("Terminated");
+    }
+    return kernel;
+}
+
+static cl_command_queue create_queue(cl_context context) {
+    static cl_context prev = context;
+    static cl_command_queue queue = nullptr;
+    if (queue) {
+        if (prev != context) prev = context;
+        else return queue;
+    }
+
+    cl_device_id device;
+    cl_int err = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id), &device, NULL);
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to get device from context\n", err);
+        throw std::runtime_error("Terminated");
+    }
+
+    #ifdef IS_APPLE
+    queue = clCreateCommandQueue(context, device, 0, &err);
+    #else
+    queue = clCreateCommandQueueWithProperties(context, device, 0, &err);
+    #endif
+    if (err != CL_SUCCESS) {
+        printf("OpenCL Error(%d): Failed to command queue\n", err);
+        throw std::runtime_error("Terminated");
+    }
+    return queue;
+}
+
+#define LOCAL_GROUP_SIZE 256
+typedef unsigned long long ull;
+
+void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)result);
@@ -61,8 +170,8 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
 
 }
 
-void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
-                                unsigned int const buckets, ull const bag_size) {
+void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+                         unsigned int const buckets, ull const bag_size) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)result);
@@ -107,8 +216,8 @@ void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val,
     }
 }
 
-void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
-                             ull *l, ull *r, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
+void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
+                      ull *l, ull *r, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)l_idx);
@@ -166,8 +275,8 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
 
 }
 
-void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
-        ull const rows, ull const loops) {
+void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
+                        ull const rows, ull const loops) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -212,8 +321,8 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     }
 }
 
-void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
-                             ull const *r_idx, ull const rows) {
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, unsigned long long const *l_idx,
+                      unsigned long long const *r_idx, unsigned long long const rows) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -260,8 +369,52 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
     }
 }
 
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
+                      ull const rows, ull const loops) {
+    char msg[128];
+    // Get OpenCL context from memory buffer and create a Queue
+    cl_context context = get_context((cl_mem)output);
+    cl_command_queue queue = create_queue(context);
+    // Build the OpenCL program and get the kernel
+    cl_program program = build_program(context);
+    cl_kernel kernel = create_kernel(program, "str_cmp_single");
+
+    cl_int err = CL_SUCCESS;
+    int arg = 0;
+    // Set input parameters for the kernel
+    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
+    if (err != CL_SUCCESS) goto ARG_FAIL;
+    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &left);
+    if (err != CL_SUCCESS) goto ARG_FAIL;
+    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &right);
+    if (err != CL_SUCCESS) goto ARG_FAIL;
+    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
+    if (err != CL_SUCCESS) goto ARG_FAIL;
+    err = clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+    if (err != CL_SUCCESS) {
+        ARG_FAIL:
+        sprintf(msg, "OpenCL Error(%d): Failed to set kernel arguments\n", err);
+        throw std::runtime_error(msg);
+    }
+
+    // Set launch configuration parameters and launch kernel
+    size_t local = LOCAL_GROUP_SIZE;
+    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    if (err != CL_SUCCESS) {
+        sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
+        throw std::runtime_error(msg);
+    }
+    err = clFinish(queue);
+    if (err != CL_SUCCESS) {
+        sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
+        throw std::runtime_error(msg);
+    }
+
+}
+
 template<typename T>
-void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
+void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -306,51 +459,19 @@ void inline launchNumericParse(T *output, ull const * idx, unsigned char const *
     }
 }
 
-void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
-                             ull const rows, ull const loops) {
-    char msg[128];
-    // Get OpenCL context from memory buffer and create a Queue
-    cl_context context = get_context((cl_mem)output);
-    cl_command_queue queue = create_queue(context);
+#define PARSER(TYPE) \
+template void launchNumericParse<TYPE>(TYPE *output, ull const * idx, unsigned char const *input, ull const rows);
 
-    char options[128];
-    sprintf(options, "-D LOOP_LENGTH=%llu", loops);
-    // Build the OpenCL program and get the kernel
-    cl_program program = build_single_use_program(context, options);
-    cl_kernel kernel = create_kernel(program, "str_cmp_single");
+PARSER(unsigned char)
+PARSER(float)
+PARSER(double)
+PARSER(unsigned short)
+PARSER(short)
+PARSER(unsigned int)
+PARSER(int)
+PARSER(ull)
+PARSER(long long)
 
-    cl_int err = CL_SUCCESS;
-    int arg = 0;
-    // Set input parameters for the kernel
-    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
-    if (err != CL_SUCCESS) goto ARG_FAIL;
-    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &left);
-    if (err != CL_SUCCESS) goto ARG_FAIL;
-    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &right);
-    if (err != CL_SUCCESS) goto ARG_FAIL;
-    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
-    if (err != CL_SUCCESS) goto ARG_FAIL;
-    err = clSetKernelArg(kernel, arg, sizeof(ull), &rows);
-    if (err != CL_SUCCESS) {
-        ARG_FAIL:
-        sprintf(msg, "OpenCL Error(%d): Failed to set kernel arguments\n", err);
-        throw std::runtime_error(msg);
-    }
-
-    // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
-    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
-    if (err != CL_SUCCESS) {
-        sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
-        throw std::runtime_error(msg);
-    }
-    err = clFinish(queue);
-    if (err != CL_SUCCESS) {
-        sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
-        throw std::runtime_error(msg);
-    }
-
-}
+#undef PARSER
 
 #endif

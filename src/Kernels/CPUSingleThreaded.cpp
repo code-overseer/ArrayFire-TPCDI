@@ -3,13 +3,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#ifndef ULL
-    #define ULL
+#include "include/KernelLauncher.h"
+
 typedef unsigned long long ull;
 typedef unsigned long long int ulli;
-#endif
 
-void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     ull start = 0;
     for (int n = 0; n < bag_size; ++n) {
         for (ull i = start; i < set_size; start = ++i) {
@@ -21,7 +20,7 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     }
 }
 
-void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
                                 unsigned int const buckets, ull const bag_size) {
     for (ull i = 0; i < bag_size; ++i) {
         auto key = bag[i] % buckets;
@@ -48,7 +47,7 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
     }
 }
 
-void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
+void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
     for (ull i = 0; i < rows; ++i) {
         for (ull j = 0; j < idx[3 * i + 1]; ++j) {
             output[idx[3 * i + 2] + j] = input[idx[3 * i] + j] * (j != (idx[3 * i + 1] - 1));
@@ -56,14 +55,14 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     }
 }
 
-void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
                     ull const *l_idx, ull const *r_idx, ull const rows) {
     for (int i = 0; i < rows; ++i) {
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)(right + r_idx[2 * i]));
     }
 }
 
-void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,  ull const rows, ull const loops) {
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,  ull const rows, ull const loops) {
     for (int i = 0; i < rows; ++i) {
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)right);
     }
@@ -97,7 +96,7 @@ template<> inline long long convert<long long>(const unsigned char *start) {
     return std::strtoll((char const*)start, nullptr, 10);
 }
 
-template<typename T> void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
+template<typename T> void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
     for (ull i = 0; i < rows; ++i) {
         auto start = input + idx[2 * i];
         output[i] = *(start) == '\0' ? 0 : convert<T>(start);

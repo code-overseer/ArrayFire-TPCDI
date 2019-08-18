@@ -52,6 +52,8 @@ add_executable(ArrayFire-TPCDI
         src/Utils.cpp
         src/Column.cpp
         src/AFHashTable.cpp
+        src/Kernels/CPUSingleThreaded.cpp
+        src/Kernels/KernelInterface.cpp
         include/AFParser.h
         include/Enums.h
         include/BatchFunctions.h
@@ -61,12 +63,12 @@ add_executable(ArrayFire-TPCDI
         include/FinwireParser.h
         include/Utils.h
         include/Logger.h
-        include/CPU/single_threaded.h
         include/AFTypes.h
         include/Column.h
-        include/KernelInterface.h
         include/ColumnNames.h
-        include/AFHashTable.h)
+        include/AFHashTable.h
+        include/KernelLauncher.h
+        include/KernelInterface.h src/Kernels/OpenCLKernels.cpp)
 
 if (ITT_FOUND)
    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lm")
@@ -81,14 +83,13 @@ if (USING_CUDA)
             src/Column.cpp
             src/FinwireParser.cpp
             src/TPCDI.cpp
-            include/CUDA/cuda_kernels.h
+            src/Kernels/CUDAKernels.cu
             PROPERTIES LANGUAGE CUDA)
-    TARGET_SOURCES(ArrayFire-TPCDI PRIVATE include/CUDA/cuda_kernels.h)
+    TARGET_SOURCES(ArrayFire-TPCDI PRIVATE src/Kernels/CUDAKernels.cu)
     set_property(TARGET ArrayFire-TPCDI PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 elseif(USING_OPENCL)
     add_definitions( -DOCL_KERNEL_DIR="${CMAKE_SOURCE_DIR}/include/OpenCL/" )
-    TARGET_SOURCES(ArrayFire-TPCDI PRIVATE include/OpenCL/opencl_kernels.h
-            include/OpenCL/opencl_helper.h)
+    TARGET_SOURCES(ArrayFire-TPCDI PRIVATE src/Kernels/OpenCLKernels.cpp)
     TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${OpenCL_LIBRARIES} )
 endif()
 

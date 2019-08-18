@@ -1,17 +1,13 @@
 #ifndef CUDA_KERNELS_H
 #define CUDA_KERNELS_H
-#include "include/Logger.h"
-#include <cuda.h>
-#include <stdio.h>
-#include <arrayfire.h>
+#include "include/KernelLauncher.h"
 #include "include/AFTypes.h"
 #include "include/Utils.h"
-#ifndef ULL
-    #define ULL
-typedef unsigned long long ull;
-#endif
+#include <arrayfire.h>
+#include <cuda.h>
 
 #define THREAD_LIMIT 1024
+typedef unsigned long long ull;
 
 __global__ static void bag_set(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
 
@@ -61,7 +57,7 @@ __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull cons
     }
 }
 template<typename T>
-__global__ static void parser(T *output, ull const *idx, unsigned char const *input, ull const rows, ull const loops) {
+__global__ static void parser(T *output, ull const *idx, unsigned char const *input, ull const rows) {
     ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (id < rows) {
         long long const s = idx[2 * id];
@@ -154,7 +150,7 @@ ull const rows, ulong const loops) {
     }
 }
 
-void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     ull const threadCount = bag_size * set_size;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
@@ -163,7 +159,7 @@ void inline launchBagSet(char *result, ull const *bag, ull const *set, ull const
     cudaDeviceSynchronize();
 }
 
-void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
+void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
                                 unsigned int const buckets, ull const bag_size) {
     ull const threadCount = bag_size;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
@@ -173,7 +169,7 @@ void inline launchHashIntersect(char *result, ull const *bag, ull const *ht_val,
     cudaDeviceSynchronize();
 }
 
-void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
+void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                       ull *left, ull *right, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
     ull const threadCount = equals * left_max * right_max;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
@@ -184,18 +180,18 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
 }
 
 template<typename T>
-void inline launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
+void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows) {
     ull const threadCount = rows;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
 
-    parser<T><<<grid, block>>>(output, idx, input, rows, loops);
+    parser<T><<<grid, block>>>(output, idx, input, rows);
     cudaDeviceSynchronize();
 
 }
 
-void inline launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
+void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
     ull const threadCount = rows * loops;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
@@ -205,7 +201,7 @@ void inline launchStringGather(unsigned char *output, ull const *idx, unsigned c
     cudaDeviceSynchronize();
 }
 
-void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
                       ull const *l_idx, ull const *r_idx, ull const rows) {
     ull const threadCount = rows;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
@@ -216,7 +212,7 @@ void inline launchStringComp(bool *output, unsigned char const *left, unsigned c
     cudaDeviceSynchronize();
 }
 
-void inline launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
                       ull const rows, ull const loops) {
     ull const threadCount = rows;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;

@@ -1,11 +1,3 @@
-//
-//  AFParser.cpp
-//  ArrayFireExample
-//
-//  Created by Bryan Wong on 6/11/19.
-//  Copyright © 2019 Bryan Wong. All rights reserved.
-//
-
 #include "include/AFParser.h"
 #include "include/BatchFunctions.h"
 #include "include/Utils.h"

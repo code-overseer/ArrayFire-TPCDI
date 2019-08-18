@@ -26,7 +26,6 @@ AFHashTable::AFHashTable(Column const &col) {
     _generate();
 }
 
-
 void AFHashTable::_generate() {
     _values.eval();
     _buckets = _getPrime(_values.elements());

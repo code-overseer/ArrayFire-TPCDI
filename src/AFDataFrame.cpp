@@ -1,8 +1,8 @@
 #include "include/AFDataFrame.h"
-#include "include/Utils.h"
 #include "include/BatchFunctions.h"
 #include "include/KernelInterface.h"
 #include "include/AFHashTable.h"
+#include "include/Utils.h"
 #include "include/Logger.h"
 #ifndef ULL
 #define ULL

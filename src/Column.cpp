@@ -7,16 +7,11 @@
 #include <cstring>
 #define GC_BUFFER 1000000000
 
-std::unordered_map<af::dtype, DataType> Column::_typeMap({{u8, UCHAR}, // NOLINT(cert-err58-cpp)
-                                                            {b8, BOOL},
-                                                            {u16, USHORT},
-                                                            {s16, SHORT},
-                                                            {u32, UINT},
-                                                            {s32, INT},
-                                                            {u64, ULONG},
-                                                            {s64, LONG},
-                                                            {f32, FLOAT},
-                                                            {f64, DOUBLE}});
+typedef unsigned long long ull;
+
+std::unordered_map<af::dtype, DataType> Column::_typeMap({{u8, UCHAR}, {b8, BOOL}, {u16, USHORT}, {s16, SHORT}, // NOLINT(cert-err58-cpp)
+                                                            {u32, UINT}, {s32, INT}, {u64, ULONG}, {s64, LONG},
+                                                            {f32, FLOAT}, {f64, DOUBLE}});
 
 Column::Column(af::array const &data, DataType const type) : _device(data), _type(type) {
     if (type == STRING) {

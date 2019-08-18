@@ -80,6 +80,20 @@ __global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
     }
 }
 
+__kernel void str_cmp_single(__global bool *output, __global uchar const *left, __global uchar const *right,
+__global ulong const *l_idx, ulong const rows, ulong const loops) {
+
+    ulong const id = get_global_id(0);
+    if (id < rows) {
+        ulong const l_start = l_idx[2 * id];
+        bool out = output[id];
+        for (ulong i = 0; i < loops; ++i) {
+            out &= left[l_start + i] == right[i];
+        }
+        output[id] = out;
+    }
+}
+
 __kernel void str_concat(__global uchar *output, __global ulong const *out_idx, __global uchar const *left,
 __global ulong const *left_idx,  __global uchar const *right, __global ulong const *right_idx,
 ulong const size, ulong const rows, ulong const loops) {

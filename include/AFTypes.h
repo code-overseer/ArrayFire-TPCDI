@@ -2,7 +2,6 @@
 #define ARRAYFIRE_TPCDI_AFTYPES_H
 
 #include <arrayfire.h>
-#include <string>
 #include "include/Enums.h"
 
 template<af::dtype>

@@ -2,8 +2,7 @@
 #include "include/BatchFunctions.h"
 #include "include/Utils.h"
 #include "include/KernelInterface.h"
-#include <fstream>
-#include <include/Logger.h>
+#include "include/Logger.h"
 
 using namespace af;
 using namespace Utils;
