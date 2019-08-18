@@ -1,6 +1,5 @@
 __kernel void intersect_kernel(__global char *result, __global ulong const *bag,
-                               __global ulong const *set, ulong const bag_size, ulong const set_size,
-                               ulong const offset) {
+        __global ulong const *set, ulong const bag_size, ulong const set_size, ulong const offset) {
 
     ulong id = get_global_id(0);
     id += offset;
@@ -13,8 +12,8 @@ __kernel void intersect_kernel(__global char *result, __global ulong const *bag,
 }
 
 __kernel void hash_intersect(__global char *result, __global ulong const *bag, __global ulong const *ht_val,
-                            __global ulong const *ht_ptr, __global ulong const *ht_occ, uint const buckets, ulong const bag_size) {
-    ulong id = get_global_id(0);
+        __global ulong const *ht_ptr, __global ulong const *ht_occ, uint const buckets, ulong const bag_size) {
+ulong id = get_global_id(0);
     if (id < bag_size) {
         ulong const val = bag[id];
         uint const key = val % buckets;
@@ -31,7 +30,7 @@ __kernel void hash_intersect(__global char *result, __global ulong const *bag, _
 
 __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, __global ulong const *cl,
         __global ulong const *cr, __global ulong const *outpos,  __global ulong *l, __global ulong *r,
-        ulong const equals, ulong const left_max, ulong const right_max, ulong const out_size) {
+ulong const equals, ulong const left_max, ulong const right_max, ulong const out_size) {
 
     ulong const id = get_global_id(0);
     bool b = id < equals * left_max * right_max;
@@ -50,7 +49,7 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
 }
 
 __kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,
-ulong const size, ulong const rows, ulong const loops) {
+        ulong const size, ulong const rows, ulong const loops) {
 
     ulong const id = get_global_id(0);
     ulong const r = id / loops;
@@ -66,8 +65,8 @@ ulong const size, ulong const rows, ulong const loops) {
 }
 
 __kernel void str_cmp(__global bool *output, __global uchar const *left, __global uchar const *right,
-__global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
-    ulong const id = get_global_id(0);
+        __global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
+ulong const id = get_global_id(0);
     if (id < rows) {
         ulong const l_start = l_idx[2 * id];
         ulong const len = l_idx[2 * id + 1];
@@ -81,7 +80,7 @@ __global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
 }
 
 __kernel void str_cmp_single(__global bool *output, __global uchar const *left, __global uchar const *right,
-__global ulong const *l_idx, ulong const rows, ulong const loops) {
+        __global ulong const *l_idx, ulong const rows, ulong const loops) {
 
     ulong const id = get_global_id(0);
     if (id < rows) {
@@ -95,7 +94,7 @@ __global ulong const *l_idx, ulong const rows, ulong const loops) {
 }
 
 __kernel void str_concat(__global uchar *output, __global ulong const *out_idx, __global uchar const *left,
-__global ulong const *left_idx,  __global uchar const *right, __global ulong const *right_idx,
+        __global ulong const *left_idx,  __global uchar const *right, __global ulong const *right_idx,
 ulong const size, ulong const rows, ulong const loops) {
     ulong i = get_global_id(0);
     ulong j = i / loops;

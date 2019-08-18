@@ -1,8 +1,8 @@
 #include <cstring>
 #include <string>
-#include "include/Logger.h"
-#include "include/TPCDI.h"
-#include "include/Tests.h"
+#include "Logger.h"
+#include "TPCDI.h"
+#include "Tests.h"
 
 namespace DIR {
     char const* DATE = "/Users/bryanwong/Downloads/TPCData/TestDate.csv";
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     Logger::startTimer();
 //    DimCompany();
-//    DimBroker();
+    DimBroker();
 //    Financial();
 
     Logger::logTime();

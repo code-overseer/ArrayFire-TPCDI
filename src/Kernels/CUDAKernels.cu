@@ -1,8 +1,8 @@
 #ifndef CUDA_KERNELS_H
 #define CUDA_KERNELS_H
-#include "include/KernelLauncher.h"
-#include "include/AFTypes.h"
-#include "include/Utils.h"
+#include "Kernels.h"
+#include "AFTypes.h"
+#include "Utils.h"
 #include <arrayfire.h>
 #include <cuda.h>
 

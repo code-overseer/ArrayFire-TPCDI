@@ -2,7 +2,7 @@
 #include <string>
 #include <algorithm>
 #include <cstdio>
-#include "include/Logger.h"
+#include "Logger.h"
 
 void Logger::startTimer(std::string const &name) {
     af::sync();

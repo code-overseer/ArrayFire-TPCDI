@@ -1,5 +1,5 @@
-#ifndef ARRAYFIRE_TPCDI_KERNELLAUNCHER_H
-#define ARRAYFIRE_TPCDI_KERNELLAUNCHER_H
+#ifndef ARRAYFIRE_TPCDI_KERNELS_H
+#define ARRAYFIRE_TPCDI_KERNELS_H
 
 void launchBagSet(char *result, unsigned long long const *bag, unsigned long long const *set,
         unsigned long long bag_size, unsigned long long set_size);
@@ -24,4 +24,4 @@ void launchNumericParse(T *output, unsigned long long const * idx, unsigned char
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
         unsigned long long const *l_idx, unsigned long long rows, unsigned long long loops);
 
-#endif //ARRAYFIRE_TPCDI_KERNELLAUNCHER_H
+#endif //ARRAYFIRE_TPCDI_KERNELS_H

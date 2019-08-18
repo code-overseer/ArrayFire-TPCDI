@@ -1,10 +1,10 @@
-#include "include/AFParser.h"
-#include "include/BatchFunctions.h"
-#include "include/Utils.h"
-#include "include/Column.h"
-#include "include/KernelInterface.h"
-#include "include/AFTypes.h"
-#include "include/Logger.h"
+#include "AFParser.h"
+#include "BatchFunctions.h"
+#include "Utils.h"
+#include "Column.h"
+#include "KernelInterface.h"
+#include "AFTypes.h"
+#include "Logger.h"
 #include <sstream>
 #include <utility>
 using namespace af;

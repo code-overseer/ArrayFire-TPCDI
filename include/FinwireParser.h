@@ -10,11 +10,6 @@
 #include <functional>
 #include <string>
 
-#ifndef ULL
-#define ULL
-typedef unsigned long long ull;
-#endif
-
 struct Finwire {
 public:
     AFDataFrame company;

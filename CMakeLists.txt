@@ -23,10 +23,10 @@ else()
 endif()
 
 set(CMAKE_CXX_STANDARD 14)
-INCLUDE_DIRECTORIES(.)
-INCLUDE_DIRECTORIES(rapidxml)
 FIND_PACKAGE(ArrayFire REQUIRED)
 FIND_PACKAGE(Boost COMPONENTS filesystem regex REQUIRED)
+INCLUDE_DIRECTORIES(include)
+INCLUDE_DIRECTORIES(rapidxml)
 INCLUDE_DIRECTORIES(${ArrayFire_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 
@@ -43,15 +43,15 @@ add_executable(ArrayFire-TPCDI
         rapidxml/rapidxml_utils.hpp
         src/main.cpp
         src/AFParser.cpp
-        src/BatchFunctions.cpp
-        src/Tests.cpp
         src/AFDataFrame.cpp
-        src/TPCDI.cpp
-        src/Logger.cpp
-        src/FinwireParser.cpp
-        src/Utils.cpp
-        src/Column.cpp
         src/AFHashTable.cpp
+        src/Column.cpp
+        src/BatchFunctions.cpp
+        src/FinwireParser.cpp
+        src/Logger.cpp
+        src/Tests.cpp
+        src/TPCDI.cpp
+        src/Utils.cpp
         src/Kernels/CPUSingleThreaded.cpp
         src/Kernels/KernelInterface.cpp
         include/AFParser.h
@@ -67,8 +67,8 @@ add_executable(ArrayFire-TPCDI
         include/Column.h
         include/ColumnNames.h
         include/AFHashTable.h
-        include/KernelLauncher.h
-        include/KernelInterface.h src/Kernels/OpenCLKernels.cpp)
+        include/Kernels.h
+        include/KernelInterface.h)
 
 if (ITT_FOUND)
    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lm")
@@ -80,15 +80,16 @@ if (USING_CUDA)
             src/Tests.cpp
             src/main.cpp
             src/AFParser.cpp
-            src/Column.cpp
             src/FinwireParser.cpp
+            src/Column.cpp
             src/TPCDI.cpp
+            src/Kernels/KernelInterface.cpp
             src/Kernels/CUDAKernels.cu
             PROPERTIES LANGUAGE CUDA)
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE src/Kernels/CUDAKernels.cu)
     set_property(TARGET ArrayFire-TPCDI PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 elseif(USING_OPENCL)
-    add_definitions( -DOCL_KERNEL_DIR="${CMAKE_SOURCE_DIR}/include/OpenCL/" )
+    add_definitions( -DOCL_KERNEL_DIR="${CMAKE_SOURCE_DIR}/src/Kernels/kernels.cl" )
     TARGET_SOURCES(ArrayFire-TPCDI PRIVATE src/Kernels/OpenCLKernels.cpp)
     TARGET_LINK_LIBRARIES(ArrayFire-TPCDI ${OpenCL_LIBRARIES} )
 endif()

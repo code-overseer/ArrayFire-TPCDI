@@ -2,10 +2,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
 #include <rapidxml.hpp>
-#include "include/TPCDI.h"
-#include "include/BatchFunctions.h"
-#include "include/Logger.h"
-#include "include/ColumnNames.h"
+#include "TPCDI.h"
+#include "BatchFunctions.h"
+#include "Logger.h"
+#include "ColumnNames.h"
 #ifdef ITT_ENABLED
     #include <ittnotify.h>
 #endif

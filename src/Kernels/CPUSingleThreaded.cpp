@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include "include/KernelLauncher.h"
+#include "Kernels.h"
 
 typedef unsigned long long ull;
 typedef unsigned long long int ulli;
@@ -96,7 +96,7 @@ template<> inline long long convert<long long>(const unsigned char *start) {
     return std::strtoll((char const*)start, nullptr, 10);
 }
 
-template<typename T> void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows, ull const loops) {
+template<typename T> void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows) {
     for (ull i = 0; i < rows; ++i) {
         auto start = input + idx[2 * i];
         output[i] = *(start) == '\0' ? 0 : convert<T>(start);

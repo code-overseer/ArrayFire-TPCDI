@@ -1,4 +1,4 @@
-#include "include/BatchFunctions.h"
+#include "BatchFunctions.h"
 
 af::array BatchFunctions::batchEqual(af::array const &rhs, af::array const &lhs) {
     return rhs == lhs;

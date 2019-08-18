@@ -1,6 +1,6 @@
-#include "include/AFHashTable.h"
-#include "include/Column.h"
-#include "include/Utils.h"
+#include "AFHashTable.h"
+#include "Column.h"
+#include "Utils.h"
 #include <cmath>
 #include <exception>
 

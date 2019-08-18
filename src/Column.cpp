@@ -1,8 +1,8 @@
-#include "include/Column.h"
-#include "include/Utils.h"
-#include "include/BatchFunctions.h"
-#include "include/AFTypes.h"
-#include "include/KernelInterface.h"
+#include "Column.h"
+#include "Utils.h"
+#include "BatchFunctions.h"
+#include "AFTypes.h"
+#include "KernelInterface.h"
 #include <exception>
 #include <cstring>
 #define GC_BUFFER 1000000000

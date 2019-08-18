@@ -1,9 +1,9 @@
 #ifndef ARRAYFIRE_TPCDI_OPENCL_KERNELS_CPP
 #define ARRAYFIRE_TPCDI_OPENCL_KERNELS_CPP
 
-#include "include/KernelLauncher.h"
-#include "include/AFTypes.h"
-#include "include/Utils.h"
+#include "Kernels.h"
+#include "AFTypes.h"
+#include "Utils.h"
 #include <arrayfire.h>
 #include <exception>
 #include <string>
@@ -40,7 +40,7 @@ static void printProgramBuildError(cl_context context, cl_program program) {
 }
 
 static cl_program build_program(cl_context context) {
-    static std::string kernel = Utils::loadFile(OCL_KERNEL_DIR"/opencl_kernels.cl");
+    static std::string kernel = Utils::loadFile(OCL_KERNEL_DIR);
     static cl_program program = nullptr;
     static cl_context previous = context;
     if (program) {
@@ -390,7 +390,10 @@ void launchStringComp(bool *output, unsigned char const *left, unsigned char con
     if (err != CL_SUCCESS) goto ARG_FAIL;
     err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
     if (err != CL_SUCCESS) goto ARG_FAIL;
-    err = clSetKernelArg(kernel, arg, sizeof(ull), &rows);
+    err = clSetKernelArg(kernel, arg++, sizeof(ull), &rows);
+    if (err != CL_SUCCESS) goto ARG_FAIL;
+    err = clSetKernelArg(kernel, arg, sizeof(ull), &loops);
+
     if (err != CL_SUCCESS) {
         ARG_FAIL:
         sprintf(msg, "OpenCL Error(%d): Failed to set kernel arguments\n", err);

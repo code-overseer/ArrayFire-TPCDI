@@ -1,6 +1,6 @@
-#include "include/Tests.h"
-#include "include/Utils.h"
-#include "include/KernelInterface.h"
+#include "Tests.h"
+#include "Utils.h"
+#include "KernelInterface.h"
 #ifndef ULL
 #define ULL
     typedef unsigned long long ull;

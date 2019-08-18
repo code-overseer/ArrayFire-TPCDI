@@ -1,7 +1,7 @@
 #ifndef ARRAYFIRE_TPCDI_AFPARSER_H
 #define ARRAYFIRE_TPCDI_AFPARSER_H
 
-#include "include/Enums.h"
+#include "Enums.h"
 #include <arrayfire.h>
 
 #ifndef ULL

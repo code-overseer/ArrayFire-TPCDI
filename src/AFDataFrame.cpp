@@ -1,13 +1,12 @@
-#include "include/AFDataFrame.h"
-#include "include/BatchFunctions.h"
-#include "include/KernelInterface.h"
-#include "include/AFHashTable.h"
-#include "include/Utils.h"
-#include "include/Logger.h"
-#ifndef ULL
-#define ULL
-    typedef unsigned long long ull;
-#endif
+#include "AFDataFrame.h"
+#include "BatchFunctions.h"
+#include "KernelInterface.h"
+#include "AFHashTable.h"
+#include "Utils.h"
+#include "Logger.h"
+
+typedef unsigned long long ull;
+
 using namespace BatchFunctions;
 using namespace Utils;
 using namespace af;

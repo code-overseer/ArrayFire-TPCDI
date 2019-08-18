@@ -2,7 +2,7 @@
 #define ARRAYFIRE_TPCDI_KERNELINTERFACE_CPP
 
 #include "include/KernelInterface.h"
-#include "include/KernelLauncher.h"
+#include "include/Kernels.h"
 #include "include/AFHashTable.h"
 #include "include/AFTypes.h"
 #include "include/Utils.h"
