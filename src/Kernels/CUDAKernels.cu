@@ -190,6 +190,20 @@ void launchNumericParse(T *output, ull const * idx, unsigned char const *input, 
     cudaDeviceSynchronize();
 
 }
+#define PARSER(TYPE) \
+template void launchNumericParse<TYPE>(TYPE *output, ull const * idx, unsigned char const *input, ull const rows);
+
+PARSER(unsigned char)
+PARSER(float)
+PARSER(double)
+PARSER(unsigned short)
+PARSER(short)
+PARSER(unsigned int)
+PARSER(int)
+PARSER(ull)
+PARSER(long long)
+
+#undef PARSER
 
 void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
