@@ -28,12 +28,14 @@ namespace Logger {
 
     inline void startCollection() {
         #ifdef ENABLE_ITT
+        af::sync();
         __itt_resume();
         #endif
     }
 
     inline void pauseCollection() {
         #ifdef ENABLE_ITT
+        af::sync();
         __itt_pause();
         #endif
     }
@@ -41,12 +43,14 @@ namespace Logger {
     inline void startTask(char const *taskname) {
         #ifdef ENABLE_ITT
         auto task = __itt_string_handle_create(taskname);
+        af::sync();
         __itt_task_begin(_domain, __itt_null, __itt_null, task);
         #endif
     }
 
     inline void endLastTask() {
         #ifdef ENABLE_ITT
+        af::sync();
         __itt_task_end(_domain);
         #endif
     }

@@ -179,7 +179,7 @@ af::array stringComp(af::array const &lhs, af::array const &rhs, af::array const
 
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {
-        out(out) = out(out) && TPCDI_Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
+        out(out) = out(out) && Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
     #else
     auto out_ptr = (bool *) out.device<char>();
@@ -209,7 +209,7 @@ af::array stringComp(af::array const &lhs, char const *rhs, af::array const &l_i
     auto out = l_idx.row(1) == loops;
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {
-        out(out) = out(out) && TPCDI_Utils::hflat(lhs(l_idx(0, out) + i) == rhs[i]);
+        out(out) = out(out) && Utils::hflat(lhs(l_idx(0, out) + i) == rhs[i]);
     }
     #else
     auto right = array(loops, rhs).as(u8);
