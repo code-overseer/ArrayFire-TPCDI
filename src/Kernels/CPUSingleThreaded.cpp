@@ -37,11 +37,16 @@ void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull co
 void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos, ull *l, ull *r,
                              ull const equals, ull const left_max, ull const right_max, ull const out_size) {
     for (int i = 0; i < equals; ++i) {
-        for (int j = 0; j < l_cnt[i]; ++j) {
-            for (int k = 0; k < r_cnt[i]; ++k) {
-                auto idx = outpos[i] + l_cnt[i] * k + j;
-                l[idx] = l_idx[i] + j;
-                r[idx] = r_idx[i] + k;
+        auto jlim = l_cnt[i];
+        auto klim = r_cnt[i];
+        auto left = l_idx[i];
+        auto right = r_idx[i];
+        auto pos = outpos[i];
+        for (int j = 0; j < jlim; ++j) {
+            for (int k = 0; k < klim; ++k) {
+                auto idx = pos + jlim * k + j;
+                l[idx] = left + j;
+                r[idx] = right + k;
             }
         }
     }
@@ -49,8 +54,11 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
 
 void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
     for (ull i = 0; i < rows; ++i) {
-        for (ull j = 0; j < idx[3 * i + 1]; ++j) {
-            output[idx[3 * i + 2] + j] = input[idx[3 * i] + j] * (j != (idx[3 * i + 1] - 1));
+        auto x = idx[3 * i];
+        auto y = idx[3 * i + 1];
+        auto z = idx[3 * i + 2];
+        for (ull j = 0; j < y; ++j) {
+            output[z + j] = input[x + j] * (j != (y - 1));
         }
     }
 }

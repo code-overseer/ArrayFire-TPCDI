@@ -5,9 +5,8 @@
 #include <exception>
 
 bool AFHashTable::_isPrime(const ull &x) {
-    double ceil = std::sqrt(x);
     uint32_t div = 3;
-    while (div <= ceil) {
+    while (div * div <= x) {
         if (!(x % div)) return false;
         div += 2;
     }

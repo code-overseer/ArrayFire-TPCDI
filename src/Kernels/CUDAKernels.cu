@@ -134,11 +134,11 @@ ull const rows, ulong const loops) {
     ull k = i % loops;
     if (j < rows) {
         ull const l_start = left_idx[2 * j];
-        ull const r_start = right_idx[2 * j];
-        ull const o_start = out_idx[2 * j];
         ull const l_end = left_idx[2 * j + 1] - 1;
-        ull const o_end = out_idx[2 * j + 1] - 1;
+        ull const r_start = right_idx[2 * j];
         ull const r_end = right_idx[2 * j + 1] - 1;
+        ull const o_start = out_idx[2 * j];
+        ull const o_end = out_idx[2 * j + 1] - 1;
 
         bool const b = k < o_end;
         bool const c = k < l_end;
