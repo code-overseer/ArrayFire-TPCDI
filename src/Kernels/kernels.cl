@@ -1,7 +1,7 @@
 __kernel void cross_intersect(__global char *result, __global ulong const *bag,
         __global ulong const *set, ulong const bag_size, ulong const set_size, ulong const offset) {
 
-    ulong const id = get_global_id(0);
+    ulong id = get_global_id(0);
     id += offset;
 
     ulong const i = id / set_size;
@@ -65,15 +65,14 @@ ulong const equals, ulong const left_max, ulong const right_max, ulong const out
 __kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,
         ulong const size, ulong const rows, ulong const loops) {
 
-    ulong const id = get_global_id(0);
-    ulong const r = id / loops;
-    ulong const l = id % loops;
+    ulong const r = get_global_id(0);
+    ulong const l = get_global_id(1);
     if (r < rows) {
         ulong const istart = idx[3 * r];
-        ulong const len = idx[3 * r + 1];
+        ulong const len = idx[3 * r + 1] - 1;
         ulong const ostart = idx[3 * r + 2];
-        if (l < len) {
-            output[ostart + l] = input[istart + l] * (l != (len - 1));
+        if (l <= len) {
+            output[ostart + l] = input[istart + l] * (l != len);
         }
     }
 }

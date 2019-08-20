@@ -60,10 +60,11 @@ int main(int argc, char *argv[]) {
 
 
     Logger::startTimer();
-    DimCompany();
+//    DimCompany();
 //    DimBroker();
 //    Financial();
 
+    test_String(DIR::FLOAT);
     Logger::logTime();
 
     return 0;

@@ -315,9 +315,11 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
         throw std::runtime_error(msg);
     }
     // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (work_items / local + ((work_items % local) ? 1 : 0));
-    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    size_t local[2] = { LOCAL_GROUP_SIZE, 1 };
+    size_t x = LOCAL_GROUP_SIZE * (rows / LOCAL_GROUP_SIZE + ((rows % LOCAL_GROUP_SIZE) ? 1 : 0));
+    size_t y = loops;
+    size_t  global[2] = { x, y };
+    err = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
         throw std::runtime_error(msg);

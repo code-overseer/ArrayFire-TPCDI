@@ -100,15 +100,14 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
 
 __global__ static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
 
-    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
-    ull const r = id / loops;
-    ull const l = id % loops;
+    ull const r = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+    ull const l = (ull)blockIdx.y * (ull)blockDim.y + (ull)threadIdx.x;
     if (r < rows) {
         ull const istart = idx[3 * r];
-        ull const len = idx[3 * r + 1];
+        ull const len = idx[3 * r + 1] - 1;
         ull const ostart = idx[3 * r + 2];
-        if (l < len) {
-            output[ostart + l] = input[istart + l] * (l != (len - 1));
+        if (l <= len) {
+            output[ostart + l] = input[istart + l] * (l != len);
         }
     }
 }
@@ -227,8 +226,9 @@ PARSER(long long)
 void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
     ull const threadCount = rows * loops;
-    ull const blocks = (threadCount/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
+    ull const x = (rows/THREAD_LIMIT) + 1;
+    ull const y = (loops/THREAD_LIMIT) + 1;
+    dim3 grid(x, y, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
     string_gather<<<grid, block>>>(output, idx, input, output_size, rows, loops);
     cudaDeviceSynchronize();
