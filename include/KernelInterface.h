@@ -4,7 +4,7 @@
 #include <arrayfire.h>
 class AFHashTable;
 
-af::array bagSetIntersect(af::array const &bag, af::array const &set);
+af::array crossIntersect(af::array const &bag, af::array const &set);
 
 af::array hashIntersect(af::array const &bag, AFHashTable const &ht);
 

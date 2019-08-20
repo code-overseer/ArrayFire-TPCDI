@@ -9,14 +9,27 @@
 #define THREAD_LIMIT 1024
 typedef unsigned long long ull;
 
-__global__ static void bag_set(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+__global__ static void cross_intersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
 
     const ull id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
 
 	 ull i = id / set_size;
 	 ull j = id % set_size;
 	 bool b = id < bag_size * set_size;
-	 if (b && set[j] == bag[i * b]) result[i] = 1;
+	 if (b && set[j] == bag[i]) result[i] = 1;
+}
+
+__global__ static void improved_cross_intersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+
+    const ull id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+    if (id < bag_size) {
+        bool out = 0;
+        ull const val = bag[id];
+        for (int i = 0; i < set_size; ++i) {
+            out |= val == set[i];
+        }
+        result[id] = out;
+    }
 }
 
 __global__ static void hash_intersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
@@ -26,11 +39,17 @@ __global__ static void hash_intersect(char *result, ull const *bag, ull const *h
     if (id < bag_size) {
         ull const val = bag[id];
         unsigned int const key = val % buckets;
+        // send all keys within block to shared memory
+        // sort keys in order
+        // now ht_occ and ht_ptr will have coalesced memory access
         unsigned int const len = ht_occ[key];
         ull const ptr = ht_ptr[key];
-
+        // send all lengths within block to shared memory
+        // send all ptrs within block to shared memory
+        // sort ptrs and lengths in order of lengths
+        // now divergence will be minimized, work efficiency increase
         char out = 0;
-        for (unsigned int i = 0; i < len; ++i) {
+        for (int i = 0; i < len; ++i) {
             out |= (ht_val[ptr + i] == val);
         }
         result[id] = out;
@@ -88,9 +107,9 @@ __global__ static void string_gather(unsigned char *output, ull const *idx, unsi
         ull const istart = idx[3 * r];
         ull const len = idx[3 * r + 1];
         ull const ostart = idx[3 * r + 2];
-        bool b = l < len;
-        bool c = l != len - 1;
-        output[b * (ostart + l) + !b * (size - 1)] = b * input[istart + b * l] * c;
+        if (l < len) {
+            output[ostart + l] = input[istart + l] * (l != (len - 1));
+        }
     }
 }
 
@@ -150,12 +169,12 @@ ull const rows, ulong const loops) {
     }
 }
 
-void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     ull const threadCount = bag_size * set_size;
     ull const blocks = (threadCount/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
-    bag_set<<<grid, block>>>(result, bag, set, bag_size, set_size);
+    cross_intersect<<<grid, block>>>(result, bag, set, bag_size, set_size);
     cudaDeviceSynchronize();
 }
 

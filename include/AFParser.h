@@ -4,10 +4,6 @@
 #include "Enums.h"
 #include <arrayfire.h>
 
-#ifndef ULL
-    #define ULL
-typedef unsigned long long ull;
-#endif
 
 class Column;
 
@@ -15,13 +11,11 @@ class AFParser {
 private:
     af::array _data = af::array(0, u8);
     af::array _indexer = af::array(0, u64);
-    ull _length = 0;
-    ull _width = 0;
+    unsigned long long _length = 0;
+    unsigned long long _width = 0;
     char _delimiter = 0;
     char const *_filename = nullptr;
-
     void _generateIndexer(bool hasHeader);
-
 public:
     AFParser(char const *filename, char delimiter, bool hasHeader = false);
 

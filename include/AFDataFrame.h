@@ -77,9 +77,13 @@ public:
 
     void clear();
 
-    static std::pair<af::array, af::array> setCompare(Column const &lhs, Column const &rhs);
+    static std::pair<af::array, af::array> hashCompare(Column const &lhs, Column const &rhs);
 
-    static std::pair<af::array, af::array> setCompare(af::array const &lhs, af::array const &rhs);
+    static std::pair<af::array, af::array> hashCompare(af::array const &left, af::array const &right);
+
+    static std::pair<af::array, af::array> crossCompare(Column const &lhs, Column const &rhs);
+
+    static std::pair<af::array, af::array> crossCompare(const af::array &left, const af::array &right);
 
     inline void printAllNames() { for (auto const &i : _nameToCol) printf("%s : %d\n", i.first.c_str(), i.second); }
 

@@ -6,12 +6,11 @@
 #include "AFHashTable.h"
 #include "AFTypes.h"
 #include "Utils.h"
-#include <algorithm>
-#ifndef ULL
-#define ULL
+#include <cstring>
+
 typedef unsigned long long ull;
-#endif
-af::array bagSetIntersect(af::array const &bag, af::array const &set) {
+
+af::array crossIntersect(af::array const &bag, af::array const &set) {
     using namespace af;
     auto const bag_size = bag.row(0).elements();
     auto const set_size = set.elements();
@@ -31,13 +30,12 @@ af::array bagSetIntersect(af::array const &bag, af::array const &set) {
     auto bag_ptr = bag.row(0).device<ull>();
     af::sync();
 
-    launchBagSet(result_ptr, bag_ptr, set_ptr, bag_size, set_size);
+    launchCrossIntersect(result_ptr, bag_ptr, set_ptr, bag_size, set_size);
 
     bag.unlock();
     set.unlock();
     result.unlock();
 #endif
-//    af_print(result)
 
     return bag(span, result);
 }
@@ -96,18 +94,18 @@ void joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     output_pos = (output_pos.elements() == 1) ? constant(0, 1, output_pos.type())
                                               : scan(output_pos, 1, AF_BINARY_ADD, false);
 #ifdef USING_AF
-    array left_out(1, output_size + 1, u64);
-    array right_out(1, output_size + 1, u64);
+    array left_out(1, output_size, u64);
+    array right_out(1, output_size, u64);
     auto i = range(dim4(1, equals * left_max * right_max), 1, u64);
     auto j = i / right_max % left_max;
     auto k = i % right_max;
     i = i / left_max / right_max;
-    auto b = !(j / left_count(i)) && !(k / right_count(i));
-    auto idx = b * (output_pos(i) + left_count(i) * k + j) + !b * output_size;
-    left_out(idx) = left_idx(i) + j;
-    right_out(idx) = right_idx(i) + k;
-    left_out = left_out.cols(0, end - 1);
-    right_out = right_out.cols(0, end - 1);
+    auto b = (j < left_count(i)) && (k < right_count(i));
+    auto idx = output_pos(i) + left_count(i) * k + j;
+    idx = idx(b);
+    i = i(b);
+    left_out(idx) = left_idx(i) + j(b);
+    right_out(idx) = right_idx(i) + k(b);
 #else
     array left_out(1, output_size, u64);
     array right_out(1, output_size, u64);
@@ -182,7 +180,7 @@ af::array stringComp(af::array const &lhs, af::array const &rhs, af::array const
         out(out) = out(out) && Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
     #else
-    auto out_ptr = (bool *) out.device<char>();
+    auto out_ptr = (bool*) out.device<char>();
     auto left_ptr = lhs.device<unsigned char>();
     auto right_ptr = rhs.device<unsigned char>();
     auto l_idx_ptr = l_idx.device<ull>();

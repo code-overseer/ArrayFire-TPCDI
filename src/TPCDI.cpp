@@ -369,14 +369,18 @@ AFDataFrame loadStagingWatches(char const* directory) {
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
     Logger::startCollection();
 
-    Logger::startTask("DimCompany Industry Status Join");
-    auto dimCompany = s_Company.equiJoin(industry,5,0).equiJoin(statusType,4,0).project(
+    Logger::startTask("DimCompany Industry Join");
+    auto dimCompany = s_Company.equiJoin(industry,5,0);
+    Logger::endLastTask();
+
+    Logger::startTask("DimCompany Status Join");
+    dimCompany = dimCompany.equiJoin(statusType,4,0);
+    Logger::endLastTask();
+    dimCompany = dimCompany.project(
             { "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING",
               "CEO_NAME", "ADDR_LINE_1","ADDR_LINE_2", "POSTAL_CODE","CITY","STATE_PROVINCE",
               "COUNTRY","DESCRIPTION","FOUNDING_DATE", "PTS"
             }, "DimCompany");
-    Logger::endLastTask();
-
     dimCompany("PTS").toDate();
     dimCompany.nameColumn("EffectiveDate", "PTS");
     dimCompany.insert(Column(range(dim4(1, dimCompany.rows()), 1, u64)), 0, "SK_CompanyID");
@@ -411,7 +415,7 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
     Logger::startTask("DimCompany EndDate ID");
-    auto out = AFDataFrame::setCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
+    auto out = AFDataFrame::hashCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
     Logger::endLastTask();
@@ -429,22 +433,28 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
     Logger::startTask("Financial CIK Trim");
     auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
     Logger::endLastTask();
-
-    Logger::startTask("Financial CIK Join");
+    Logger::startTask("Financial CIK Select And Cast");
     auto fin1 = s_Financial.select(cik);
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
+    Logger::endLastTask();
+
+    Logger::startTask("Financial CIK Join");
     financial = fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"}, "DC"),
             "CO_NAME_OR_CIK", "CompanyID");
+    Logger::endLastTask();
     financial.remove("CO_NAME_OR_CIK");
+
+    Logger::startTask("Financial Name Select");
+    fin1 = s_Financial.select(!cik);
     Logger::endLastTask();
 
     Logger::startTask("Financial Name Join");
-    fin1 = s_Financial.select(!cik).equiJoin(
+    fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"), "CO_NAME_OR_CIK", "Name");
-    fin1.remove("CO_NAME_OR_CIK");
     Logger::endLastTask();
 
+    fin1.remove("CO_NAME_OR_CIK");
     if (!fin1.isEmpty()) financial = financial.unionize(std::move(fin1));
     af::sync();
 
@@ -543,7 +553,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
 
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
     Logger::startTask("DimSecurity EndDate ID");
-    auto out = AFDataFrame::setCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
+    auto out = AFDataFrame::hashCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
     security("IsCurrent")(out.first) = 0;
     security("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
     Logger::endLastTask();

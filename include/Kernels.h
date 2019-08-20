@@ -1,8 +1,8 @@
 #ifndef ARRAYFIRE_TPCDI_KERNELS_H
 #define ARRAYFIRE_TPCDI_KERNELS_H
 
-void launchBagSet(char *result, unsigned long long const *bag, unsigned long long const *set,
-        unsigned long long bag_size, unsigned long long set_size);
+void launchCrossIntersect(char *result, unsigned long long const *bag, unsigned long long const *set,
+                          unsigned long long bag_size, unsigned long long set_size);
 
 void launchHashIntersect(char *result, unsigned long long const *bag, unsigned long long const *ht_val,
         unsigned long long const *ht_ptr, unsigned long long const *ht_occ, unsigned int buckets, unsigned long long bag_size);

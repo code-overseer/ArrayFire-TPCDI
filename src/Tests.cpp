@@ -1,16 +1,14 @@
 #include "Tests.h"
 #include "Utils.h"
 #include "KernelInterface.h"
-#ifndef ULL
-#define ULL
-    typedef unsigned long long ull;
-#endif
+
+typedef unsigned long long ull;
 using namespace Utils;
 
 void test_SignedInt(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<int>(0);
-//    result.printColumn();
+    result.printColumn();
     af::sync();
 }
 
@@ -31,7 +29,7 @@ void test_UChar(char const *filepath) {
 void test_Float(char const *filepath) {
     auto test = AFParser(filepath, ',', false);
     auto result = test.parse<float>(0);
-//    result.printColumn();
+    result.printColumn();
     af::sync();
 }
 
@@ -100,8 +98,8 @@ void testSetJoin() {
     }
     auto equalSet = hflat(setIntersect(setUnique(lhs.row(0)), setUnique(rhs.row(0)), true));
 
-    bagSetIntersect(lhs, equalSet);
-    bagSetIntersect(rhs, equalSet);
+    crossIntersect(lhs, equalSet);
+    crossIntersect(rhs, equalSet);
 
     auto equals = equalSet.elements();
 

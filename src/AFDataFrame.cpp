@@ -169,7 +169,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     if (left.type() != right.type()) throw std::runtime_error("Column type mismatch");
     if (left.isempty() || right.isempty()) return AFDataFrame();
 
-    auto idx = setCompare(left.hash(), right.hash());
+    auto idx = hashCompare(left.hash(), right.hash());
 
     if (idx.first.isempty()) return AFDataFrame();
 
@@ -195,16 +195,16 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     return result;
 }
 
-std::pair<af::array, af::array> AFDataFrame::setCompare(Column const &lhs, Column const &rhs) {
+std::pair<af::array, af::array> AFDataFrame::hashCompare(Column const &lhs, Column const &rhs) {
     if (lhs.type() != rhs.type()) throw std::runtime_error("Column type mismatch");
     if (lhs.isempty() || rhs.isempty()) return { af::array(0, u64), af::array(0, u64) };
     if (lhs.type() == STRING || lhs.type() == TIME || lhs.type() == DATE || lhs.type() == DATETIME) {
-        return setCompare(lhs.hash(), rhs.hash());
+        return hashCompare(lhs.hash(), rhs.hash());
     }
-    return setCompare(lhs.data(), rhs.data());
+    return hashCompare(lhs.data(), rhs.data());
 }
 
-std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array const &right) {
+std::pair<af::array, af::array> AFDataFrame::hashCompare(const array &left, const array &right) {
     if (left.isempty() || right.isempty()) return { af::array(0, u64), af::array(0, u64) };
     array lhs;
     array rhs;
@@ -215,7 +215,26 @@ std::pair<af::array, af::array> AFDataFrame::setCompare(array const &left, array
     rhs = join(0, rhs, idx.as(rhs.type()));
 
     AFHashTable ht(hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true)));
+    lhs = hashIntersect(lhs, ht);
+    rhs = hashIntersect(rhs, ht);
 
+    auto equals = ht.elements();
+    joinScatter(lhs, rhs, equals);
+
+    return { lhs, rhs };
+}
+
+std::pair<af::array, af::array> AFDataFrame::crossCompare(const array &left, const array &right) {
+    if (left.isempty() || right.isempty()) return { af::array(0, u64), af::array(0, u64) };
+    array lhs;
+    array rhs;
+    array idx;
+    sort(lhs, idx, left, 1);
+    lhs = join(0, lhs, idx.as(lhs.type()));
+    sort(rhs, idx, right, 1);
+    rhs = join(0, rhs, idx.as(rhs.type()));
+
+    auto set = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
     lhs = hashIntersect(lhs, ht);
     rhs = hashIntersect(rhs, ht);
 

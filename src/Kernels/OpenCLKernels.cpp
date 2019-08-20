@@ -123,17 +123,22 @@ static cl_command_queue create_queue(cl_context context) {
     return queue;
 }
 
+
+#ifdef REDUCE_THREADS
+#define LOCAL_GROUP_SIZE 64
+#else
 #define LOCAL_GROUP_SIZE 256
+#endif
 typedef unsigned long long ull;
 
-void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)result);
     cl_command_queue queue = create_queue(context);
     // Build the OpenCL program and get the kernel
     cl_program program = build_program(context);
-    cl_kernel kernel = create_kernel(program, "intersect_kernel");
+    cl_kernel kernel = create_kernel(program, "cross_intersect");
     ull work_items = bag_size * set_size;
     int32_t groups = (work_items / (ull)INT32_MAX) + ((work_items % (ull)INT32_MAX) ? 1Ull : 0Ull);
     auto remainder = bag_size % (INT32_MAX / set_size);
@@ -173,7 +178,6 @@ void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_si
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
-
 }
 
 void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,

@@ -8,7 +8,7 @@
 typedef unsigned long long ull;
 typedef unsigned long long int ulli;
 
-void launchBagSet(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     ull start = 0;
     for (int n = 0; n < bag_size; ++n) {
         for (ull i = start; i < set_size; start = ++i) {

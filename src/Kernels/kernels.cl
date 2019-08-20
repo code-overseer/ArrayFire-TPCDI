@@ -1,19 +1,33 @@
-__kernel void intersect_kernel(__global char *result, __global ulong const *bag,
+__kernel void cross_intersect(__global char *result, __global ulong const *bag,
         __global ulong const *set, ulong const bag_size, ulong const set_size, ulong const offset) {
 
-    ulong id = get_global_id(0);
+    ulong const id = get_global_id(0);
     id += offset;
 
     ulong const i = id / set_size;
     ulong const j = id % set_size;
     bool b = id - offset < bag_size * set_size;
-    if (b && set[j] == bag[i * b]) result[i] = 1;
+    if (b && set[j] == bag[i]) result[i] = 1;
 
+}
+
+__kernel void improved_cross_intersect(__global char *result, __global ulong const *bag,
+        __global ulong const *set, ulong const bag_size, ulong const set_size) {
+
+    ulong const id = get_global_id(0);
+    if (id < bag_size) {
+        bool out = 0;
+        ulong const val = bag[id];
+        for (int i = 0; i < set_size; ++i) {
+            out |= val == set[i];
+        }
+        result[id] = out;
+    }
 }
 
 __kernel void hash_intersect(__global char *result, __global ulong const *bag, __global ulong const *ht_val,
         __global ulong const *ht_ptr, __global ulong const *ht_occ, uint const buckets, ulong const bag_size) {
-ulong id = get_global_id(0);
+    ulong id = get_global_id(0);
     if (id < bag_size) {
         ulong const val = bag[id];
         uint const key = val % buckets;
@@ -56,11 +70,11 @@ __kernel void string_gather(__global uchar *output, __global ulong const *idx, _
     ulong const l = id % loops;
     if (r < rows) {
         ulong const istart = idx[3 * r];
-        ulong const len = idx[3 * r + 1] - 1;
+        ulong const len = idx[3 * r + 1];
         ulong const ostart = idx[3 * r + 2];
-        bool const b = l < len;
-        ulong const k = b * l + !b * len;
-        output[ostart + k] = b * input[istart + k];
+        if (l < len) {
+            output[ostart + l] = input[istart + l] * (l != (len - 1));
+        }
     }
 }
 
