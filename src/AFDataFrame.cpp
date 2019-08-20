@@ -204,6 +204,15 @@ std::pair<af::array, af::array> AFDataFrame::hashCompare(Column const &lhs, Colu
     return hashCompare(lhs.data(), rhs.data());
 }
 
+std::pair<af::array, af::array> AFDataFrame::crossCompare(Column const &lhs, Column const &rhs) {
+    if (lhs.type() != rhs.type()) throw std::runtime_error("Column type mismatch");
+    if (lhs.isempty() || rhs.isempty()) return { af::array(0, u64), af::array(0, u64) };
+    if (lhs.type() == STRING || lhs.type() == TIME || lhs.type() == DATE || lhs.type() == DATETIME) {
+        return crossCompare(lhs.hash(), rhs.hash());
+    }
+    return crossCompare(lhs.data(), rhs.data());
+}
+
 std::pair<af::array, af::array> AFDataFrame::hashCompare(const array &left, const array &right) {
     if (left.isempty() || right.isempty()) return { af::array(0, u64), af::array(0, u64) };
     array lhs;
@@ -235,10 +244,10 @@ std::pair<af::array, af::array> AFDataFrame::crossCompare(const array &left, con
     rhs = join(0, rhs, idx.as(rhs.type()));
 
     auto set = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
-    lhs = hashIntersect(lhs, ht);
-    rhs = hashIntersect(rhs, ht);
+    lhs = crossIntersect(lhs, set);
+    rhs = crossIntersect(rhs, set);
 
-    auto equals = ht.elements();
+    auto equals = set.elements();
     joinScatter(lhs, rhs, equals);
 
     return { lhs, rhs };

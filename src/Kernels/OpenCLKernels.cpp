@@ -4,7 +4,6 @@
 #include "Kernels.h"
 #include "AFTypes.h"
 #include "Utils.h"
-#include <arrayfire.h>
 #include <exception>
 #include <string>
 #include <cstdio>
