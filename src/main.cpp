@@ -63,8 +63,7 @@ int main(int argc, char *argv[]) {
 //    DimCompany();
 //    DimBroker();
 //    Financial();
-
-    test_String(DIR::FLOAT);
+    FinWire();
     Logger::logTime();
 
     return 0;

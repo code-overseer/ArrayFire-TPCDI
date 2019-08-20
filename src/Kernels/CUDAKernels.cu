@@ -11,12 +11,11 @@ typedef unsigned long long ull;
 
 __global__ static void cross_intersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
 
-    const ull id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
-
-	 ull i = id / set_size;
-	 ull j = id % set_size;
-	 bool b = id < bag_size * set_size;
-	 if (b && set[j] == bag[i]) result[i] = 1;
+    const ull i = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+    if (i < bag_size) {
+        ull const j = (ull)blockIdx.y;
+        if (set[j] == bag[i]) result[i] = 1;
+    }
 }
 
 __global__ static void improved_cross_intersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
@@ -59,21 +58,19 @@ __global__ static void hash_intersect(char *result, ull const *bag, ull const *h
 __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                          ull  *l, ull *r, ull const equals, ull const l_max, ull const r_max, ull const dump) {
 
-    ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+    ull const i = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
+    if (i < equals) {
+        ull const j = (ull)blockIdx.y;
+        ull const k = (ull)blockIdx.z;
+        ull const left = l_cnt[i];
 
-    bool b = id < equals * l_max * r_max;
-    ull i = id / l_max / r_max * b;
-    ull j = id / r_max % l_max;
-    ull k = id % r_max;
-    ull left = l_cnt[i];
-    ull right = r_cnt[i];
-    ull pos = outpos[i];
-    
-    if (b && !(j / left) && !(k / right)) {
-        left = pos + left * k + j;
-        l[left] = l_idx[i] + j;
-        r[left] = r_idx[i] + k;
+        if (j < left && k < r_cnt[i]) {
+            ull const pos = outpos[i] + left * k + j;
+            l[pos] = l_idx[i] + j;
+            r[pos] = r_idx[i] + k;
+        }
     }
+
 }
 template<typename T>
 __global__ static void parser(T *output, ull const *idx, unsigned char const *input, ull const rows) {
@@ -101,7 +98,7 @@ __global__ static void parser(T *output, ull const *idx, unsigned char const *in
 __global__ static void string_gather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
 
     ull const r = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
-    ull const l = (ull)blockIdx.y * (ull)blockDim.y + (ull)threadIdx.x;
+    ull const l = (ull)blockIdx.y;
     if (r < rows) {
         ull const istart = idx[3 * r];
         ull const len = idx[3 * r + 1] - 1;
@@ -136,7 +133,7 @@ __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned
         ulong const l_start = l_idx[2 * id];
         bool out = output[id];
 
-        for (long long i = 0; i < loops; ++i) {
+        for (int i = 0; i < loops; ++i) {
             out &= left[l_start + i] == right[i];
         }
         output[id] = out;
@@ -170,8 +167,8 @@ ull const rows, ulong const loops) {
 
 void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     ull const threadCount = bag_size * set_size;
-    ull const blocks = (threadCount/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
+    ull const blocks = (bag_size/THREAD_LIMIT) + 1;
+    dim3 grid(blocks, set_size, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
     cross_intersect<<<grid, block>>>(result, bag, set, bag_size, set_size);
     cudaDeviceSynchronize();
@@ -190,8 +187,10 @@ void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull co
 void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                       ull *left, ull *right, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
     ull const threadCount = equals * left_max * right_max;
-    ull const blocks = (threadCount/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
+    ull const x = (equals/THREAD_LIMIT) + 1;
+    ull const y = left_max;
+    ull const z = right_max;
+    dim3 grid(blocks, left_max, right_max);
     dim3 block(THREAD_LIMIT, 1, 1);
     join_scatter<<<grid, block>>>(l_idx, r_idx, l_cnt, r_cnt, outpos, left, right, equals, left_max, right_max, out_size);
     cudaDeviceSynchronize();
@@ -227,8 +226,7 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
         ull const rows, ull const loops) {
     ull const threadCount = rows * loops;
     ull const x = (rows/THREAD_LIMIT) + 1;
-    ull const y = (loops/THREAD_LIMIT) + 1;
-    dim3 grid(x, y, 1);
+    dim3 grid(x, loops, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
     string_gather<<<grid, block>>>(output, idx, input, output_size, rows, loops);
     cudaDeviceSynchronize();

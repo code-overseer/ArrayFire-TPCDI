@@ -182,11 +182,11 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     }
 
     AFDataFrame result;
-    for (size_t i = 0; i < _data.size(); i++) {
+    for (size_t i = 0; i < columns(); i++) {
         result.add(_data[i].select(idx.first), _colToName.at(i));
     }
 
-    for (size_t i = 0; i < rhs._data.size(); i++) {
+    for (size_t i = 0; i < rhs.columns(); i++) {
         if (i == rhs_column) continue;
         result.add(rhs._data[i].select(idx.second),
                    (rhs.name() + "." + rhs._colToName.at(i)));

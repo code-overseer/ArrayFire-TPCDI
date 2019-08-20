@@ -1,28 +1,13 @@
 __kernel void cross_intersect(__global char *result, __global ulong const *bag,
         __global ulong const *set, ulong const bag_size, ulong const set_size, ulong const offset) {
 
-    ulong id = get_global_id(0);
-    id += offset;
-
-    ulong const i = id / set_size;
-    ulong const j = id % set_size;
-    bool b = id - offset < bag_size * set_size;
-    if (b && set[j] == bag[i]) result[i] = 1;
-
-}
-
-__kernel void improved_cross_intersect(__global char *result, __global ulong const *bag,
-        __global ulong const *set, ulong const bag_size, ulong const set_size) {
-
-    ulong const id = get_global_id(0);
-    if (id < bag_size) {
-        bool out = 0;
-        ulong const val = bag[id];
-        for (int i = 0; i < set_size; ++i) {
-            out |= val == set[i];
-        }
-        result[id] = out;
+    ulong i = (ulong)get_global_id(0);
+    if (i < bag_size) {
+        i += offset;
+        ulong const j = get_global_id(1);
+        if (bag[i] == set[j]) result[i] = 1;
     }
+
 }
 
 __kernel void hash_intersect(__global char *result, __global ulong const *bag, __global ulong const *ht_val,
@@ -46,20 +31,19 @@ __kernel void join_scatter(__global ulong const *il, __global ulong const *ir, _
         __global ulong const *cr, __global ulong const *outpos,  __global ulong *l, __global ulong *r,
 ulong const equals, ulong const left_max, ulong const right_max, ulong const out_size) {
 
-    ulong const id = get_global_id(0);
-    bool b = id < equals * left_max * right_max;
-    ulong const i = id / left_max / right_max * b;
-    ulong const j = id / right_max % left_max;
-    ulong const k = id % right_max;
-    ulong left = cl[i];
-    ulong right = cr[i];
-    ulong pos = outpos[i];
+    ulong const i = get_global_id(0);
+    if (i < equals) {
+        ulong const j = get_global_id(1);
+        ulong const k = get_global_id(2);
+        ulong const left = cl[i];
 
-    if (b && !(j / left) && !(k / right)) {
-        pos += (left * k + j);
-        l[pos] = il[i] + j;
-        r[pos] = ir[i] + k;
+        if (j < left && k < cr[i]) {
+            ulong const pos = outpos[i] + left * k + j;
+            l[pos] = il[i] + j;
+            r[pos] = ir[i] + k;
+        }
     }
+
 }
 
 __kernel void string_gather(__global uchar *output, __global ulong const *idx, __global uchar const *input,

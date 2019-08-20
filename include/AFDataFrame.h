@@ -93,7 +93,7 @@ public:
 
     inline bool isEmpty() { return _data.empty() || _data[0].isempty(); }
 
-    inline size_t columns() { return _data.size(); }
+    inline size_t columns() const { return _data.size(); }
 
     inline size_t rows() const { return _data.empty() ? 0 : _data[0].length(); }
 

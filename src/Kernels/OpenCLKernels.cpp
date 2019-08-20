@@ -163,10 +163,10 @@ void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull cons
             throw std::runtime_error(msg);
         }
         // Set launch configuration parameters and launch kernel
-        auto num = b_size * set_size;
-        size_t local = LOCAL_GROUP_SIZE;
-        size_t global = local * (num / local + ((num % local) ? 1 : 0));
-        err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+        size_t local[2] = { LOCAL_GROUP_SIZE, 1 };
+        size_t x = LOCAL_GROUP_SIZE * (b_size / LOCAL_GROUP_SIZE + ((b_size % LOCAL_GROUP_SIZE) ? 1 : 0));
+        size_t global[2] = { x, set_size };
+        err = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, NULL);
         if (err != CL_SUCCESS) {
             sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
             throw std::runtime_error(msg);
@@ -268,9 +268,10 @@ void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull 
 
     auto num = left_max * right_max * equals;
     // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (num / local + ((num % local) ? 1 : 0));
-    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
+    size_t local[3] = { LOCAL_GROUP_SIZE, 1, 1 };
+    size_t x = LOCAL_GROUP_SIZE * (equals / LOCAL_GROUP_SIZE + ((equals % LOCAL_GROUP_SIZE) ? 1 : 0));
+    size_t  global[3] = { x, left_max, right_max };
+    err = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, global, local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
         throw std::runtime_error(msg);

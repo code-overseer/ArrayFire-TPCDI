@@ -437,7 +437,6 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
     auto fin1 = s_Financial.select(cik);
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
     Logger::endLastTask();
-
     Logger::startTask("Financial CIK Join");
     financial = fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"}, "DC"),
@@ -450,11 +449,11 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
     Logger::endLastTask();
 
     Logger::startTask("Financial Name Join");
-    fin1.equiJoin(
+    fin1 = fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"), "CO_NAME_OR_CIK", "Name");
     Logger::endLastTask();
-
     fin1.remove("CO_NAME_OR_CIK");
+
     if (!fin1.isEmpty()) financial = financial.unionize(std::move(fin1));
     af::sync();
 
