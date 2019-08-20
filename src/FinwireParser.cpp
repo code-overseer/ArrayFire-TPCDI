@@ -4,6 +4,7 @@
 #include "KernelInterface.h"
 #include "Logger.h"
 
+typedef unsigned long long ull;
 using namespace af;
 using namespace Utils;
 
@@ -47,7 +48,7 @@ af::array FinwireParser::filterRowsByCategory(const FinwireParser::RecordType &t
 AFDataFrame FinwireParser::extractCmp() const {
     callGC();
     AFDataFrame output;
-    ull const *lengths = _CMPLengths;
+    int const *lengths = _CMPLengths;
 
     Logger::startTask("CMP columns extraction");
     auto rows = filterRowsByCategory(CMP);
@@ -69,7 +70,7 @@ AFDataFrame FinwireParser::extractCmp() const {
 AFDataFrame FinwireParser::extractFin() const {
     callGC();
     AFDataFrame output;
-    ull const *lengths = _FINLengths;
+    int const *lengths = _FINLengths;
 
     Logger::startTask("FIN columns extraction");
     auto rows = filterRowsByCategory(FIN);
@@ -95,7 +96,7 @@ AFDataFrame FinwireParser::extractFin() const {
 
 AFDataFrame FinwireParser::extractSec() const {
     callGC();
-    ull const *lengths = _SECLengths;
+    int const *lengths = _SECLengths;
     AFDataFrame output;
 
     Logger::startTask("SEC columns extraction");
