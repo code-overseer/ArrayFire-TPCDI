@@ -170,7 +170,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     if (left.isempty() || right.isempty()) return AFDataFrame();
     puts("Joining...");
     printf("Left: %lu rows, Right:%lu rows, ", left.length(), right.length());
-
+    Logger::startTimer("Join Time");
     auto idx = hashCompare(left.hash(), right.hash());
 
     if (idx.first.isempty()) return AFDataFrame();
@@ -194,6 +194,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
                    (rhs.name() + "." + rhs._colToName.at(i)));
     }
     printf("Output: %zu rows\n", result.rows());
+    Logger::logTime("Join Time");
     return result;
 }
 
