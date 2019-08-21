@@ -12,10 +12,12 @@ FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     Logger::startTask("Finwire files concat");
     auto text = collect(files);
     if (text.back() != '\n') text += '\n';
+
     Logger::endLastTask();
     Logger::startTask("Finwire load");
     _data = array(text.size(), text.c_str()).as(u8);
-    auto row_end = hflat(where(_data == '\n')).as(u64);
+
+    auto row_end = hflat(where64(_data == '\n'));
     auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
     _data.eval();
@@ -32,9 +34,14 @@ Column FinwireParser::_extract(array &start, unsigned int const length, FinwireP
         start += length;
     }
     auto out = stringGather(_data, idx);
+    
     out.eval();
     idx.eval();
-    return Column(std::move(out), std::move(idx));
+    af::sync();
+    
+    auto co = Column(std::move(out), std::move(idx));
+    //    if (length ==15) af_print(co.data().rows(0, 15));
+    return co;
 }
 
 af::array FinwireParser::filterRowsByCategory(const FinwireParser::RecordType &type) const {
@@ -102,13 +109,17 @@ AFDataFrame FinwireParser::extractSec() const {
     Logger::startTask("SEC columns extraction");
     auto rows = filterRowsByCategory(SEC);
     af::array start = _indexer(0, rows);
+    int i = 0;
     while(*lengths) {
         output.add(_extract(start, *lengths, SEC));
+        if (i++ == 0) output(0).toDateTime(YYYYMMDD);
         ++lengths;
     }
+
     Logger::endLastTask();
     Logger::startTask("SEC columns parsing");
-    output(0).toDateTime(YYYYMMDD);
+    //    output(0).toDateTime(YYYYMMDD);
+    //    af_print(output(0).col(0));
     output(7).cast<unsigned long long>();
     output(8).toDate(false, YYYYMMDD);
     output(9).toDate(false, YYYYMMDD);

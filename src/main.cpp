@@ -64,6 +64,7 @@ int main(int argc, char *argv[]) {
 //    DimBroker();
 //    Financial();
     FinWire();
+
     Logger::logTime();
 
     return 0;
