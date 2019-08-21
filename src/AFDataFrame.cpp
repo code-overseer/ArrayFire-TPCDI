@@ -168,6 +168,8 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
     auto &right = rhs._data[rhs_column];
     if (left.type() != right.type()) throw std::runtime_error("Column type mismatch");
     if (left.isempty() || right.isempty()) return AFDataFrame();
+    puts("Joining...");
+    printf("Left: %lu rows, Right:%lu rows, ", left.length(), right.length());
 
     auto idx = hashCompare(left.hash(), right.hash());
 
@@ -191,7 +193,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         result.add(rhs._data[i].select(idx.second),
                    (rhs.name() + "." + rhs._colToName.at(i)));
     }
-
+    printf("Output: %zu rows\n", result.rows());
     return result;
 }
 
@@ -218,15 +220,17 @@ std::pair<af::array, af::array> AFDataFrame::hashCompare(const array &left, cons
     array lhs;
     array rhs;
     array idx;
+
     sort(lhs, idx, left, 1);
     lhs = join(0, lhs, idx.as(lhs.type()));
+
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
 
     AFHashTable ht(hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true)));
     lhs = hashIntersect(lhs, ht);
     rhs = hashIntersect(rhs, ht);
-
+    
     auto equals = ht.elements();
     joinScatter(lhs, rhs, equals);
 

@@ -15,7 +15,7 @@ FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     Logger::endLastTask();
     Logger::startTask("Finwire load");
     _data = array(text.size(), text.c_str()).as(u8);
-    auto row_end = hflat(where64(_data == '\n'));
+    auto row_end = hflat(where(_data == '\n')).as(u64);
     auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
     _data.eval();

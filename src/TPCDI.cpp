@@ -458,6 +458,7 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
     af::sync();
 
     financial("PTS").toDate();
+    
     financial = financial.select(
             financial("DC.EffectiveDate") <= financial("PTS") &&
             financial("DC.EndDate") > financial("PTS")
@@ -509,10 +510,11 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
         part2 = part2.select(
                 part2("DC.EffectiveDate") <= part2("EffectiveDate") &&
                 part2("DC.EndDate") > part2("EffectiveDate"));
+        
         security = part1.unionize(part2);
+
         Logger::endLastTask();
     }
-
     Logger::startTask("DimSecurity Status Join");
     security = security.equiJoin(StatusType, "STATUS", "ST_ID").project(
             {"SYMBOL","ISSUE_TYPE", "StatusType.ST_NAME" ,"NAME","EX_ID", "DC.SK_CompanyID",

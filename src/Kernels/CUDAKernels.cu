@@ -190,7 +190,7 @@ void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull 
     ull const x = (equals/THREAD_LIMIT) + 1;
     ull const y = left_max;
     ull const z = right_max;
-    dim3 grid(blocks, left_max, right_max);
+    dim3 grid(x, left_max, right_max);
     dim3 block(THREAD_LIMIT, 1, 1);
     join_scatter<<<grid, block>>>(l_idx, r_idx, l_cnt, r_cnt, outpos, left, right, equals, left_max, right_max, out_size);
     cudaDeviceSynchronize();

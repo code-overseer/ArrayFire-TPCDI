@@ -26,6 +26,7 @@ AFHashTable::AFHashTable(Column const &col) {
 }
 
 void AFHashTable::_generate() {
+    using namespace Utils;
     _values.eval();
     _buckets = _getPrime(_values.elements());
 
@@ -33,9 +34,12 @@ void AFHashTable::_generate() {
     auto keys = (_values % _buckets).as(u64);
     af::sort(keys, _values, keys, _values, 1);
 
-    auto bins = af::accum(af::join(1, af::constant(0, 1, b8), diff1(keys, 1) > 0), 1);
-    bins = Utils::hflat(histogram(bins, bins.elements())).as(_occ.type());
-    bins = bins(bins > 0);
+    // auto bins = af::accum(af::join(1, af::constant(0, 1, b8), diff1(keys, 1) > 0), 1);
+    // bins = Utils::hflat(histogram(bins, bins.elements())).as(_occ.type());
+    // bins = bins(bins > 0);
+    auto diffe = diff1(keys, 1) > 0;
+    auto bins = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - where64(join(1, af::constant(1,1,diffe.type()), diffe)) + 1);
+
     _occ(setUnique(keys, true)) = bins;
     _occ.eval();
 
