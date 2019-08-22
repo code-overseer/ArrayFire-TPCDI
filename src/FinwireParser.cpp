@@ -25,25 +25,6 @@ FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     Logger::endLastTask();
 }
 
-Column FinwireParser::_extract(array &start, unsigned int const length, FinwireParser::RecordType const &type) const {
-    af::array idx;
-    if (type != CMP && length == 60) {
-        idx = join(0, start, hflat((_data(start) != '0') * 50 + 11).as(start.type()));
-    } else {
-        idx = join(0, start, constant(length + 1, start.dims(), start.type()));
-        start += length;
-    }
-    auto out = stringGather(_data, idx);
-    
-    out.eval();
-    idx.eval();
-    af::sync();
-    
-    auto co = Column(std::move(out), std::move(idx));
-    //    if (length ==15) af_print(co.data().rows(0, 15));
-    return co;
-}
-
 af::array FinwireParser::filterRowsByCategory(const FinwireParser::RecordType &type) const {
     using namespace BatchFunctions;
     auto recType = af::batchFunc(_indexer.row(0), range(dim4(3), 0, u64) + 15, batchAdd);
@@ -56,20 +37,18 @@ AFDataFrame FinwireParser::extractCmp() const {
     callGC();
     AFDataFrame output;
     int const *lengths = _CMPLengths;
-
+    print("CMP");
     Logger::startTask("CMP columns extraction");
     auto rows = filterRowsByCategory(CMP);
     af::array start = _indexer(0, rows);
+    for (int i = 0; *lengths; ++lengths, ++i) {
+        if (i == 3) output.add(parse<unsigned long long>(start, *lengths));
+        else output.add(_extract(start, *lengths, CMP));
 
-    while(*lengths) {
-        output.add(_extract(start, *lengths, CMP));
-        ++lengths;
+        if (i == 0) output(i).toDateTime(YYYYMMDD);
+        else if (i == 7) output(i).toDate(false, YYYYMMDD);
+        start += *lengths;
     }
-    Logger::endLastTask();
-    Logger::startTask("CMP columns parsing");
-    output(0).toDateTime(YYYYMMDD);
-    output(3).cast<unsigned long long>();
-    output(7).toDate(false, YYYYMMDD);
     Logger::endLastTask();
     return output;
 }
@@ -78,52 +57,76 @@ AFDataFrame FinwireParser::extractFin() const {
     callGC();
     AFDataFrame output;
     int const *lengths = _FINLengths;
-
+    print("FIN");
     Logger::startTask("FIN columns extraction");
+
     auto rows = filterRowsByCategory(FIN);
     af::array start = _indexer(0, rows);
-    while(*lengths) {
-        output.add(_extract(start, *lengths, FIN));
-        ++lengths;
-    }
-    Logger::endLastTask();
+    for (int i = 0; *lengths; ++lengths, ++i) {
+        if (i == 2) output.add(parse<unsigned short>(start, *lengths));
+        else if (i == 3) output.add(parse<unsigned char>(start, *lengths));
+        else if (i >= 6 && i < 14) output.add(parse<double>(start, *lengths));
+        else if (i >= 14 && i < 16) output.add(parse<unsigned long long>(start, *lengths));
+        else output.add(_extract(start, *lengths, FIN));
 
-    Logger::startTask("FIN columns parsing");
-    output(0).toDateTime(YYYYMMDD);
-    output(2).cast<unsigned short>();
-    output(3).cast<unsigned char>();
-    output(4).toDate(false, YYYYMMDD);
-    output(5).toDate(false, YYYYMMDD);
-    for (int i = 6; i < 14; ++i) output(i).cast<double>();
-    output(14).cast<unsigned long long>();
-    output(15).cast<unsigned long long>();
+        if (i == 0) output(i).toDateTime(YYYYMMDD);
+        else if (i == 4 || i == 5) output(i).toDate(false, YYYYMMDD);
+
+        start += *lengths;
+    }
     Logger::endLastTask();
     return output;
 }
 
 AFDataFrame FinwireParser::extractSec() const {
     callGC();
+    print("SEC");
     int const *lengths = _SECLengths;
     AFDataFrame output;
 
     Logger::startTask("SEC columns extraction");
     auto rows = filterRowsByCategory(SEC);
     af::array start = _indexer(0, rows);
-    int i = 0;
-    while(*lengths) {
-        output.add(_extract(start, *lengths, SEC));
-        if (i++ == 0) output(0).toDateTime(YYYYMMDD);
-        ++lengths;
-    }
 
+    for (int i = 0; *lengths; ++lengths, ++i) {
+        if (i == 7) output.add(parse<unsigned long long>(start, *lengths));
+        else if (i == 10) output.add(parse<double>(start, *lengths));
+        else output.add(_extract(start, *lengths, SEC));
+
+        if (i == 0) output(i).toDateTime(YYYYMMDD);
+        else if (i == 8 || i == 9) output(i).toDate(false, YYYYMMDD);
+        start += *lengths;
+    }
     Logger::endLastTask();
-    Logger::startTask("SEC columns parsing");
-    //    output(0).toDateTime(YYYYMMDD);
-    //    af_print(output(0).col(0));
-    output(7).cast<unsigned long long>();
-    output(8).toDate(false, YYYYMMDD);
-    output(9).toDate(false, YYYYMMDD);
-    output(10).cast<double>();
-    Logger::endLastTask();
+
     return output;
+}
+
+template<typename T>
+Column FinwireParser::parse(const af::array& start, unsigned int const length) const {
+    auto idx = join(0,start, constant(length + 1, start.dims(), start.type()));
+    return Column(numericParse<T>(_data, idx));
+}
+template Column FinwireParser::parse<unsigned char>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<short>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<unsigned short>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<int>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<unsigned int>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<long long>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<double>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<float>(const af::array& start, unsigned int const length) const;
+template Column FinwireParser::parse<unsigned long long>(const af::array& start, unsigned int const length) const;
+template<> Column FinwireParser::parse<char*>(const af::array& start, unsigned int const length) const {
+    if (!length) return Column(array(0, u8), array(0,u64));
+    auto idx = join(0,start, constant(length + 1, start.dims(), start.type()));
+    auto out = stringGather(_data, idx);
+    return Column(std::move(out), std::move(idx));
+}
+Column FinwireParser::_extract(const array &start, unsigned int const length, FinwireParser::RecordType const &type) const {
+    if (type != CMP && length == 60) {
+        auto idx = join(0, start, hflat((_data(start) != '0') * 50 + 11).as(start.type()));
+        auto out = stringGather(_data, idx);
+        return Column(std::move(out), std::move(idx));
+    }
+    return parse<char*>(start, length);
 }

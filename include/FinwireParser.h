@@ -37,7 +37,7 @@ private:
     af::array _data;
     af::array _indexer;
 
-    Column _extract(af::array &start, unsigned int length, RecordType const &type) const;
+    Column _extract(const af::array &start, unsigned int length, RecordType const &type) const;
 
 public:
     AFDataFrame extractCmp() const;
@@ -57,6 +57,8 @@ public:
     inline Finwire extractData() const { return Finwire(extractCmp(), extractFin(), extractSec()); }
 
     af::array filterRowsByCategory(const RecordType &type) const;
+    template <typename T>
+    Column parse(const af::array& start, unsigned int const length) const;
 };
 
 #endif //ARRAYFIRE_TPCDI_FINWIREPARSER_H
