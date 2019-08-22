@@ -46,6 +46,8 @@ AFDataFrame loadTaxRate(char const *directory);
 
 AFDataFrame loadTradeType(char const *directory);
 
+AFDataFrame loadStagingMarket(char const *directory);
+
 AFDataFrame loadAudit(char const *directory);
 
 AFDataFrame loadStagingSecurity(char const *directory);

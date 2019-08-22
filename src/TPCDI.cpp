@@ -142,6 +142,25 @@ AFDataFrame loadTradeType(char const* directory) {
     return frame;
 }
 
+AFDataFrame loadStagingMarket(char const* directory) {
+    char file[128];
+    strcpy(file, directory);
+    strcat(file, "DailyMarket.txt");
+    AFDataFrame frame;
+    AFParser parser(file, '|', false);
+
+    frame.add(parser.parse<char*>(0), "DM_DATE");
+    frame(0).toDate(true);
+    frame.add(parser.parse<char*>(1), "DM_S_SYMB");
+    frame.add(parser.parse<float>(2), "DM_CLOSE");
+    frame.add(parser.parse<float>(3), "DM_HIGH");
+    frame.add(parser.parse<float>(4), "DM_LOW");
+    frame.add(parser.parse<unsigned long long>(5), "DM_VOL");
+
+    callGC();
+    return frame;
+}
+
 AFDataFrame loadAudit(char const* directory) {
     AFDataFrame frame;
     std::string dir(directory);

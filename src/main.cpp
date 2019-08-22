@@ -70,6 +70,11 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+void DailyMarket() {
+    auto d = loadStagingMarket(DIR::DIRECTORY);
+    d.flushToHost();
+}
+
 void experiment() {
     auto batchDate = loadBatchDate(DIR::DIRECTORY);
     print("DimDate");
@@ -136,6 +141,10 @@ void experiment() {
     auto dimBroker = loadDimBroker(DIR::DIRECTORY, dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
+
+    print("Stagin Market");
+    auto market = loadStagingMarket(DIR::DIRECTORY);
+    market.flushToHost();
 }
 
 void DimCompany() {
