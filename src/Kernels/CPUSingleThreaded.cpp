@@ -1,13 +1,12 @@
-#if (!defined(USING_OPENCL) && !defined(USING_CUDA))
-#include <cstdio>
+#if !defined(USING_CUDA) && !defined(USING_OPENCL)
+#include "Kernels.h"
 #include <cstdlib>
 #include <cstring>
-#include "Kernels.h"
 
 typedef unsigned long long ull;
-typedef unsigned long long int ulli;
 
-void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
+void launchCrossIntersect(char *result, unsigned long long const *bag, unsigned long long const *set,
+                          unsigned long long bag_size, unsigned long long set_size) {
     ull start = 0;
     for (int n = 0; n < bag_size; ++n) {
         for (ull i = start; i < set_size; start = ++i) {
@@ -19,22 +18,23 @@ void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull cons
     }
 }
 
-void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
-                                unsigned int const buckets, ull const bag_size) {
+void launchHashIntersect(char *result, unsigned long long const *bag, unsigned long long const *ht_val,
+                         unsigned long long const *ht_ptr, unsigned long long const *ht_occ, unsigned int buckets, unsigned long long bag_size) {
     for (ull i = 0; i < bag_size; ++i) {
         auto key = bag[i] % buckets;
         auto val = result[i];
         auto len = ht_occ[key];
         auto ptr = ht_ptr[key];
-        for (uint j = 0; j < len && !val; ++j) {
+        for (int j = 0; j < len && !val; ++j) {
             val = bag[i] == ht_val[ptr + j];
         }
         result[i] = val;
     }
 }
 
-void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos, ull *l, ull *r,
-                             ull const equals, ull const left_max, ull const right_max, ull const out_size) {
+void lauchJoinScatter(unsigned long long const *l_idx, unsigned long long const *r_idx, unsigned long long const *l_cnt,
+                      unsigned long long const *r_cnt, unsigned long long const *outpos, unsigned long long *l, unsigned long long *r,
+                      unsigned long long equals, unsigned long long left_max, unsigned long long right_max, unsigned long long out_size) {
     for (int i = 0; i < equals; ++i) {
         auto jlim = l_cnt[i];
         auto klim = r_cnt[i];
@@ -51,7 +51,8 @@ void inline lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cn
     }
 }
 
-void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const size, ull const rows, ull const loops) {
+void launchStringGather(unsigned char *output, unsigned long long const *idx, unsigned char const *input,
+                        unsigned long long output_size, unsigned long long rows, unsigned long long loops) {
     for (ull i = 0; i < rows; ++i) {
         auto x = idx[3 * i];
         auto y = idx[3 * i + 1];
@@ -63,13 +64,14 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
-                    ull const *l_idx, ull const *r_idx, ull const rows) {
+                      unsigned long long const *l_idx, unsigned long long const *r_idx, unsigned long long rows) {
     for (int i = 0; i < rows; ++i) {
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)(right + r_idx[2 * i]));
     }
 }
 
-void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,  ull const rows, ull const loops) {
+void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
+                      unsigned long long const *l_idx, unsigned long long rows, unsigned long long loops) {
     for (int i = 0; i < rows; ++i) {
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)right);
     }
@@ -103,11 +105,28 @@ template<> inline long long convert<long long>(const unsigned char *start) {
     return std::strtoll((char const*)start, nullptr, 10);
 }
 
-template<typename T> void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows) {
+template<typename T>
+void launchNumericParse(T *output, unsigned long long const * idx, unsigned char const *input,
+                        unsigned long long rows) {
     for (ull i = 0; i < rows; ++i) {
         auto start = input + idx[2 * i];
         output[i] = *(start) == '\0' ? 0 : convert<T>(start);
     }
 }
 
-#endif // !defined(USING_OPENCL) && !defined(USING_CUDA)
+#define PARSER(TYPE) \
+template void launchNumericParse<TYPE>(TYPE *output, ull const * idx, unsigned char const *input, ull const rows);
+
+PARSER(unsigned char)
+PARSER(float)
+PARSER(double)
+PARSER(unsigned short)
+PARSER(short)
+PARSER(unsigned int)
+PARSER(int)
+PARSER(ull)
+PARSER(long long)
+
+#undef PARSER
+
+#endif
