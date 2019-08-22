@@ -516,6 +516,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
         Logger::endLastTask();
     }
     Logger::startTask("DimSecurity Status Join");
+
     security = security.equiJoin(StatusType, "STATUS", "ST_ID").project(
             {"SYMBOL","ISSUE_TYPE", "StatusType.ST_NAME" ,"NAME","EX_ID", "DC.SK_CompanyID",
              "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "EffectiveDate" }, "DimSecurity");

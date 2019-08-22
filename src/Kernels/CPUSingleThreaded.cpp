@@ -1,5 +1,4 @@
-#if (!defined(ARRAYFIRE_TPCDI_SINGLE_THREADED_H) && !defined(USING_OPENCL) && !defined(USING_CUDA))
-#define ARRAYFIRE_TPCDI_SINGLE_THREADED_H
+#if (!defined(USING_OPENCL) && !defined(USING_CUDA))
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -111,4 +110,4 @@ template<typename T> void launchNumericParse(T *output, ull const * idx, unsigne
     }
 }
 
-#endif //ARRAYFIRE_TPCDI_SINGLE_THREADED_H
+#endif // !defined(USING_OPENCL) && !defined(USING_CUDA)

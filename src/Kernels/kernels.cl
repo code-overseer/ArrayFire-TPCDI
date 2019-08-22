@@ -58,10 +58,6 @@ __kernel void string_gather(__global uchar *output, __global ulong const *idx, _
         if (l <= len) {
             output[ostart + l] = input[istart + l] * (l != len);
         }
-        // bool b = l < len;
-        // ulong k = b * l + !b * len;
-        // output[ostart + k] = input[istart + k] * b;
-        
     }
 }
 

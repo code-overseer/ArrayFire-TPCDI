@@ -1,5 +1,4 @@
-#ifndef ARRAYFIRE_TPCDI_OPENCL_KERNELS_CPP
-#define ARRAYFIRE_TPCDI_OPENCL_KERNELS_CPP
+#ifdef USING_OPENCL
 
 #include "Kernels.h"
 #include "AFTypes.h"

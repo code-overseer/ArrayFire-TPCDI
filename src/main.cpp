@@ -36,12 +36,12 @@ int main(int argc, char *argv[]) {
     using namespace af;
     #if defined(USING_OPENCL)
         setBackend(AF_BACKEND_OPENCL);
+        setDevice(3);
     #elif defined(USING_CUDA)
         setBackend(AF_BACKEND_CUDA);
     #else
         setBackend(AF_BACKEND_CPU);
     #endif
-
     if (argc == 2 && !strcmp(argv[1], "-i")) {
         info();
         return 0;

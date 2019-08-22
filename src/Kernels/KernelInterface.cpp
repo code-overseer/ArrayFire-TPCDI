@@ -1,6 +1,3 @@
-#ifndef ARRAYFIRE_TPCDI_KERNELINTERFACE_CPP
-#define ARRAYFIRE_TPCDI_KERNELINTERFACE_CPP
-
 #include "KernelInterface.h"
 #include "Kernels.h"
 #include "AFHashTable.h"
@@ -290,4 +287,3 @@ PARSER(ull)
 PARSER(long long)
 
 #undef PARSER
-#endif //ARRAYFIRE_TPCDI_KERNELINTERFACE_CPP
