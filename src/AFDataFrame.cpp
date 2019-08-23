@@ -227,13 +227,19 @@ std::pair<af::array, af::array> AFDataFrame::hashCompare(const array &left, cons
 
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
+    auto l_set = setUnique(lhs.row(0), true);
+    auto r_set = setUnique(rhs.row(0), true);
+    auto l_num = l_set.elements();
+    auto r_num = r_set.elements();
+    auto i_set = hflat(setIntersect(l_set, r_set, true));
+    l_set = af::array();
+    r_set = af::array();
+    AFHashTable ht(std::move(i_set));
+    auto i_num = ht.elements();
+    if (l_num != i_num) lhs = hashIntersect(lhs, ht);
+    if (r_num != i_num) rhs = hashIntersect(rhs, ht);
 
-    AFHashTable ht(hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true)));
-    lhs = hashIntersect(lhs, ht);
-    rhs = hashIntersect(rhs, ht);
-    
-    auto equals = ht.elements();
-    joinScatter(lhs, rhs, equals);
+    joinScatter(lhs, rhs, i_num);
 
     return { lhs, rhs };
 }
@@ -247,12 +253,18 @@ std::pair<af::array, af::array> AFDataFrame::crossCompare(const array &left, con
     lhs = join(0, lhs, idx.as(lhs.type()));
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
+    auto l_set = setUnique(lhs.row(0), true);
+    auto r_set = setUnique(rhs.row(0), true);
+    auto l_num = l_set.elements();
+    auto r_num = r_set.elements();
+    auto i_set = hflat(setIntersect(l_set, r_set, true));
+    l_set = af::array();
+    r_set = af::array();
+    auto i_num = i_set.elements();
+    if (l_num != i_num) lhs = crossIntersect(lhs, i_set);
+    if (r_num != i_num) rhs = crossIntersect(rhs, i_set);
 
-    auto set = hflat(setIntersect(setUnique(lhs.row(0), true), setUnique(rhs.row(0), true), true));
-    lhs = crossIntersect(lhs, set);
-    rhs = crossIntersect(rhs, set);
-
-    auto equals = set.elements();
+    auto equals = i_set.elements();
     joinScatter(lhs, rhs, equals);
 
     return { lhs, rhs };

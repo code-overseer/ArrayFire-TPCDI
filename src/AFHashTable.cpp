@@ -14,7 +14,8 @@ bool AFHashTable::_isPrime(const ull &x) {
 }
 
 unsigned int AFHashTable::_getPrime(ull x) {
-    x = x | 1Ull;
+    x = 2 * x + 1;
+//    x = x | 1Ull;
     while (!_isPrime(x)) x+= 2Ull;
     if (x > UINT32_MAX) throw std::runtime_error("HashTable size limit exceeded");
     return x;

@@ -3,8 +3,9 @@
 #include "Kernels.h"
 #include "AFTypes.h"
 #include "Utils.h"
-#include <arrayfire.h>
 #include <cuda.h>
+#include <utility>
+#include <cuda_profiler_api.h>
 
 #define THREAD_LIMIT 1024
 typedef unsigned long long ull;
@@ -153,44 +154,60 @@ ull const rows, ulong const loops) {
     }
 }
 
+static std::pair<ull, int> blockFinder(ull const size) {
+    ull out = (size >> 5u) + (size & ((1u << 5u) - 1)) > 0;
+    for (unsigned int i = 6; i < 11; ++i) {
+        ull tmp = (size >> i) + (size & ((1u << i) - 1)) > 0;
+        if (tmp == out) return { out, 1u << (i - 1) };
+        else out = tmp;
+    }
+    return { out, THREAD_LIMIT };
+}
+
 void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
-    ull const threadCount = bag_size * set_size;
-    ull const blocks = (bag_size/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, set_size, 1);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    auto layout = blockFinder(bag_size);
+    dim3 grid(layout.first, set_size, 1);
+    dim3 block(layout.second, 1, 1);
+    cudaProfilerStart();
     cross_intersect<<<grid, block>>>(result, bag, set, bag_size, set_size);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 }
 
 void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
                                 unsigned int const buckets, ull const bag_size) {
-    ull const threadCount = bag_size;
-    ull const blocks = (threadCount/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    auto layout = blockFinder(bag_size);
+    dim3 grid(layout.first, 1, 1);
+    dim3 block(layout.second, 1, 1);
+    cudaProfilerStart();
     hash_intersect<<<grid, block>>>(result, bag, ht_val, ht_ptr, ht_occ, buckets, bag_size);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 }
 
 void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                       ull *left, ull *right, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
-    ull const x = (equals/THREAD_LIMIT) + 1;
+    auto layout = blockFinder(equals);
     ull const y = left_max;
     ull const z = right_max;
-    dim3 grid(x, left_max, right_max);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    dim3 grid(layout.first, left_max, right_max);
+    dim3 block(layout.second, 1, 1);
+    cudaProfilerStart();
     join_scatter<<<grid, block>>>(l_idx, r_idx, l_cnt, r_cnt, outpos, left, right, equals, left_max, right_max, out_size);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 }
 
 template<typename T>
 void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows) {
-    ull const blocks = (rows/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    auto layout = blockFinder(rows);
+    dim3 grid(layout.first, 1, 1);
+    dim3 block(layout.second, 1, 1);
 
+    cudaProfilerStart();
     parser<T><<<grid, block>>>(output, idx, input, rows);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 
 }
 #define PARSER(TYPE) \
@@ -210,31 +227,38 @@ PARSER(long long)
 
 void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
-    ull const x = (rows/THREAD_LIMIT) + 1;
-    dim3 grid(x, 1, 1);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    auto layout = blockFinder(rows);
+    dim3 grid(layout.first, 1, 1);
+    dim3 block(layout.second, 1, 1);
+
+    cudaProfilerStart();
     string_gather<<<grid, block>>>(output, idx, input, rows);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
                       ull const *l_idx, ull const *r_idx, unsigned int const *mask, ull const rows) {
-    ull const blocks = (rows/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    auto layout = blockFinder(rows);
+    dim3 grid(layout.first, 1, 1);
+    dim3 block(layout.second, 1, 1);
 
+    cudaProfilerStart();
     str_cmp<<<grid, block>>>(output, left, right, l_idx, r_idx, mask, rows);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
                       ull const rows, ull const loops) {
-    ull const blocks = (rows/THREAD_LIMIT) + 1;
-    dim3 grid(blocks, 1, 1);
-    dim3 block(THREAD_LIMIT, 1, 1);
+    auto layout = blockFinder(rows);
+    dim3 grid(layout.first, 1, 1);
+    dim3 block(layout.second, 1, 1);
 
+    cudaProfilerStart();
     str_cmp<<<grid, block>>>(output, left, right, l_idx, rows, loops);
     cudaDeviceSynchronize();
+    cudaProfilerStop();
 }
 
 #endif

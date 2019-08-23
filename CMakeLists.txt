@@ -35,9 +35,6 @@ if (USING_OPENCL)
     add_definitions( -DUSING_OPENCL )
     FIND_PACKAGE(OpenCL REQUIRED)
     INCLUDE_DIRECTORIES( ${OpenCL_INCLUDE_DIRS})
-    if ( REDUCE_THREADS )
-        add_definitions( -DREDUCE_THREADS )
-    endif()
 endif()
 
 add_executable(ArrayFire-TPCDI

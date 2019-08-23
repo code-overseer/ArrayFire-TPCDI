@@ -59,7 +59,8 @@ af::array hashIntersect(af::array const &bag, AFHashTable const &ht) {
     auto bag_ptr = bag.row(0).device<ull>();
     af::sync();
 
-    launchHashIntersect(result_ptr, bag_ptr, ht.values(), ht.pointers(), ht.occupancy(), ht.buckets(), bag_size);
+    if (bag_size > 64) launchHashIntersect(result_ptr, bag_ptr, ht.values(), ht.pointers(), ht.occupancy(), ht.buckets(), bag_size);
+    else launchCrossIntersect(result_ptr, bag_ptr, ht.values(), bag_size, ht.getValues().elements());
 
     bag.unlock();
     ht.unlock();

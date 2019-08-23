@@ -122,12 +122,25 @@ static cl_command_queue create_queue(cl_context context) {
 }
 
 
-#ifdef REDUCE_THREADS
-#define LOCAL_GROUP_SIZE 64
-#else
 #define LOCAL_GROUP_SIZE 256
-#endif
 typedef unsigned long long ull;
+
+static std::pair<size_t, size_t> blockFinder(ull const size) {
+    #ifdef IS_APPLE
+        #define GRANULARITY 6u
+    #else
+        #define GRANULARITY 5u
+    #endif
+    ull out = (size >> GRANULARITY) + ((size & ((1u << GRANULARITY) - 1)) > 0);
+    for (unsigned int i = GRANULARITY + 1; i < 9; ++i) {
+        ull tmp = (size >> i) + ((size & ((1u << i) - 1)) > 0);
+        if (tmp == out) {
+            size_t local = 1u << (i - 1);
+            return { local * out, local };
+        } else out = tmp;
+    }
+    return { LOCAL_GROUP_SIZE * out, LOCAL_GROUP_SIZE };
+}
 
 void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     char msg[128];
@@ -162,9 +175,9 @@ void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull cons
             throw std::runtime_error(msg);
         }
         // Set launch configuration parameters and launch kernel
-        size_t local[2] = { LOCAL_GROUP_SIZE, 1 };
-        size_t x = LOCAL_GROUP_SIZE * (b_size / LOCAL_GROUP_SIZE + ((b_size % LOCAL_GROUP_SIZE) ? 1 : 0));
-        size_t global[2] = { x, set_size };
+        auto layout = blockFinder(bag_size);
+        size_t local[2] = { layout.second, 1 };
+        size_t global[2] = { layout.first, set_size };
         err = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, NULL);
         if (err != CL_SUCCESS) {
             sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -210,8 +223,9 @@ void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull co
         throw std::runtime_error(msg);
     }
     // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (bag_size / local + ((bag_size % local) ? 1 : 0));
+    auto layout = blockFinder(bag_size);
+    size_t local = layout.second;
+    size_t global = layout.first;
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -265,11 +279,10 @@ void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull 
         throw std::runtime_error(msg);
     }
 
-    auto num = left_max * right_max * equals;
     // Set launch configuration parameters and launch kernel
-    size_t local[3] = { LOCAL_GROUP_SIZE, 1, 1 };
-    size_t x = LOCAL_GROUP_SIZE * (equals / LOCAL_GROUP_SIZE + ((equals % LOCAL_GROUP_SIZE) ? 1 : 0));
-    size_t  global[3] = { x, left_max, right_max };
+    auto layout = blockFinder(equals);
+    size_t local[3] = { layout.second, 1, 1 };
+    size_t  global[3] = { layout.first, left_max, right_max };
     err = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, global, local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -315,10 +328,9 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
         throw std::runtime_error(msg);
     }
     // Set launch configuration parameters and launch kernel
-    size_t local[2] = { LOCAL_GROUP_SIZE, 1 };
-    size_t x = LOCAL_GROUP_SIZE * (rows / LOCAL_GROUP_SIZE + ((rows % LOCAL_GROUP_SIZE) ? 1 : 0));
-    size_t y = loops;
-    size_t  global[2] = { x, y };
+    auto layout = blockFinder(rows);
+    size_t local[2] = { layout.second, 1 };
+    size_t  global[2] = { layout.first, loops };
     err = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, global, local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -365,10 +377,10 @@ void launchStringComp(bool *output, unsigned char const *left, unsigned char con
         throw std::runtime_error(msg);
     }
 
-    auto num = rows;
     // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (num / local + ((num % local) ? 1 : 0));
+    auto layout = blockFinder(rows);
+    size_t local = layout.second;
+    size_t global = layout.first;
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -414,8 +426,9 @@ void launchStringComp(bool *output, unsigned char const *left, unsigned char con
     }
 
     // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    auto layout = blockFinder(rows);
+    size_t local = layout.second;
+    size_t global = layout.first;
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
@@ -460,8 +473,9 @@ void launchNumericParse(T *output, ull const * idx, unsigned char const *input, 
     }
 
     // Set launch configuration parameters and launch kernel
-    size_t local = LOCAL_GROUP_SIZE;
-    size_t global = local * (rows / local + ((rows % local) ? 1 : 0));
+    auto layout = blockFinder(rows);
+    size_t local = layout.second;
+    size_t global = layout.first;
     err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, &local, 0, NULL, NULL);
     if (err != CL_SUCCESS) {
         sprintf(msg, "OpenCL Error(%d): Failed to enqueue kernel\n", err);
