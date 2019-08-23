@@ -18,19 +18,6 @@ __global__ static void cross_intersect(char *result, ull const *bag, ull const *
     }
 }
 
-__global__ static void improved_cross_intersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
-
-    const ull id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
-    if (id < bag_size) {
-        bool out = 0;
-        ull const val = bag[id];
-        for (int i = 0; i < set_size; ++i) {
-            out |= val == set[i];
-        }
-        result[id] = out;
-    }
-}
-
 __global__ static void hash_intersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
                                unsigned int const buckets, ull const bag_size) {
     ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
@@ -108,19 +95,22 @@ __global__ static void string_gather(unsigned char *output, ull const *idx, unsi
 }
 
 __global__ static void str_cmp(bool *output, unsigned char const *left, unsigned char const *right,
-                               ull const *l_idx, ull const *r_idx, ull const rows) {
+                               ull const *l_idx, ull const *r_idx, unsigned int const * mask, ull const rows) {
     ull const id = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (id < rows) {
-        ull const l_start = l_idx[2 * id];
-        ull const r_start = r_idx[2 * id];
-        ull const len = l_idx[2 * id + 1];
-        bool out = output[id];
+        unsigned int i = mask[id];
 
-        for (long long i = 0; i < len; ++i) {
-            out &= (len < i || left[l_start + i] == right[r_start + i]);
+        ull const l_start = l_idx[2 * i];
+        ull const len = l_idx[2 * i + 1];
+        ull const r_start = r_idx[2 * i];
+
+        bool out = 1;
+
+        for (long long j = 0; j < len; ++j) {
+            out &= left[l_start + j] == right[r_start + j];
         }
 
-        output[id] = out;
+        output[i] = out;
     }
 }
 

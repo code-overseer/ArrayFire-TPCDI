@@ -36,7 +36,6 @@ int main(int argc, char *argv[]) {
     using namespace af;
     #if defined(USING_OPENCL)
         setBackend(AF_BACKEND_OPENCL);
-        setDevice(3);
     #elif defined(USING_CUDA)
         setBackend(AF_BACKEND_CUDA);
     #else

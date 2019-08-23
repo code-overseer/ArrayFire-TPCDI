@@ -333,7 +333,7 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, unsigned long long const *l_idx,
-                      unsigned long long const *r_idx, unsigned long long const rows) {
+                      unsigned long long const *r_idx, unsigned int const *mask, unsigned long long const rows) {
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -355,6 +355,8 @@ void launchStringComp(bool *output, unsigned char const *left, unsigned char con
     err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &l_idx);
     if (err != CL_SUCCESS) goto ARG_FAIL;
     err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &r_idx);
+    if (err != CL_SUCCESS) goto ARG_FAIL;
+    err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &mask);
     if (err != CL_SUCCESS) goto ARG_FAIL;
     err = clSetKernelArg(kernel, arg, sizeof(ull), &rows);
     if (err != CL_SUCCESS) {

@@ -169,23 +169,25 @@ af::array stringGather(af::array const &input, af::array &indexer) {
 
 af::array stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
+    if (l_idx.elements() != r_idx.elements()) throw std::runtime_error("Expected columns with same length");
     auto out = l_idx.row(1) == r_idx.row(1);
     auto loops = sum<ull>(max(l_idx(1, out)));
-
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {
         out(out) = out(out) && Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
     #else
+    auto mask_idx = where(out);
     auto out_ptr = (bool*) out.device<char>();
     auto left_ptr = lhs.device<unsigned char>();
     auto right_ptr = rhs.device<unsigned char>();
     auto l_idx_ptr = l_idx.device<ull>();
     auto r_idx_ptr = r_idx.device<ull>();
-    auto const rows = l_idx.elements() / 2;
+    auto mask_idx_ptr = mask_idx.device<unsigned int>();
+    auto const rows = mask_idx.elements();
     af::sync();
 
-    launchStringComp(out_ptr, left_ptr, right_ptr, l_idx_ptr, r_idx_ptr, rows);
+    launchStringComp(out_ptr, left_ptr, right_ptr, l_idx_ptr, r_idx_ptr, mask_idx_ptr, rows);
 
     out.unlock();
     lhs.unlock();

@@ -16,7 +16,7 @@ void launchStringGather(unsigned char *output, unsigned long long const *idx, un
         unsigned long long output_size, unsigned long long rows, unsigned long long loops);
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
-        unsigned long long const *l_idx, unsigned long long const *r_idx, unsigned long long rows);
+        unsigned long long const *l_idx, unsigned long long const *r_idx, unsigned int const* mask, unsigned long long rows);
 
 template<typename T>
 void launchNumericParse(T *output, unsigned long long const * idx, unsigned char const *input,

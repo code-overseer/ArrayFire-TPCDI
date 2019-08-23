@@ -62,17 +62,19 @@ __kernel void string_gather(__global uchar *output, __global ulong const *idx, _
 }
 
 __kernel void str_cmp(__global bool *output, __global uchar const *left, __global uchar const *right,
-        __global ulong const *l_idx, __global ulong const *r_idx, ulong const rows) {
-ulong const id = get_global_id(0);
+        __global ulong const *l_idx, __global ulong const *r_idx, __global uint const* mask, ulong const rows) {
+    ulong const id = get_global_id(0);
     if (id < rows) {
-        ulong const l_start = l_idx[2 * id];
-        ulong const len = l_idx[2 * id + 1];
-        ulong const r_start = r_idx[2 * id];
-        bool out = output[id];
-        for (ulong i = 0; i < len; ++i) {
-            out &= left[l_start + i] == right[r_start + i];
+        uint const i = mask[id];
+        ulong const l_start = l_idx[2 * i];
+        ulong const l_len = l_idx[2 * i + 1];
+        ulong const r_start = r_idx[2 * i];
+
+        bool out = 1;
+        for (int j = 0; j < l_len; ++j) {
+            out &= left[l_start + j] == right[r_start + j];
         }
-        output[id] = out;
+        output[i] = out;
     }
 }
 

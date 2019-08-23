@@ -64,8 +64,9 @@ void launchStringGather(unsigned char *output, unsigned long long const *idx, un
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
-                      unsigned long long const *l_idx, unsigned long long const *r_idx, unsigned long long rows) {
-    for (int i = 0; i < rows; ++i) {
+                      unsigned long long const *l_idx, unsigned long long const *r_idx, unsigned int const *mask, unsigned long long rows) {
+    for (int j = 0; j < rows; ++j) {
+        unsigned int i = mask[j];
         output[i] = !strcmp((char*)(left + l_idx[2 * i]), (char*)(right + r_idx[2 * i]));
     }
 }
