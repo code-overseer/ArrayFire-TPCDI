@@ -218,12 +218,12 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right,
-                      ull const *l_idx, ull const *r_idx, ull const rows) {
+                      ull const *l_idx, ull const *r_idx, unsigned int const *mask, ull const rows) {
     ull const blocks = (rows/THREAD_LIMIT) + 1;
     dim3 grid(blocks, 1, 1);
     dim3 block(THREAD_LIMIT, 1, 1);
 
-    str_cmp<<<grid, block>>>(output, left, right, l_idx, r_idx, rows);
+    str_cmp<<<grid, block>>>(output, left, right, l_idx, r_idx, mask, rows);
     cudaDeviceSynchronize();
 }
 
