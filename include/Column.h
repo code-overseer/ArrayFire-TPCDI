@@ -146,6 +146,8 @@ public:
 
     inline size_t length() const { return (_type == STRING) ? _idx.dims(1) : _device.dims(1); }
 
+
+
     #define ASSIGN(OP) \
     af::array operator OP (Column const &other);
 

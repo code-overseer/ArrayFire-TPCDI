@@ -115,6 +115,119 @@ AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
     return output;
 }
 
+AFDataFrame AFDataFrame::sum(std::string const &col, str_list group_by) const {
+    AFDataFrame output;
+    auto const &agg = _data[_nameToCol.at(col)];
+    if (agg.type() == STRING || agg.type() == DATE || agg.type() == TIME || agg.type() == DATETIME) {
+        throw std::runtime_error("Expected numeric type to aggregate");
+    }
+    if (!group_by.size()) {
+        output.add(Column(af::sum(agg.data(), 1)), "SUM("+col+")");
+        return output;
+    }
+    af::array group_key = _data[_nameToCol.at(*group_by.begin())].hash();
+    int j = 0;
+    for (auto i = group_by.begin() + 1; i != group_by.end(); ++i, j = !j) {
+        if (!j) group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() << 2);
+        else group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() >> 2);
+    }
+    auto to_sum(agg.data());
+    af::array output_group_idx;
+    sort(group_key, output_group_idx, group_key, 1);
+    to_sum = to_sum(output_group_idx);
+
+    auto diffe = diff1(group_key, 1) > 0;
+    auto indexer = where64(join(1, af::constant(1,1,diffe.type()), diffe));
+    auto key_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - indexer + 1); // histogram
+
+    auto loops = af::sum<unsigned long long>(af::max(key_count, 1));
+    auto summation = af::constant(0, key_count.dims(), to_sum.type());
+    for (ull i = 0; i < loops; ++i) {
+        auto b = i < key_count;
+        summation(b) += (to_sum(indexer(b) + i) + 0);
+    }
+
+    output.add(Column(summation), "SUM("+col+")");
+    for (const auto & i : group_by) {
+        output.add(_data[_nameToCol.at(i)].select(output_group_idx), i);
+    }
+
+    return output;
+}
+
+AFDataFrame AFDataFrame::average(std::string const &col, str_list group_by) const {
+    AFDataFrame output;
+    auto const &agg = _data[_nameToCol.at(col)];
+    if (agg.type() == STRING || agg.type() == DATE || agg.type() == TIME || agg.type() == DATETIME) {
+        throw std::runtime_error("Expected numeric type to aggregate");
+    }
+    if (!group_by.size()) {
+        output.add(Column(af::sum(agg.data(), 1) / agg.length()), "AVG("+col+")");
+        return output;
+    }
+    af::array group_key = _data[_nameToCol.at(*group_by.begin())].hash();
+    int j = 0;
+    for (auto i = group_by.begin() + 1; i != group_by.end(); ++i, j = !j) {
+        if (!j) group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() << 2);
+        else group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() >> 2);
+    }
+    auto to_sum(agg.data());
+    af::array output_group_idx;
+    sort(group_key, output_group_idx, group_key, 1);
+    to_sum = to_sum(output_group_idx);
+
+    auto diffe = diff1(group_key, 1) > 0;
+    auto indexer = where64(join(1, af::constant(1,1,diffe.type()), diffe));
+    auto key_count = hflat(where64(join(1, diffe, af::constant(1, 1, diffe.type()))) - indexer + 1); // histogram
+
+    auto loops = af::sum<unsigned long long>(af::max(key_count, 1));
+    auto summation = af::constant(0, key_count.dims(), to_sum.type());
+    for (ull i = 0; i < loops; ++i) {
+        auto b = i < key_count;
+        summation(b) += (to_sum(indexer(b) + i) + 0);
+    }
+
+    output.add(Column(summation / key_count), "AVG("+col+")");
+    for (const auto & i : group_by) {
+        output.add(_data[_nameToCol.at(i)].select(output_group_idx), i);
+    }
+
+    return output;
+}
+
+AFDataFrame AFDataFrame::count(std::string const &col, str_list group_by) const {
+    AFDataFrame output;
+    auto const &agg = _data[_nameToCol.at(col)];
+    if (!group_by.size()) {
+        output.add(Column(af::array(agg.length(), u64)), "COUNT("+col+")");
+        return output;
+    }
+    if (agg.type() == STRING || agg.type() == DATE || agg.type() == TIME || agg.type() == DATETIME) {
+        throw std::runtime_error("Expected numeric type to aggregate");
+    }
+    af::array group_key = _data[_nameToCol.at(*group_by.begin())].hash();
+    int j = 0;
+    for (auto i = group_by.begin() + 1; i != group_by.end(); ++i, j = !j) {
+        if (!j) group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() << 2);
+        else group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() >> 2);
+    }
+
+    af::array output_group_idx;
+    sort(group_key, output_group_idx, group_key, 1);
+
+    auto diffe = diff1(group_key, 1) > 0;
+    auto indexer = where64(join(1, af::constant(1,1,diffe.type()), diffe));
+    // ArrayFire's histogram may have a small bug that occurs when the integer sets are too big
+    auto key_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - indexer + 1); // histogram
+
+    output.add(Column(key_count), "COUNT("+col+")");
+    for (const auto & i : group_by) {
+        output.add(_data[_nameToCol.at(i)].select(output_group_idx), i);
+    }
+
+    return output;
+}
+
 AFDataFrame AFDataFrame::unionize(AFDataFrame &frame) const {
     if (_data.size() != frame._data.size()) throw std::runtime_error("Number of attributes do not match");
     auto out(*this);
@@ -292,5 +405,7 @@ void AFDataFrame::clear() {
     _colToName.clear();
     _nameToCol.clear();
 }
+
+
 
 

@@ -22,11 +22,6 @@ private:
 public:
     AFDataFrame() = default;
 
-    virtual ~AFDataFrame() {
-        _data.clear();
-        af::deviceGC();
-    }
-
     AFDataFrame(AFDataFrame &&other) noexcept;
 
     AFDataFrame(AFDataFrame const &other) = default;
@@ -55,9 +50,13 @@ public:
 
     AFDataFrame unionize(AFDataFrame &frame) const;
 
-    AFDataFrame unionize(AFDataFrame &&frame) const { return unionize(frame); }
-
     AFDataFrame zip(AFDataFrame const &rhs) const;
+
+    AFDataFrame sum(std::string const &col, str_list group_by) const;
+
+    AFDataFrame average(std::string const &col, str_list group_by) const;
+
+    AFDataFrame count(std::string const &col, str_list group_by) const;
 
     void sortBy(unsigned int col, bool isAscending = true);
 
@@ -84,6 +83,8 @@ public:
     static std::pair<af::array, af::array> crossCompare(Column const &lhs, Column const &rhs);
 
     static std::pair<af::array, af::array> crossCompare(const af::array &left, const af::array &right);
+
+    inline AFDataFrame unionize(AFDataFrame &&frame) const { return unionize(frame); }
 
     inline void printAllNames() { for (auto const &i : _nameToCol) printf("%s : %d\n", i.first.c_str(), i.second); }
 
