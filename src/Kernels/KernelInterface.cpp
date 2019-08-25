@@ -73,19 +73,16 @@ af::array hashIntersect(af::array const &bag, AFHashTable const &ht) {
 void joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace Utils;
-    auto left_count = accum(join(1, constant(1, 1, u64), (diff1(lhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    left_count = hflat(histogram(left_count, left_count.elements())).as(u64);
-    left_count = left_count(left_count > 0);
-    auto left_max = sum<unsigned int>(max(left_count, 1));
-    auto left_idx = (left_count.elements() == 1) ? constant(0, 1, left_count.type())
-                                                 : scan(left_count, 1, AF_BINARY_ADD, false);
 
-    auto right_count = accum(join(1, constant(1, 1, u64), (diff1(rhs.row(0), 1) > 0).as(u64)), 1) - 1;
-    right_count = hflat(histogram(right_count, right_count.elements())).as(u64);
-    right_count = right_count(right_count > 0);
+    auto diffe = diff1(lhs.row(0), 1) > 0;
+    auto left_idx = where64(join(1, af::constant(1,1,diffe.type()), diffe));
+    auto left_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - left_idx + 1); // histogram
+    auto left_max = sum<unsigned int>(max(left_count, 1));
+
+    diffe = diff1(rhs.row(0), 1) > 0;
+    auto right_idx = where64(join(1, af::constant(1,1,diffe.type()), diffe));
+    auto right_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - right_idx + 1); // histogram
     auto right_max = sum<unsigned int>(max(right_count, 1));
-    auto right_idx = (right_count.elements() == 1) ? constant(0, 1, right_count.type())
-                                                   : scan(right_count, 1, AF_BINARY_ADD, false);
 
     auto output_pos = right_count * left_count;
     auto output_size = sum<ull>(output_pos);

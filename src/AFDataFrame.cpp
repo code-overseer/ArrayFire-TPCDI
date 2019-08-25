@@ -337,22 +337,21 @@ std::pair<af::array, af::array> AFDataFrame::hashCompare(const array &left, cons
 
     sort(lhs, idx, left, 1);
     lhs = join(0, lhs, idx.as(lhs.type()));
-
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
-    auto l_set = setUnique(lhs.row(0), true);
-    auto r_set = setUnique(rhs.row(0), true);
-    auto l_num = l_set.elements();
-    auto r_num = r_set.elements();
-    auto i_set = hflat(setIntersect(l_set, r_set, true));
-    l_set = af::array();
-    r_set = af::array();
-    AFHashTable ht(std::move(i_set));
-    auto i_num = ht.elements();
-    if (l_num != i_num) lhs = hashIntersect(lhs, ht);
-    if (r_num != i_num) rhs = hashIntersect(rhs, ht);
 
-    joinScatter(lhs, rhs, i_num);
+    auto set = setUnique(rhs.row(0), true);
+    auto set_num = af::sum<unsigned int>(diff1(lhs.row(0), 1) > 0) + 1;
+    AFHashTable ht(std::move(set));
+    if (set_num != ht.elements()) lhs = hashIntersect(lhs, ht);
+
+    set = setUnique(lhs.row(0), true);
+    set_num = af::sum<unsigned int>(diff1(rhs.row(0), 1) > 0) + 1;
+    ht = AFHashTable(std::move(set));
+    if (set_num != ht.elements()) rhs = hashIntersect(rhs, ht);
+
+    set_num = af::sum<unsigned int>(diff1(rhs.row(0), 1) > 0) + 1;
+    joinScatter(lhs, rhs, set_num);
 
     return { lhs, rhs };
 }
@@ -366,19 +365,16 @@ std::pair<af::array, af::array> AFDataFrame::crossCompare(const array &left, con
     lhs = join(0, lhs, idx.as(lhs.type()));
     sort(rhs, idx, right, 1);
     rhs = join(0, rhs, idx.as(rhs.type()));
-    auto l_set = setUnique(lhs.row(0), true);
     auto r_set = setUnique(rhs.row(0), true);
-    auto l_num = l_set.elements();
-    auto r_num = r_set.elements();
-    auto i_set = hflat(setIntersect(l_set, r_set, true));
+    lhs = crossIntersect(lhs, r_set);
+
+    auto l_set = setUnique(lhs.row(0), true);
+    rhs = crossIntersect(rhs, l_set);
     l_set = af::array();
     r_set = af::array();
-    auto i_num = i_set.elements();
-    if (l_num != i_num) lhs = crossIntersect(lhs, i_set);
-    if (r_num != i_num) rhs = crossIntersect(rhs, i_set);
+    auto i_num = af::sum<unsigned int>(diff1(lhs.row(0), 1) > 0) + 1;
 
-    auto equals = i_set.elements();
-    joinScatter(lhs, rhs, equals);
+    joinScatter(lhs, rhs, i_num);
 
     return { lhs, rhs };
 }
