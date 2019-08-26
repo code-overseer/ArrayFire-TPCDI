@@ -516,9 +516,9 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
                 part1("DC.EndDate") > part1("EffectiveDate"));
         part1.remove("CO_NAME_OR_CIK");
         Logger::endLastTask();
-
         Logger::startTask("DimSecurity Name Join");
-        auto part2 = s_Security.select(!cik).equiJoin(
+        auto part2 = s_Security.select(!cik);
+        part2 = part2.equiJoin(
                 dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"),
                 "CO_NAME_OR_CIK",
                 "Name");

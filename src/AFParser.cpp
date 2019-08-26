@@ -12,31 +12,41 @@ using namespace BatchFunctions;
 using namespace Utils;
 
 AFParser::AFParser(char const *filename, char const delimiter, bool const hasHeader) : _filename(filename), _delimiter(delimiter) {
+    Logger::startTimer("CPU Ingestion");
     std::string txt = Utils::loadFile(_filename);
     if (txt.back() != '\n') txt += '\n';
+    Logger::logTime("CPU Ingestion", false);
+    Logger::startTimer("GPU Ingestion");
     _data = array(txt.size() + 1, txt.c_str()).as(u8);
     txt = "";
     _data = _data(_data != '\r');
     _data.eval();
     _generateIndexer(hasHeader);
     callGC();
+    Logger::logTime("GPU Ingestion", false);
 }
 
 AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, bool const hasHeader) : _delimiter(delimiter) {
+    Logger::startTimer("CPU Ingestion");
     auto text = collect(files, hasHeader);
+    Logger::logTime("CPU Ingestion", false);
+    Logger::startTimer("GPU Ingestion");
     _data = array(text.size() + 1, text.c_str()).as(u8);
     _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(false);
     callGC();
+    Logger::logTime("GPU Ingestion", false);
 }
 
 AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _delimiter(delimiter) {
+    Logger::startTimer("GPU Ingestion");
     _data = array(text.size() + 1, text.c_str()).as(u8);
     _data = _data(where(_data != '\r'));
     _data.eval();
     _generateIndexer(hasHeader);
     callGC();
+    Logger::logTime("GPU Ingestion", false);
 }
 
 AFParser::~AFParser() {

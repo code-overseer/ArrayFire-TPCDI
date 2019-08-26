@@ -4,22 +4,22 @@
 #include "AFTypes.h"
 #include "Utils.h"
 #include <cstring>
+#include <Logger.h>
 
 typedef unsigned long long ull;
 
 af::array crossIntersect(af::array const &bag, af::array const &set) {
     using namespace af;
+    Logger::startTimer("NL Bag Set");
     auto const bag_size = bag.row(0).elements();
     auto const set_size = set.elements();
 #ifdef USING_AF
-    auto result = constant(0, dim4(1, bag_size + 1), b8);
+    auto result = constant(0, dim4(1, bag_size), b8);
     auto id = range(dim4(1, bag_size * set_size), 1, u64);
     auto i = id / set_size;
     auto j = id % set_size;
     auto b = moddims(set(j), i.dims()) == moddims(bag(0, i), i.dims());
-    auto k = b * i + !b * bag_size;
-    result(k) = 1;
-    result = result.cols(0, end - 1);
+    result(i(b) + 0) = 1;
 #else
     auto result = constant(0, dim4(1, bag_size), b8);
     auto result_ptr = result.device<char>();
@@ -33,22 +33,23 @@ af::array crossIntersect(af::array const &bag, af::array const &set) {
     set.unlock();
     result.unlock();
 #endif
-
-    return bag(span, result);
+    af::array out = bag(span, result);
+    Logger::logTime("NL Bag Set", false);
+    return out;
 }
 
 af::array hashIntersect(af::array const &bag, AFHashTable const &ht) {
     using namespace af;
     using namespace Utils;
+    Logger::startTimer("Hash Bag Set");
     auto const bag_size = bag.row(0).elements();
 
     #ifdef USING_AF
     auto len = sum<ull>(max(ht.getOcc(), 1));
     auto result = constant(0, dim4(1, bag_size), b8);
     auto keys = bag.row(0) % ht.buckets();
-
     for (ull i = 0; i < len; ++i) {
-        auto idx = ht.getOcc(keys) > 0 && i < ht.getOcc(keys) && result == 0;
+        auto idx = ht.getOcc(keys) > 0 && i < ht.getOcc(keys);
         af::array k = keys(idx);
         result(idx) = result(idx) || (ht.getValues(ht.getPtr(k) + i) == bag(0, idx));
     }
@@ -67,21 +68,24 @@ af::array hashIntersect(af::array const &bag, AFHashTable const &ht) {
     result.unlock();
     #endif
 
-    return bag(span, result);
+    af::array out = bag(span, result);
+    out.eval();
+    Logger::logTime("Hash Bag Set", false);
+    return out;
 }
 
 void joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace Utils;
-
+    Logger::startTimer("Join Scatter");
     auto diffe = diff1(lhs.row(0), 1) > 0;
-    auto left_idx = where64(join(1, af::constant(1,1,diffe.type()), diffe));
-    auto left_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - left_idx + 1); // histogram
+    auto left_idx = hflat(where64(join(1, af::constant(1,1,diffe.type()), diffe)));
+    auto left_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type())))) - left_idx + 1; // histogram
     auto left_max = sum<unsigned int>(max(left_count, 1));
 
     diffe = diff1(rhs.row(0), 1) > 0;
-    auto right_idx = where64(join(1, af::constant(1,1,diffe.type()), diffe));
-    auto right_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type()))) - right_idx + 1); // histogram
+    auto right_idx = hflat(where64(join(1, af::constant(1,1,diffe.type()), diffe)));
+    auto right_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type())))) - right_idx + 1; // histogram
     auto right_max = sum<unsigned int>(max(right_count, 1));
 
     auto output_pos = right_count * left_count;
@@ -127,10 +131,12 @@ void joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     rhs = rhs(1, right_out);
     lhs.eval();
     rhs.eval();
+    Logger::logTime("Join Scatter", false);
 }
 
 af::array stringGather(af::array const &input, af::array &indexer) {
     using namespace af;
+    Logger::startTimer("String Gather");
     indexer = join(0, indexer, indexer.elements() < 3 ?
                                constant(0, 1, indexer.type()) :
                                scan(indexer.row(1), 1, AF_BINARY_ADD, false));
@@ -162,15 +168,18 @@ af::array stringGather(af::array const &input, af::array &indexer) {
     #endif
     indexer = join(0, indexer.row(2), indexer.row(1));
     indexer.eval();
+
+    Logger::logTime("String Gather", false);
     return output;
 }
 
 af::array stringComp(af::array const &lhs, af::array const &rhs, af::array const &l_idx, af::array const &r_idx) {
     using namespace af;
+    Logger::startTimer("String Comparison");
     if (l_idx.elements() != r_idx.elements()) throw std::runtime_error("Expected columns with same length");
     auto out = l_idx.row(1) == r_idx.row(1);
-    auto loops = sum<ull>(max(l_idx(1, out)));
     #ifdef USING_AF
+    auto loops = sum<ull>(max(l_idx(1, out)));
     for (ull i = 0; i < loops; ++i) {
         out(out) = out(out) && Utils::hflat(lhs(l_idx(0, out) + i) == rhs(r_idx(0, out) + i));
     }
@@ -194,12 +203,13 @@ af::array stringComp(af::array const &lhs, af::array const &rhs, af::array const
     r_idx.unlock();
     #endif
     out.eval();
-
+    Logger::logTime("String Comparison", false);
     return out;
 }
 
 af::array stringComp(af::array const &lhs, char const *rhs, af::array const &l_idx) {
     using namespace af;
+    Logger::startTimer("String Comparison");
     auto loops = strlen(rhs) + 1;
     auto out = l_idx.row(1) == loops;
     #ifdef USING_AF
@@ -224,7 +234,7 @@ af::array stringComp(af::array const &lhs, char const *rhs, af::array const &l_i
     #endif
 
     out.eval();
-
+    Logger::logTime("String Comparison", false);
     return out;
 }
 
@@ -232,6 +242,7 @@ template<typename T>
 af::array numericParse(af::array const &input, af::array const &indexer) {
     using namespace af;
     using namespace Utils;
+    Logger::startTimer("Numeric Parse");
     auto const loops = sum<ull>(max(indexer.row(1), 1)) - 1;
     auto const rows = indexer.elements() / 2;
     auto output = constant(0, dim4(1, rows), GetAFType<T>().af_type);
@@ -270,6 +281,7 @@ af::array numericParse(af::array const &input, af::array const &indexer) {
     indexer.unlock();
     output.eval();
     #endif
+    Logger::logTime("Numeric Parse", false);
     return output;
 }
 

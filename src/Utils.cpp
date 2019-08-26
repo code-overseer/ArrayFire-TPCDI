@@ -5,6 +5,8 @@
 #include <string>
 #include <thread>
 #include <cstring>
+#include <Logger.h>
+
 #define GC_RATIO 8
 using namespace af;
 using namespace BatchFunctions;
@@ -165,6 +167,7 @@ void Utils::learnFieldNames(Node* node, StrToInt &tracker, String branch, Node* 
 
 std::string Utils::flattenCustomerMgmt(char const *directory) {
     using namespace rapidxml;
+    Logger::startTimer("XML flattening");
     char file[128];
     strcpy(file, directory);
     strcat(file, "CustomerMgmt.xml");
@@ -189,7 +192,7 @@ std::string Utils::flattenCustomerMgmt(char const *directory) {
         depthFirstAppend(data, node, fieldTracker, branch, node);
         node = node->next_sibling();
     }
-
+    Logger::logTime("XML flattening", false);
     return data;
 }
 

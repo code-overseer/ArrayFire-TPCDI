@@ -21,11 +21,20 @@ void Logger::logTime(std::string const &name, bool show) {
     if (show) std::cout << name << ": " << _times[name].back() << std::endl;
 }
 
-void Logger::sendToCSV() {
+void Logger::sendToCSV(int const scale) {
     std::stringstream ss;
     auto info = std::string(af::infoString());
     std::replace(info.begin(), info.end(), ',', ' ');
     ss << "Device Info" << ',' << info;
+    char g[256];
+    do { ss.getline(g,256); } while(g[0] != '[');
+    ss.str(std::string());
+    ss << g << '\n';
+    #ifdef IS_APPLE
+    ss << "Scale," << 3 << '\n';
+    #else
+    ss << "Scale," << scale << '\n';
+    #endif
     for (auto const &data : _times) {
         ss << data.first << ',';
         for (size_t i = 0; i < data.second.size(); ++i) {

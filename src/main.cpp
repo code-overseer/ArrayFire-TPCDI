@@ -20,7 +20,7 @@ namespace DIR {
     #endif
 }
 
-void experiment();
+void fullBenchmark();
 
 void DimCompany();
 
@@ -32,6 +32,8 @@ void DimBroker();
 
 void FinWire();
 
+void DailyMarket();
+
 int main(int argc, char *argv[]) {
     using namespace af;
     #if defined(USING_OPENCL)
@@ -41,31 +43,27 @@ int main(int argc, char *argv[]) {
     #else
         setBackend(AF_BACKEND_CPU);
     #endif
-    if (argc == 2 && !strcmp(argv[1], "-i")) {
-        info();
-        return 0;
-    }
+    int scale = 3;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i],"-f")) {
-            DIR::DIRECTORY = argv[++i];
+            DIR::DIRECTORY = (std::string("/home/jw5514/data/") + argv[++i] + std::string("/Batch1/")).c_str();
+            scale = (int)strtol(argv[i], nullptr, 10);
         } else if (!strcmp(argv[i],"-d")) {
             setDevice(std::stoi(argv[++i]));
         } else if (!strcmp(argv[i],"-o")) {
             Logger::directory = argv[++i];
         } else if (!strcmp(argv[i],"-I")) {
             info();
+        } else if (!strcmp(argv[i], "-i")) {
+            info();
+            return 0;
         }
     }
 
-
     Logger::startTimer();
-//    DimCompany();
-//    DimBroker();
-//    Financial();
-    FinWire();
-
+    fullBenchmark();
     Logger::logTime();
-
+    Logger::sendToCSV(scale);
     return 0;
 }
 
@@ -74,7 +72,7 @@ void DailyMarket() {
     d.flushToHost();
 }
 
-void experiment() {
+void fullBenchmark() {
     auto batchDate = loadBatchDate(DIR::DIRECTORY);
     print("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY);
@@ -141,7 +139,7 @@ void experiment() {
     dimBroker.flushToHost();
     dimDate.flushToHost();
 
-    print("Stagin Market");
+    print("Staging Market");
     auto market = loadStagingMarket(DIR::DIRECTORY);
     market.flushToHost();
 }

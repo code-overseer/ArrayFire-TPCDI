@@ -10,18 +10,21 @@ using namespace Utils;
 
 FinwireParser::FinwireParser(std::vector<std::string> const &files) {
     Logger::startTask("Finwire files concat");
+    Logger::startTimer("CPU Ingestion");
     auto text = collect(files);
     if (text.back() != '\n') text += '\n';
-
+    Logger::logTime("CPU Ingestion", false);
     Logger::endLastTask();
-    Logger::startTask("Finwire load");
-    _data = array(text.size(), text.c_str()).as(u8);
 
+    Logger::startTask("Finwire load");
+    Logger::startTimer("GPU Ingestion");
+    _data = array(text.size(), text.c_str()).as(u8);
     auto row_end = hflat(where64(_data == '\n'));
     auto row_start = join(1, constant(0, 1, row_end.type()), row_end.cols(0, end - 1) + 1);
     _indexer = join(0, row_start, row_end);
     _data.eval();
     _indexer.eval();
+    Logger::logTime("GPU Ingestion", false);
     Logger::endLastTask();
 }
 
@@ -39,7 +42,9 @@ AFDataFrame FinwireParser::extractCmp() const {
     int const *lengths = _CMPLengths;
     print("CMP");
     Logger::startTask("CMP columns extraction");
+    Logger::startTimer("Finwire Separation");
     auto rows = filterRowsByCategory(CMP);
+    Logger::logTime("Finwire Separation", false);
     af::array start = _indexer(0, rows);
     for (int i = 0; *lengths; ++lengths, ++i) {
         if (i == 3) output.add(parse<unsigned long long>(start, *lengths));
@@ -59,8 +64,9 @@ AFDataFrame FinwireParser::extractFin() const {
     int const *lengths = _FINLengths;
     print("FIN");
     Logger::startTask("FIN columns extraction");
-
+    Logger::startTimer("Finwire Separation");
     auto rows = filterRowsByCategory(FIN);
+    Logger::logTime("Finwire Separation", false);
     af::array start = _indexer(0, rows);
     for (int i = 0; *lengths; ++lengths, ++i) {
         if (i == 2) output.add(parse<unsigned short>(start, *lengths));
@@ -85,7 +91,9 @@ AFDataFrame FinwireParser::extractSec() const {
     AFDataFrame output;
 
     Logger::startTask("SEC columns extraction");
+    Logger::startTimer("Finwire Separation");
     auto rows = filterRowsByCategory(SEC);
+    Logger::logTime("Finwire Separation", false);
     af::array start = _indexer(0, rows);
 
     for (int i = 0; *lengths; ++lengths, ++i) {

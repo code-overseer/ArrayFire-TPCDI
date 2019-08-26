@@ -15,7 +15,7 @@ class AFDataFrame {
 private:
     typedef std::initializer_list<std::string> str_list;
     typedef std::initializer_list<bool> bool_list;
-    std::vector<Column> _data;
+    std::vector<Column> _columns;
     std::string _name;
     std::unordered_map<std::string, unsigned int> _nameToCol;
     std::unordered_map<unsigned int, std::string> _colToName;
@@ -92,13 +92,13 @@ public:
 
     inline AFDataFrame zip(AFDataFrame &&rhs) const { return zip(rhs); }
 
-    inline bool isEmpty() { return _data.empty() || _data[0].isempty(); }
+    inline bool isEmpty() { return _columns.empty() || _columns[0].isempty(); }
 
-    inline size_t columns() const { return _data.size(); }
+    inline size_t columns() const { return _columns.size(); }
 
-    inline size_t rows() const { return _data.empty() ? 0 : _data[0].length(); }
+    inline size_t rows() const { return _columns.empty() ? 0 : _columns[0].length(); }
 
-    inline Column &operator()(unsigned int column) { return _data[column]; }
+    inline Column &operator()(unsigned int column) { return _columns[column]; }
 
     inline Column &operator()(std::string const &name) { return (*this)(_nameToCol.at(name)); }
 

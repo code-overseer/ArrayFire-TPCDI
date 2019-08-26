@@ -20,7 +20,7 @@ namespace Logger {
 
     void logTime(std::string const &name = "main", bool show = true);
 
-    void sendToCSV();
+    void sendToCSV(int const scale);
 
     #ifdef ENABLE_ITT
     static __itt_domain* _domain = __itt_domain_create("AF_tpcdi");

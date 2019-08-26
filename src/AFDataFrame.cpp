@@ -11,14 +11,14 @@ using namespace BatchFunctions;
 using namespace Utils;
 using namespace af;
 
-AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _data(std::move(other._data)),
+AFDataFrame::AFDataFrame(AFDataFrame&& other) noexcept : _columns(std::move(other._columns)),
                                                          _nameToCol(std::move(other._nameToCol)),
                                                          _colToName(std::move(other._colToName)),
                                                          _name(std::move(other._name)) {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
-    _data = std::move(other._data);
+    _columns = std::move(other._columns);
     _nameToCol = std::move(other._nameToCol);
     _colToName = std::move(other._colToName);
     _name = std::move(other._name);
@@ -26,20 +26,20 @@ AFDataFrame& AFDataFrame::operator=(AFDataFrame&& other) noexcept {
 }
 
 AFDataFrame& AFDataFrame::operator=(AFDataFrame const &other) noexcept {
-    _data = other._data;
+    _columns = other._columns;
     _nameToCol = other._nameToCol;
     _name = other._name;
     return *this;
 }
 
 void AFDataFrame::add(Column &column, std::string const &name) {
-    _data.emplace_back(column);
-    if (!name.empty()) nameColumn(name, (int)(_data.size() - 1));
+    _columns.emplace_back(column);
+    if (!name.empty()) nameColumn(name, (int)(_columns.size() - 1));
 }
 
 void AFDataFrame::add(Column &&column, std::string const &name) {
-    _data.emplace_back(std::move(column));
-    if (!name.empty()) nameColumn(name, (int)(_data.size() - 1));
+    _columns.emplace_back(std::move(column));
+    if (!name.empty()) nameColumn(name, (int)(_columns.size() - 1));
 }
 
 void AFDataFrame::insert(Column &column, unsigned int index, std::string const &name) {
@@ -51,14 +51,14 @@ void AFDataFrame::insert(Column &column, unsigned int index, std::string const &
             _colToName.insert(std::make_pair(i.second, i.first));
         }
     }
-    _data.insert(_data.begin() + index, column);
+    _columns.insert(_columns.begin() + index, column);
     if (!name.empty()) nameColumn(name, index);
 }
 
 void AFDataFrame::insert(Column &&column, unsigned int index, std::string const &name) { insert(column, index, name); }
 
 void AFDataFrame::remove(unsigned int index) {
-    _data.erase(_data.begin() + index);
+    _columns.erase(_columns.begin() + index);
     _nameToCol.erase(_colToName[index]);
     _colToName.erase(index);
     for (auto &i : _nameToCol) {
@@ -75,7 +75,7 @@ AFDataFrame AFDataFrame::project(int const *columns, int size, std::string const
     output.name(name.empty() ? _name : name);
     for (int i = 0; i < size; i++) {
         int n = columns[i];
-        output.add(Column(_data[n]));
+        output.add(Column(_columns[n]));
         if (_colToName.count(n)) output.nameColumn(_colToName.at(n), i);
     }
     return output;
@@ -85,7 +85,7 @@ AFDataFrame AFDataFrame::select(af::array const &index, std::string const &name)
     AFDataFrame output;
     output.name(name.empty() ? _name : name);
     unsigned int i = 0;
-    for (auto &a : _data) {
+    for (auto &a : _columns) {
         if (_colToName.count(i)) {
             output.add(a.select(index), _colToName.at(i++));
         } else {
@@ -109,15 +109,15 @@ AFDataFrame AFDataFrame::zip(AFDataFrame const &rhs) const {
     if (rows() != rhs.rows()) throw std::runtime_error("Left and Right tables do not have the same length");
     AFDataFrame output = *this;
 
-    for (size_t i = 0; i < rhs._data.size(); ++i)
-        output.add(Column(rhs._data[i]), (rhs.name() + "." + rhs._colToName.at(i)));
+    for (size_t i = 0; i < rhs._columns.size(); ++i)
+        output.add(Column(rhs._columns[i]), (rhs.name() + "." + rhs._colToName.at(i)));
 
     return output;
 }
 
 AFDataFrame AFDataFrame::sum(std::string const &col, str_list group_by) const {
     AFDataFrame output;
-    auto const &agg = _data[_nameToCol.at(col)];
+    auto const &agg = _columns[_nameToCol.at(col)];
     if (agg.type() == STRING || agg.type() == DATE || agg.type() == TIME || agg.type() == DATETIME) {
         throw std::runtime_error("Expected numeric type to aggregate");
     }
@@ -125,11 +125,11 @@ AFDataFrame AFDataFrame::sum(std::string const &col, str_list group_by) const {
         output.add(Column(af::sum(agg.data(), 1)), "SUM("+col+")");
         return output;
     }
-    af::array group_key = _data[_nameToCol.at(*group_by.begin())].hash();
+    af::array group_key = _columns[_nameToCol.at(*group_by.begin())].hash();
     int j = 0;
     for (auto i = group_by.begin() + 1; i != group_by.end(); ++i, j = !j) {
-        if (!j) group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() << 2);
-        else group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() >> 2);
+        if (!j) group_key = group_key ^ (_columns[_nameToCol.at(*i)].hash() << 2);
+        else group_key = group_key ^ (_columns[_nameToCol.at(*i)].hash() >> 2);
     }
     auto to_sum(agg.data());
     af::array output_group_idx;
@@ -149,7 +149,7 @@ AFDataFrame AFDataFrame::sum(std::string const &col, str_list group_by) const {
 
     output.add(Column(summation), "SUM("+col+")");
     for (const auto & i : group_by) {
-        output.add(_data[_nameToCol.at(i)].select(output_group_idx), i);
+        output.add(_columns[_nameToCol.at(i)].select(output_group_idx), i);
     }
 
     return output;
@@ -157,7 +157,7 @@ AFDataFrame AFDataFrame::sum(std::string const &col, str_list group_by) const {
 
 AFDataFrame AFDataFrame::average(std::string const &col, str_list group_by) const {
     AFDataFrame output;
-    auto const &agg = _data[_nameToCol.at(col)];
+    auto const &agg = _columns[_nameToCol.at(col)];
     if (agg.type() == STRING || agg.type() == DATE || agg.type() == TIME || agg.type() == DATETIME) {
         throw std::runtime_error("Expected numeric type to aggregate");
     }
@@ -165,11 +165,11 @@ AFDataFrame AFDataFrame::average(std::string const &col, str_list group_by) cons
         output.add(Column(af::sum(agg.data(), 1) / agg.length()), "AVG("+col+")");
         return output;
     }
-    af::array group_key = _data[_nameToCol.at(*group_by.begin())].hash();
+    af::array group_key = _columns[_nameToCol.at(*group_by.begin())].hash();
     int j = 0;
     for (auto i = group_by.begin() + 1; i != group_by.end(); ++i, j = !j) {
-        if (!j) group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() << 2);
-        else group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() >> 2);
+        if (!j) group_key = group_key ^ (_columns[_nameToCol.at(*i)].hash() << 2);
+        else group_key = group_key ^ (_columns[_nameToCol.at(*i)].hash() >> 2);
     }
     auto to_sum(agg.data());
     af::array output_group_idx;
@@ -189,7 +189,7 @@ AFDataFrame AFDataFrame::average(std::string const &col, str_list group_by) cons
 
     output.add(Column(summation / key_count), "AVG("+col+")");
     for (const auto & i : group_by) {
-        output.add(_data[_nameToCol.at(i)].select(output_group_idx), i);
+        output.add(_columns[_nameToCol.at(i)].select(output_group_idx), i);
     }
 
     return output;
@@ -197,7 +197,7 @@ AFDataFrame AFDataFrame::average(std::string const &col, str_list group_by) cons
 
 AFDataFrame AFDataFrame::count(std::string const &col, str_list group_by) const {
     AFDataFrame output;
-    auto const &agg = _data[_nameToCol.at(col)];
+    auto const &agg = _columns[_nameToCol.at(col)];
     if (!group_by.size()) {
         output.add(Column(af::array(agg.length(), u64)), "COUNT("+col+")");
         return output;
@@ -205,11 +205,11 @@ AFDataFrame AFDataFrame::count(std::string const &col, str_list group_by) const 
     if (agg.type() == STRING || agg.type() == DATE || agg.type() == TIME || agg.type() == DATETIME) {
         throw std::runtime_error("Expected numeric type to aggregate");
     }
-    af::array group_key = _data[_nameToCol.at(*group_by.begin())].hash();
+    af::array group_key = _columns[_nameToCol.at(*group_by.begin())].hash();
     int j = 0;
     for (auto i = group_by.begin() + 1; i != group_by.end(); ++i, j = !j) {
-        if (!j) group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() << 2);
-        else group_key = group_key ^ (_data[_nameToCol.at(*i)].hash() >> 2);
+        if (!j) group_key = group_key ^ (_columns[_nameToCol.at(*i)].hash() << 2);
+        else group_key = group_key ^ (_columns[_nameToCol.at(*i)].hash() >> 2);
     }
 
     af::array output_group_idx;
@@ -222,22 +222,22 @@ AFDataFrame AFDataFrame::count(std::string const &col, str_list group_by) const 
 
     output.add(Column(key_count), "COUNT("+col+")");
     for (const auto & i : group_by) {
-        output.add(_data[_nameToCol.at(i)].select(output_group_idx), i);
+        output.add(_columns[_nameToCol.at(i)].select(output_group_idx), i);
     }
 
     return output;
 }
 
 AFDataFrame AFDataFrame::unionize(AFDataFrame &frame) const {
-    if (_data.size() != frame._data.size()) throw std::runtime_error("Number of attributes do not match");
+    if (_columns.size() != frame._columns.size()) throw std::runtime_error("Number of attributes do not match");
     auto out(*this);
-    for (size_t i = 0; i < out._data.size(); ++i)
-        out._data[i] = out._data[i].concatenate(frame._data[i]);
+    for (size_t i = 0; i < out._columns.size(); ++i)
+        out._columns[i] = out._columns[i].concatenate(frame._columns[i]);
     return out;
 }
 
 void AFDataFrame::sortBy(unsigned int const col, bool const isAscending) {
-    array key = _data[col].hash(true);
+    array key = _columns[col].hash(true);
     auto const size = key.dims(0);
     if (!size) return;
     array sorting;
@@ -250,9 +250,9 @@ void AFDataFrame::sortBy(unsigned int const col, bool const isAscending) {
             sort(sorting, idx, key(j, span), 1, isAscending);
             main = main(idx);
         }
-        for (auto &i : _data) i = i.select(main);
+        for (auto &i : _columns) i = i.select(main);
     } else {
-        for (auto &i : _data) i = i.select(idx);
+        for (auto &i : _columns) i = i.select(idx);
     }
     af::deviceGC();
 }
@@ -277,13 +277,11 @@ void AFDataFrame::sortBy(str_list const columns, bool_list const isAscending) {
 }
 
 AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rhs_column) const {
-    auto &left = _data[lhs_column];
-    auto &right = rhs._data[rhs_column];
+    auto &left = _columns[lhs_column];
+    auto &right = rhs._columns[rhs_column];
     if (left.type() != right.type()) throw std::runtime_error("Column type mismatch");
     if (left.isempty() || right.isempty()) return AFDataFrame();
-    puts("Joining...");
-    printf("Left: %lu rows, Right:%lu rows, ", left.length(), right.length());
-    Logger::startTimer("Join Time");
+
     auto idx = hashCompare(left.hash(), right.hash());
 
     if (idx.first.isempty()) return AFDataFrame();
@@ -298,16 +296,15 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
 
     AFDataFrame result;
     for (size_t i = 0; i < columns(); i++) {
-        result.add(_data[i].select(idx.first), _colToName.at(i));
+        result.add(_columns[i].select(idx.first), _colToName.at(i));
     }
 
     for (size_t i = 0; i < rhs.columns(); i++) {
         if (i == rhs_column) continue;
-        result.add(rhs._data[i].select(idx.second),
+        result.add(rhs._columns[i].select(idx.second),
                    (rhs.name() + "." + rhs._colToName.at(i)));
     }
-    printf("Output: %zu rows\n", result.rows());
-    Logger::logTime("Join Time");
+
     return result;
 }
 
@@ -391,12 +388,12 @@ void AFDataFrame::nameColumn(std::string const& name, unsigned int column) {
 }
 
 void AFDataFrame::flushToHost() {
-    if (_data.empty()) return;
-    for (auto &a : _data) a.toHost();
+    if (_columns.empty()) return;
+    for (auto &a : _columns) a.toHost();
 }
 
 void AFDataFrame::clear() {
-    _data.clear();
+    _columns.clear();
     _name.clear();
     _colToName.clear();
     _nameToCol.clear();
