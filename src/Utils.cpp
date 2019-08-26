@@ -204,4 +204,10 @@ void Utils::callGC() {
     if (alloc / locked > GC_RATIO) deviceGC();
 }
 
+void Utils::MemInfo() {
+    size_t alloc;
+    size_t locked;
 
+    deviceMemInfo(&alloc, nullptr, &locked, nullptr);
+    printf("Allocated: %zu \t Locked: %zu\n", alloc, locked);
+}

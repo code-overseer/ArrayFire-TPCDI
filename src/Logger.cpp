@@ -25,11 +25,15 @@ void Logger::sendToCSV(int const scale) {
     std::stringstream ss;
     auto info = std::string(af::infoString());
     std::replace(info.begin(), info.end(), ',', ' ');
-    ss << "Device Info" << ',' << info;
+    ss << info;
     char g[256];
     do { ss.getline(g,256); } while(g[0] != '[');
     ss.str(std::string());
-    ss << g << '\n';
+    ss << g;
+    #ifdef USING_AF
+        ss << " -- USING_AF";
+    #endif
+    ss << '\n';
     #ifdef IS_APPLE
     ss << "Scale," << 3 << '\n';
     #else
@@ -45,7 +49,7 @@ void Logger::sendToCSV(int const scale) {
             }
         }
     }
-    std::ofstream file(directory + "result.csv", std::ios_base::app);
+    std::ofstream file(directory() + "result.csv", std::ios_base::app);
     file << ss.str();
     file.close();
 }

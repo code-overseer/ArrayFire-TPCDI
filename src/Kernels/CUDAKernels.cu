@@ -155,9 +155,9 @@ ull const rows, ulong const loops) {
 }
 
 static std::pair<ull, int> blockFinder(ull const size) {
-    ull out = (size >> 5u) + (size & ((1u << 5u) - 1)) > 0;
+    ull out = (size >> 5u) + ((size & ((1u << 5u) - 1)) > 0);
     for (unsigned int i = 6; i < 11; ++i) {
-        ull tmp = (size >> i) + (size & ((1u << i) - 1)) > 0;
+        ull tmp = (size >> i) + ((size & ((1u << i) - 1)) > 0);
         if (tmp == out) return { out, 1u << (i - 1) };
         else out = tmp;
     }

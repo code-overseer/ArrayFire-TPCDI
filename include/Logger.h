@@ -14,13 +14,19 @@
 namespace Logger {
     static std::unordered_map<std::string, std::vector<double>> _times;
     static std::unordered_map<std::string, af::timer> _timers;
-    static std::string directory;
+
+
+    inline std::string& directory(std::string const &dir = nullptr) {
+        static std::string directory;
+        directory = dir;
+        return directory;
+    }
 
     void startTimer(std::string const &name = "main");
 
     void logTime(std::string const &name = "main", bool show = true);
 
-    void sendToCSV(int const scale);
+    void sendToCSV(int scale);
 
     #ifdef ENABLE_ITT
     static __itt_domain* _domain = __itt_domain_create("AF_tpcdi");

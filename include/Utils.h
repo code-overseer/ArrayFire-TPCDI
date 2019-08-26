@@ -41,6 +41,8 @@ namespace Utils {
     void callGC();
 
     std::string flattenCustomerMgmt(char const *directory);
+
+    void MemInfo();
 }
 
 #endif //ARRAYFIRE_TPCDI_UTILS_H
