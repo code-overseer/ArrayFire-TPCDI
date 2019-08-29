@@ -43,7 +43,6 @@ af::array hashIntersect(af::array const &bag, AFHashTable const &ht) {
     using namespace Utils;
     Logger::startTimer("Hash Bag Set");
     auto const bag_size = bag.row(0).elements();
-
     #ifdef USING_AF
     auto len = sum<ull>(max(ht.getOcc(), 1));
     auto result = constant(0, dim4(1, bag_size), b8);
@@ -71,14 +70,18 @@ af::array hashIntersect(af::array const &bag, AFHashTable const &ht) {
     af::array out = bag(span, result);
     out.eval();
     Logger::logTime("Hash Bag Set", false);
+
     return out;
 }
 
 void joinScatter(af::array &lhs, af::array &rhs, ull const equals) {
     using namespace af;
     using namespace Utils;
+
     Logger::startTimer("Join Scatter");
+
     auto diffe = diff1(lhs.row(0), 1) > 0;
+
     auto left_idx = hflat(where64(join(1, af::constant(1,1,diffe.type()), diffe)));
     auto left_count = hflat(where64(join(1, diffe, af::constant(1,1,diffe.type())))) - left_idx + 1; // histogram
     auto left_max = sum<unsigned int>(max(left_count, 1));
@@ -143,9 +146,10 @@ af::array stringGather(af::array const &input, af::array &indexer) {
 
     indexer.eval();
 
-    auto const out_size = sum<ull>(sum(indexer(seq(1, 2), end), 0));
+    auto const out_size = sum<ull>(indexer(seq(1, 2), end));
     auto const loops = sum<ull>(max(indexer.row(1), 1));
     auto const rows = indexer.elements() / 3;
+
     auto output = array(out_size, u8);
     #ifdef USING_AF
     for (ull i = 0; i < loops; ++i) {

@@ -343,11 +343,12 @@ std::pair<af::array, af::array> AFDataFrame::hashCompare(const array &left, cons
     if (set_num != ht.elements()) lhs = hashIntersect(lhs, ht);
 
     set = setUnique(lhs.row(0), true);
-    set_num = af::sum<unsigned int>(diff1(rhs.row(0), 1) > 0) + 1;
+    set_num = af::sum<unsigned long long>(diff1(rhs.row(0), 1) > 0) + 1;
     ht = AFHashTable(std::move(set));
     if (set_num != ht.elements()) rhs = hashIntersect(rhs, ht);
 
-    set_num = af::sum<unsigned int>(diff1(rhs.row(0), 1) > 0) + 1;
+    set_num = af::sum<unsigned long long>(diff1(rhs.row(0), 1) > 0) + 1;
+
     joinScatter(lhs, rhs, set_num);
 
     return { lhs, rhs };

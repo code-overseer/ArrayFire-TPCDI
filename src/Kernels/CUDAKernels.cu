@@ -36,7 +36,7 @@ __global__ static void hash_intersect(char *result, ull const *bag, ull const *h
         // sort ptrs and lengths in order of lengths
         // now divergence will be minimized, work efficiency increase
         char out = 0;
-        for (int i = 0; i < len; ++i) {
+        for (uint i = 0; i < len; ++i) {
             out |= (ht_val[ptr + i] == val);
         }
         result[id] = out;
@@ -44,7 +44,7 @@ __global__ static void hash_intersect(char *result, ull const *bag, ull const *h
 }
 
 __global__ static void join_scatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
-                         ull  *l, ull *r, ull const equals, ull const l_max, ull const r_max, ull const dump) {
+                         ull  *l, ull *r, ull const equals, ull const l_max, ull const r_max) {
 
     ull const i = (ull)blockIdx.x * (ull)blockDim.x + (ull)threadIdx.x;
     if (i < equals) {
@@ -155,9 +155,9 @@ ull const rows, ulong const loops) {
 }
 
 static std::pair<ull, int> blockFinder(ull const size) {
-    ull out = (size >> 5u) + (size & ((1u << 5u) - 1)) > 0;
+    ull out = (size >> 5u) + ((size & ((1u << 5u) - 1)) > 0);
     for (unsigned int i = 6; i < 11; ++i) {
-        ull tmp = (size >> i) + (size & ((1u << i) - 1)) > 0;
+        ull tmp = (size >> i) + ((size & ((1u << i) - 1)) > 0);
         if (tmp == out) return { out, 1u << (i - 1) };
         else out = tmp;
     }
@@ -192,8 +192,9 @@ void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull 
     ull const z = right_max;
     dim3 grid(layout.first, left_max, right_max);
     dim3 block(layout.second, 1, 1);
+
     cudaProfilerStart();
-    join_scatter<<<grid, block>>>(l_idx, r_idx, l_cnt, r_cnt, outpos, left, right, equals, left_max, right_max, out_size);
+    join_scatter<<<grid, block>>>(l_idx, r_idx, l_cnt, r_cnt, outpos, left, right, equals, left_max, right_max);
     cudaDeviceSynchronize();
     cudaProfilerStop();
 }
@@ -228,6 +229,7 @@ PARSER(long long)
 void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
         ull const rows, ull const loops) {
     auto layout = blockFinder(rows);
+
     dim3 grid(layout.first, 1, 1);
     dim3 block(layout.second, 1, 1);
 

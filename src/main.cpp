@@ -14,9 +14,9 @@ namespace DIR {
     char const* NUMBERS = "/Users/bryanwong/Documents/MPSI/numbers.txt";
     char const* UUID = "/Users/bryanwong/Documents/MPSI/uuid.txt";
     #if defined(IS_APPLE)
-    char const* DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
+    std::string DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
     #else
-    char const* DIRECTORY = "/home/jw5514/data/5/Batch1/";
+    std::string DIRECTORY = "/home/jw5514/data/5/Batch1/";
     #endif
 }
 
@@ -45,13 +45,13 @@ int main(int argc, char *argv[]) {
     #endif
     int scale = 3;
     for (int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i],"-f")) {
-            DIR::DIRECTORY = (std::string("/home/jw5514/data/") + argv[++i] + std::string("/Batch1/")).c_str();
+        if (!strcmp(argv[i],"-f")) {           
+            DIR::DIRECTORY = (std::string("/home/jw5514/data/") + argv[++i] + std::string("/Batch1/"));
             scale = (int)strtol(argv[i], nullptr, 10);
         } else if (!strcmp(argv[i],"-d")) {
             setDevice(std::stoi(argv[++i]));
         } else if (!strcmp(argv[i],"-o")) {
-            Logger::directory = argv[++i];
+            Logger::directory(std::string(argv[++i]));
         } else if (!strcmp(argv[i],"-I")) {
             info();
         } else if (!strcmp(argv[i], "-i")) {
@@ -59,59 +59,71 @@ int main(int argc, char *argv[]) {
             return 0;
         }
     }
-
-    Logger::startTimer();
-    fullBenchmark();
-    Logger::logTime();
-    Logger::sendToCSV(scale);
+    //    for (int i = 0; i < 5; ++i) {
+    
+        af::deviceGC();
+        Logger::startTimer();
+        //    fullBenchmark();
+        //        AFParser p("/home/jw5514/str_gather.csv",',', false);
+        //p.parse<char*>(0);
+        //        p.parse<char*>(1);
+        //        FinWire();
+        Logger::logTime();
+        //    }
+    
     return 0;
 }
 
 void DailyMarket() {
-    auto d = loadStagingMarket(DIR::DIRECTORY);
+    auto d = loadStagingMarket(DIR::DIRECTORY.c_str());
     d.flushToHost();
 }
 
 void fullBenchmark() {
-    auto batchDate = loadBatchDate(DIR::DIRECTORY);
+    auto batchDate = loadBatchDate(DIR::DIRECTORY.c_str());
     print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
     
     print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
+    auto industry = loadIndustry(DIR::DIRECTORY.c_str());
     
     print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
+    auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
     
     print("TaxRate");
-    auto taxRate = loadTaxRate(DIR::DIRECTORY);
+    auto taxRate = loadTaxRate(DIR::DIRECTORY.c_str());
     taxRate.flushToHost();
 
     print("TradeType");
-    auto tradeType = loadTradeType(DIR::DIRECTORY);
+    auto tradeType = loadTradeType(DIR::DIRECTORY.c_str());
     tradeType.flushToHost();
 
     print("Audit");
-    auto audit = loadAudit(DIR::DIRECTORY);
+    auto audit = loadAudit(DIR::DIRECTORY.c_str());
     audit.flushToHost();
-
-    print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
     
     print("Staging Prospect");
-    auto s_prospect = loadStagingProspect(DIR::DIRECTORY);
-
+    auto s_prospect = loadStagingProspect(DIR::DIRECTORY.c_str());
+    print("Prospect");
+    auto prospect = loadProspect(s_prospect, batchDate);
+    prospect.flushToHost();
+    batchDate.flushToHost();
+    s_prospect.clear();
+    af::deviceGC();
     print("Staging Cash Balnces");
-    auto s_cash = loadStagingCashBalances(DIR::DIRECTORY);
+    auto s_cash = loadStagingCashBalances(DIR::DIRECTORY.c_str());
     s_cash.flushToHost();
 
     print("Staging Watches");
-    auto s_watches = loadStagingWatches(DIR::DIRECTORY);
+    auto s_watches = loadStagingWatches(DIR::DIRECTORY.c_str());
     s_watches.flushToHost();
 
     print("Staging Customer");
-    auto s_customer = loadStagingCustomer(DIR::DIRECTORY);
+    auto s_customer = loadStagingCustomer(DIR::DIRECTORY.c_str());
     s_customer.flushToHost();
+
+    print("Finwire");
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
@@ -127,35 +139,27 @@ void fullBenchmark() {
     dimCompany.flushToHost();
     statusType.flushToHost();
     finwire.clear();
-    
-    print("Prospect");
-    auto prospect = loadProspect(s_prospect, batchDate);
-    prospect.flushToHost();
-    batchDate.flushToHost();
-    s_prospect.clear();
+   
 
     print("DimBroker");
-    auto dimBroker = loadDimBroker(DIR::DIRECTORY, dimDate);
+    auto dimBroker = loadDimBroker(DIR::DIRECTORY.c_str(), dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
 
-    print("Staging Market");
-    auto market = loadStagingMarket(DIR::DIRECTORY);
-    market.flushToHost();
 }
 
 void DimCompany() {
     print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
     print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
+    auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
     print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
+    auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
     print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
@@ -167,16 +171,16 @@ void DimCompany() {
 
 void DimSecurity() {
     print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
     print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
+    auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
     print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
+    auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
     print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
@@ -191,16 +195,16 @@ void DimSecurity() {
 
 void Financial() {
     print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
     print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
+    auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
     print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
+    auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
     print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
@@ -216,24 +220,24 @@ void Financial() {
 
 void DimBroker() {
     print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
     print("DimBroker");
-    loadDimBroker(DIR::DIRECTORY, dimDate);
+    loadDimBroker(DIR::DIRECTORY.c_str(), dimDate);
 }
 
 void FinWire() {
-    auto batchDate = loadBatchDate(DIR::DIRECTORY);
+    auto batchDate = loadBatchDate(DIR::DIRECTORY.c_str());
     print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY);
+    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
     print("Industry");
-    auto industry = loadIndustry(DIR::DIRECTORY);
+    auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
     print("StatusType");
-    auto statusType = loadStatusType(DIR::DIRECTORY);
+    auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
     print("Finwire");
-    auto finwire = loadStagingFinwire(DIR::DIRECTORY);
+    auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);

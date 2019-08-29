@@ -14,7 +14,11 @@
 namespace Logger {
     static std::unordered_map<std::string, std::vector<double>> _times;
     static std::unordered_map<std::string, af::timer> _timers;
-    static std::string directory;
+    inline std::string& directory(std::string const &dir = "") {
+        static std::string directory;
+        if (!dir.empty()) directory = dir;
+        return directory;
+    }
 
     void startTimer(std::string const &name = "main");
 
@@ -54,6 +58,7 @@ namespace Logger {
         __itt_task_end(_domain);
         #endif
     }
+    
 };
 
 #endif //ARRAYFIRE_TPCDI_LOGGER_H
