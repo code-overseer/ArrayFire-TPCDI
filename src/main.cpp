@@ -1,5 +1,6 @@
 #include <cstring>
 #include <string>
+#include <cstdio>
 #include "Logger.h"
 #include "TPCDI.h"
 #include "Tests.h"
@@ -59,78 +60,82 @@ int main(int argc, char *argv[]) {
             return 0;
         }
     }
-    //    for (int i = 0; i < 5; ++i) {
+
     
-        af::deviceGC();
-        Logger::startTimer();
-        fullBenchmark();
-        Logger::logTime();
-        Logger::sendToCSV(scale);
-        //    }
+    af::deviceGC();
+    Logger::startTimer();
+    fullBenchmark();
+    Logger::logTime();
+    Logger::sendToCSV(scale);
+
     
     return 0;
 }
 
 void DailyMarket() {
+    puts("Staging Market");
     auto d = loadStagingMarket(DIR::DIRECTORY.c_str());
     d.flushToHost();
 }
 
 void fullBenchmark() {
     auto batchDate = loadBatchDate(DIR::DIRECTORY.c_str());
-    print("DimDate");
+    puts("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
     
-    print("Industry");
+    puts("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY.c_str());
     
-    print("StatusType");
+    puts("StatusType");
     auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
     
-    print("TaxRate");
+    puts("TaxRate");
     auto taxRate = loadTaxRate(DIR::DIRECTORY.c_str());
     taxRate.flushToHost();
 
-    print("TradeType");
+    puts("TradeType");
     auto tradeType = loadTradeType(DIR::DIRECTORY.c_str());
     tradeType.flushToHost();
 
-    print("Audit");
+    puts("Audit");
     auto audit = loadAudit(DIR::DIRECTORY.c_str());
     audit.flushToHost();
     
-    print("Staging Prospect");
+    puts("Staging Prospect");
     auto s_prospect = loadStagingProspect(DIR::DIRECTORY.c_str());
-    print("Prospect");
+    puts("Prospect");
     auto prospect = loadProspect(s_prospect, batchDate);
     prospect.flushToHost();
     batchDate.flushToHost();
     s_prospect.clear();
     af::deviceGC();
-    print("Staging Cash Balnces");
+    puts("Staging Cash Balnces");
     auto s_cash = loadStagingCashBalances(DIR::DIRECTORY.c_str());
     s_cash.flushToHost();
 
-    print("Staging Watches");
+    puts("Staging Watches");
     auto s_watches = loadStagingWatches(DIR::DIRECTORY.c_str());
     s_watches.flushToHost();
 
-    print("Staging Customer");
+    af::deviceGC();
+    DailyMarket();
+    
+    puts("Staging Customer");
     auto s_customer = loadStagingCustomer(DIR::DIRECTORY.c_str());
     s_customer.flushToHost();
 
-    print("Finwire");
+    puts("Finwire");
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
-    print("DimCompany");
+    puts("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
     
-    print("Financial");
+    puts("Financial");
     auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
     financial.flushToHost();
     
-    print("DimSecurity");
+    puts("DimSecurity");
     auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
     dimSecurity.flushToHost();
     dimCompany.flushToHost();
@@ -138,27 +143,29 @@ void fullBenchmark() {
     finwire.clear();
    
 
-    print("DimBroker");
+    puts("DimBroker");
     auto dimBroker = loadDimBroker(DIR::DIRECTORY.c_str(), dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
 
+    
+
 }
 
 void DimCompany() {
-    print("DimDate");
+    puts("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
-    print("Industry");
+    puts("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
-    print("StatusType");
+    puts("StatusType");
     auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
-    print("Finwire");
+    puts("Finwire");
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
-    print("DimCompany");
+    puts("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
     statusType.flushToHost();
@@ -167,43 +174,43 @@ void DimCompany() {
 }
 
 void DimSecurity() {
-    print("DimDate");
+    puts("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
-    print("Industry");
+    puts("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
-    print("StatusType");
+    puts("StatusType");
     auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
-    print("Finwire");
+    puts("Finwire");
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
-    print("DimCompany");
+    puts("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
     dimDate.flushToHost();
     finwire.financial.clear();
     finwire.company.clear();
 
-    print("DimSecurity");
+    puts("DimSecurity");
     auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
 }
 
 void Financial() {
-    print("DimDate");
+    puts("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
-    print("Industry");
+    puts("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
-    print("StatusType");
+    puts("StatusType");
     auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
-    print("Finwire");
+    puts("Finwire");
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
-    print("DimCompany");
+    puts("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
     statusType.flushToHost();
@@ -211,43 +218,43 @@ void Financial() {
     finwire.security.clear();
     finwire.company.clear();
 
-    print("Financial");
+    puts("Financial");
     auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
 }
 
 void DimBroker() {
-    print("DimDate");
+    puts("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
-    print("DimBroker");
+    puts("DimBroker");
     loadDimBroker(DIR::DIRECTORY.c_str(), dimDate);
 }
 
 void FinWire() {
     auto batchDate = loadBatchDate(DIR::DIRECTORY.c_str());
-    print("DimDate");
+    puts("DimDate");
     auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
 
-    print("Industry");
+    puts("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
-    print("StatusType");
+    puts("StatusType");
     auto statusType = loadStatusType(DIR::DIRECTORY.c_str());
 
-    print("Finwire");
+    puts("Finwire");
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
-    print("DimCompany");
+    puts("DimCompany");
     auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
     industry.flushToHost();
     finwire.company.clear();
 
-    print("DimSecurity");
+    puts("DimSecurity");
     auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
     dimSecurity.flushToHost();
     statusType.flushToHost();
     finwire.security.clear();
 
-    print("Financial");
+    puts("Financial");
     auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
     financial.flushToHost();
     finwire.clear();

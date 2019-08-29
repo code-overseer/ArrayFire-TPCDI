@@ -165,11 +165,14 @@ AFDataFrame loadStagingMarket(char const* directory) {
     Logger::startTimer("DailyMarket");
     AFParser parser(file, '|', false);
 
+    af::deviceGC();
     frame.add(parser.parse<char*>(0), "DM_DATE");
     frame(0).toDate(true);
+    af::deviceGC();
     frame.add(parser.parse<char*>(1), "DM_S_SYMB");
     frame.add(parser.parse<float>(2), "DM_CLOSE");
     frame.add(parser.parse<float>(3), "DM_HIGH");
+    af::deviceGC();
     frame.add(parser.parse<float>(4), "DM_LOW");
     frame.add(parser.parse<unsigned long long>(5), "DM_VOL");
     Logger::logTime("DailyMarket", false);
