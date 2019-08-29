@@ -49,7 +49,6 @@ AFParser::~AFParser() {
 
 void AFParser::_generateIndexer(bool hasHeader) {
     _indexer = hflat(where64(_data == '\n'));
-    Utils::MemInfo();
     _length = _indexer.elements();
     
     {
