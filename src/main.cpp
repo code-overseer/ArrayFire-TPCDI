@@ -16,7 +16,7 @@ namespace DIR {
     #if defined(IS_APPLE)
     std::string DIRECTORY = "/Users/bryanwong/Documents/MPSI/DIGen/Data/Batch1/";
     #else
-    std::string DIRECTORY = "/home/jw5514/data/3/Batch1/";
+    std::string DIRECTORY = "/home/jw5514/data/5/Batch1/";
     #endif
 }
 
@@ -43,16 +43,15 @@ int main(int argc, char *argv[]) {
     #else
         setBackend(AF_BACKEND_CPU);
     #endif
-
     int scale = 3;
     for (int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i],"-f")) {
-            DIR::DIRECTORY = std::string("/home/jw5514/data/") + argv[++i] + std::string("/Batch1/");
+        if (!strcmp(argv[i],"-f")) {           
+            DIR::DIRECTORY = (std::string("/home/jw5514/data/") + argv[++i] + std::string("/Batch1/"));
             scale = (int)strtol(argv[i], nullptr, 10);
         } else if (!strcmp(argv[i],"-d")) {
             setDevice(std::stoi(argv[++i]));
         } else if (!strcmp(argv[i],"-o")) {
-            Logger::directory(argv[++i]);
+            Logger::directory(std::string(argv[++i]));
         } else if (!strcmp(argv[i],"-I")) {
             info();
         } else if (!strcmp(argv[i], "-i")) {
@@ -60,10 +59,18 @@ int main(int argc, char *argv[]) {
             return 0;
         }
     }
-    Logger::startTimer();
-    fullBenchmark();
-    Logger::logTime();
-    Logger::sendToCSV(scale);
+    //    for (int i = 0; i < 5; ++i) {
+    
+        af::deviceGC();
+        Logger::startTimer();
+        //    fullBenchmark();
+        //        AFParser p("/home/jw5514/str_gather.csv",',', false);
+        //p.parse<char*>(0);
+        //        p.parse<char*>(1);
+        //        FinWire();
+        Logger::logTime();
+        //    }
+    
     return 0;
 }
 
@@ -97,13 +104,12 @@ void fullBenchmark() {
     
     print("Staging Prospect");
     auto s_prospect = loadStagingProspect(DIR::DIRECTORY.c_str());
-
     print("Prospect");
     auto prospect = loadProspect(s_prospect, batchDate);
     prospect.flushToHost();
     batchDate.flushToHost();
     s_prospect.clear();
-
+    af::deviceGC();
     print("Staging Cash Balnces");
     auto s_cash = loadStagingCashBalances(DIR::DIRECTORY.c_str());
     s_cash.flushToHost();
@@ -133,15 +139,13 @@ void fullBenchmark() {
     dimCompany.flushToHost();
     statusType.flushToHost();
     finwire.clear();
+   
 
     print("DimBroker");
     auto dimBroker = loadDimBroker(DIR::DIRECTORY.c_str(), dimDate);
     dimBroker.flushToHost();
     dimDate.flushToHost();
 
-    print("Staging Market");
-    auto market = loadStagingMarket(DIR::DIRECTORY.c_str());
-    market.flushToHost();
 }
 
 void DimCompany() {

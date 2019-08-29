@@ -18,6 +18,9 @@ AFParser::AFParser(char const *filename, char const delimiter, bool const hasHea
     Logger::logTime("CPU Ingestion", false);
     Logger::startTimer("GPU Ingestion");
     _data = array(txt.size() + 1, txt.c_str()).as(u8);
+    af::sync();
+
+    txt = "";
     _generateIndexer(hasHeader);
     callGC();
     Logger::logTime("GPU Ingestion", false);
@@ -29,7 +32,6 @@ AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, 
     Logger::logTime("CPU Ingestion", false);
     Logger::startTimer("GPU Ingestion");
     _data = array(text.size() + 1, text.c_str()).as(u8);
-    _data.eval();
     _generateIndexer(false);
     callGC();
     Logger::logTime("GPU Ingestion", false);
@@ -38,7 +40,6 @@ AFParser::AFParser(const std::vector<std::string> &files, char const delimiter, 
 AFParser::AFParser(std::string const &text, char const delimiter, bool const hasHeader) : _delimiter(delimiter) {
     Logger::startTimer("GPU Ingestion");
     _data = array(text.size() + 1, text.c_str()).as(u8);
-    _data.eval();
     _generateIndexer(hasHeader);
     callGC();
     Logger::logTime("GPU Ingestion", false);
@@ -52,6 +53,7 @@ void AFParser::_generateIndexer(bool hasHeader) {
     _indexer = where64(_data == '\n');
     _indexer = hflat(_indexer);
     _length = _indexer.elements();
+    
     {
         auto col_end = where64(_data == _delimiter);
         _width = col_end.elements() / _length;
@@ -59,7 +61,7 @@ void AFParser::_generateIndexer(bool hasHeader) {
         col_end.eval();
         _indexer = join(0, col_end, _indexer);
     }
-
+    
     if (!_indexer.isempty()) {
         auto row_start = constant(0, 1, _indexer.type());
         if (_length > 1) row_start = join(1, row_start, _indexer.row(end).cols(0, end - 1) + 1);
@@ -97,9 +99,10 @@ template Column AFParser::parse<unsigned long long>(int column) const;
 template<> Column AFParser::parse<char*>(int column) const {
     if (!_length) return Column(array(0, u8), array(0,u64));
     unsigned int const i = column != 0;
-
+    
     auto idx = _indexer.row(column) + i;
     idx = join(0, idx, (_indexer.row(column + 1) - idx) + 1);
+
     auto out = stringGather(_data, idx);
     return Column(std::move(out), std::move(idx));
 }

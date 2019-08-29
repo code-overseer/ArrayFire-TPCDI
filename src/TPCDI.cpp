@@ -90,9 +90,10 @@ AFDataFrame loadIndustry(char const* directory) {
     strcpy(file, directory);
     strcat(file, "Industry.txt");
     AFDataFrame frame;
-    AFParser parser(file, '|', false);
 
+    AFParser parser(file, '|', false);
     for (int i = 0;  i < 3; ++i) frame.add(parser.parse<char*>(i));
+
     frame.name("Industry");
     frame.nameColumn("IN_ID", 0);
     frame.nameColumn("IN_NAME", 1);
@@ -147,6 +148,7 @@ AFDataFrame loadStagingMarket(char const* directory) {
     strcpy(file, directory);
     strcat(file, "DailyMarket.txt");
     AFDataFrame frame;
+    // Logger::startCollection();
     AFParser parser(file, '|', false);
 
     frame.add(parser.parse<char*>(0), "DM_DATE");
@@ -157,6 +159,7 @@ AFDataFrame loadStagingMarket(char const* directory) {
     frame.add(parser.parse<float>(4), "DM_LOW");
     frame.add(parser.parse<unsigned long long>(5), "DM_VOL");
 
+    // Logger::pauseCollection();
     callGC();
     return frame;
 }
@@ -174,63 +177,63 @@ AFDataFrame loadAudit(char const* directory) {
     }
     std::sort(auditFiles.begin(), auditFiles.end());
 
-    Logger::startCollection();
-    Logger::startTask("Audit Load");
+    // Logger::startCollection();
+    // Logger::startTask("Audit Load");
     AFParser parser(auditFiles, ',', true);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Audit Parse");
+    // Logger::startTask("Audit Parse");
     frame.add(parser.parse<char*>(0));
     frame.add(parser.parse<unsigned int>(1));
     frame.add(parser.asDate(2, true, YYYYMMDD));
     frame.add(parser.parse<char*>(3));
     frame.add(parser.parse<int>(4));
     frame.add(parser.parse<double>(5));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return frame;
 }
 
 AFDataFrame loadStagingSecurity(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
-    Logger::startCollection();
+    // Logger::startCollection();
     FinwireParser parser(finwireFiles);
     auto sec = parser.extractSec();
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     nameStagingSecurity(sec);
     return sec;
 }
 
 AFDataFrame loadStagingCompany(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
-    Logger::startCollection();
+    // Logger::startCollection();
     FinwireParser parser(finwireFiles);
     auto cmp = parser.extractCmp();
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     nameStagingCompany(cmp);
     return cmp;
 }
 
 AFDataFrame loadStagingFinancial(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
-    Logger::startCollection();
+    // Logger::startCollection();
     FinwireParser parser(finwireFiles);
     auto fin = parser.extractFin();
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     nameStagingFinancial(fin);
     return fin;
 }
 
 Finwire loadStagingFinwire(char const *directory) {
     std::vector<std::string> finwireFiles = collectFinwireFiles(directory);
-    Logger::startCollection();
+    //    // Logger::startCollection();
     Finwire finwire = FinwireParser(finwireFiles).extractData();
     nameStagingCompany(finwire.company);
     nameStagingFinancial(finwire.financial);
     nameStagingSecurity(finwire.security);
-    Logger::pauseCollection();
+    // // Logger::pauseCollection();
     callGC();
     return finwire;
 }
@@ -240,13 +243,13 @@ AFDataFrame loadStagingProspect(char const *directory) {
     strcpy(file, directory);
     strcat(file, "Prospect.csv");
     AFDataFrame frame;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Staging Prospect Load");
+    // Logger::startTask("Staging Prospect Load");
     AFParser parser(file, ',', false);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Staging Prospect Parse");
+    // Logger::startTask("Staging Prospect Parse");
     for (int i = 0;  i < 12; ++i) frame.add(parser.parse<char*>(i));
 
     frame.add(parser.parse<unsigned long long>(12));
@@ -261,9 +264,9 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
     frame.add(parser.parse<unsigned char>(20));
     frame.add(parser.parse<unsigned long long>(21));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     nameStagingProspect(frame);
     callGC();
     return frame;
@@ -271,17 +274,17 @@ AFDataFrame loadStagingProspect(char const *directory) {
 
 AFDataFrame loadStagingCustomer(char const* directory) {
     AFDataFrame frame;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Flattening XML");
+    // Logger::startTask("Flattening XML");
     std::string data = Utils::flattenCustomerMgmt(directory);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Customer Load");
+    // Logger::startTask("Customer Load");
     AFParser parser(data, '|', false);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Customer Parse");
+    // Logger::startTask("Customer Parse");
     frame.add(parser.parse<char*>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<unsigned long long>(2));
@@ -297,7 +300,7 @@ AFDataFrame loadStagingCustomer(char const* directory) {
     frame.add(parser.parse<unsigned short>(33));
     frame.add(parser.parse<unsigned long long>(34));
     frame.add(parser.parse<char*>(35));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
     callGC();
     nameStagingProspect(frame);
@@ -309,21 +312,21 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     strcpy(file, directory);
     strcat(file, "HR.csv");
     AFDataFrame dimBroker;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("HR Load");
+    // Logger::startTask("HR Load");
     AFParser parser(file, ',');
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("HR Parse");
+    // Logger::startTask("HR Parse");
     dimBroker.add(parser.parse<unsigned int>(0));
     dimBroker.add(parser.parse<unsigned int>(1));
     for (int i = 2;  i <= 7; ++i) dimBroker.add(parser.parse<char*>(i));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Broker Select");
+    // Logger::startTask("Broker Select");
     dimBroker = dimBroker.select(dimBroker(5) == "314", "DimBroker");
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
     dimBroker.remove(5);
     auto length = dimBroker.rows();
@@ -334,7 +337,7 @@ AFDataFrame loadDimBroker(char const* directory, AFDataFrame& dimDate) {
     auto date = dimDate(1)(af::span, 0);
     dimBroker.add(Column(tile(date, dim4(1, length)), DATE));
     dimBroker.add(Utils::endDate(length));
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return dimBroker;
 }
@@ -344,20 +347,21 @@ AFDataFrame loadStagingCashBalances(char const* directory) {
     strcpy(file, directory);
     strcat(file, "CashTransaction.txt");
     AFDataFrame frame;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Cash Load");
+    // Logger::startTask("Cash Load");
     AFParser parser(file, '|', false);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Cash Parse");
+    // Logger::startTask("Cash Parse");
+    
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<double>(2));
     frame.add(parser.parse<char*>(3));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return frame;
 }
@@ -367,34 +371,35 @@ AFDataFrame loadStagingWatches(char const* directory) {
     strcpy(file, directory);
     strcat(file, "WatchHistory.txt");
     AFDataFrame frame;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Watch Load");
+    // Logger::startTask("Watch Load");
     AFParser parser(file, '|', false);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Watch Parse");
+    // Logger::startTask("Watch Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.parse<char*>(1));
     frame.add(parser.asDateTime(2, YYYYMMDD));
     frame.add(parser.parse<char*>(3));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return frame;
 }
 
 AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("DimCompany Industry Join");
+    // Logger::startTask("DimCompany Industry Join");
     auto dimCompany = s_Company.equiJoin(industry,5,0);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("DimCompany Status Join");
+    // Logger::startTask("DimCompany Status Join");
     dimCompany = dimCompany.equiJoin(statusType,4,0);
-    Logger::endLastTask();
+    // Logger::endLastTask();
+
     dimCompany = dimCompany.project(
             { "CIK","StatusType.ST_NAME","COMPANY_NAME", "Industry.IN_NAME","SP_RATING",
               "CEO_NAME", "ADDR_LINE_1","ADDR_LINE_2", "POSTAL_CODE","CITY","STATE_PROVINCE",
@@ -407,12 +412,12 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
     dimCompany.insert(Column(constant(1, dim4(1, dimCompany.rows()), u32)), dimCompany.columns() - 1, "BatchID");
     dimCompany.add(Utils::endDate(dimCompany.rows()), "EndDate");
 
-    Logger::startTask("DimCompany LowGrade Addition");
+    // Logger::startTask("DimCompany LowGrade Addition");
     dimCompany.insert(Column(dimCompany("SP_RATING").left(1) != "A" && dimCompany("SP_RATING").left(3) != "BBB", BOOL), 6, "isLowGrade");
-    Logger::endLastTask();
+    // Logger::endLastTask();
     nameDimCompany(dimCompany);
 
-    Logger::startTask("DimCompany Update EndDate");
+    // Logger::startTask("DimCompany Update EndDate");
     auto s0 = dimCompany.project({ "SK_CompanyID", "CompanyID", "EffectiveDate"}, "S0");
     s0.sortBy({ "CompanyID", "EffectiveDate" });
 
@@ -433,44 +438,44 @@ AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFData
 
     s0 = s0.zip(end_date);
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
-    Logger::startTask("DimCompany EndDate ID");
+    // Logger::startTask("DimCompany EndDate ID");
     auto out = AFDataFrame::hashCompare(dimCompany("SK_CompanyID").data(), s0("SK_CompanyID").data());
     dimCompany("IsCurrent")(out.first) = 0;
     dimCompany("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
-    Logger::endLastTask();
-    Logger::endLastTask();
+    // Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return dimCompany;
 }
 
 AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompany) {
     AFDataFrame financial;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Financial CIK Trim");
+    // Logger::startTask("Financial CIK Trim");
     auto cik = s_Financial("CO_NAME_OR_CIK").left(1) == "0";
-    Logger::endLastTask();
-    Logger::startTask("Financial CIK Select And Cast");
+    // Logger::endLastTask();
+    // Logger::startTask("Financial CIK Select And Cast");
     auto fin1 = s_Financial.select(cik);
     fin1("CO_NAME_OR_CIK").cast<unsigned long long>();
-    Logger::endLastTask();
-    Logger::startTask("Financial CIK Join");
+    // Logger::endLastTask();
+    // Logger::startTask("Financial CIK Join");
     financial = fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "CompanyID", "EffectiveDate", "EndDate"}, "DC"),
             "CO_NAME_OR_CIK", "CompanyID");
-    Logger::endLastTask();
+    // Logger::endLastTask();
     financial.remove("CO_NAME_OR_CIK");
 
-    Logger::startTask("Financial Name Select");
+    // Logger::startTask("Financial Name Select");
     fin1 = s_Financial.select(!cik);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Financial Name Join");
+    // Logger::startTask("Financial Name Join");
     fin1 = fin1.equiJoin(
             dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"), "CO_NAME_OR_CIK", "Name");
-    Logger::endLastTask();
+    // Logger::endLastTask();
     fin1.remove("CO_NAME_OR_CIK");
 
     if (!fin1.isEmpty()) financial = financial.unionize(std::move(fin1));
@@ -486,7 +491,7 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
     financial = financial.project({ "DC.SK_CompanyID", "YEAR", "QUARTER", "QTR_START_DATE","REVENUE", "EARNINGS",
                                    "EPS", "DILUTED_EPS","MARGIN","INVENTORY","ASSETS","LIABILITIES","SH_OUT",
                                    "DILUTED_SH_OUT" }, "Financial");
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     // Renames columns
     nameFinancial(financial);
 
@@ -496,13 +501,13 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
 
 AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, AFDataFrame &StatusType) {
     AFDataFrame security;
-    Logger::startCollection();
+    // Logger::startCollection();
     {
-        Logger::startTask("Financial CIK Trim");
+        // Logger::startTask("Financial CIK Trim");
         auto cik = s_Security("CO_NAME_OR_CIK").left(1) == "0";
-        Logger::endLastTask();
+        // Logger::endLastTask();
 
-        Logger::startTask("DimSecurity CIK Join");
+        // Logger::startTask("DimSecurity CIK Join");
         auto part1 = s_Security.select(cik);
         part1("CO_NAME_OR_CIK").cast<unsigned long long>();
         part1 = part1.equiJoin(
@@ -515,8 +520,8 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
                 part1("DC.EffectiveDate") <= part1("EffectiveDate") &&
                 part1("DC.EndDate") > part1("EffectiveDate"));
         part1.remove("CO_NAME_OR_CIK");
-        Logger::endLastTask();
-        Logger::startTask("DimSecurity Name Join");
+        // Logger::endLastTask();
+        // Logger::startTask("DimSecurity Name Join");
         auto part2 = s_Security.select(!cik);
         part2 = part2.equiJoin(
                 dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"),
@@ -532,14 +537,14 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
         
         security = part1.unionize(part2);
 
-        Logger::endLastTask();
+        // Logger::endLastTask();
     }
-    Logger::startTask("DimSecurity Status Join");
+    // Logger::startTask("DimSecurity Status Join");
 
     security = security.equiJoin(StatusType, "STATUS", "ST_ID").project(
             {"SYMBOL","ISSUE_TYPE", "StatusType.ST_NAME" ,"NAME","EX_ID", "DC.SK_CompanyID",
              "SH_OUT", "FIRST_TRADE_DATE","FIRST_TRADE_EXCHANGE","DIVIDEND", "EffectiveDate" }, "DimSecurity");
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
     auto length = security.rows();
     security.insert(Column(range(dim4(1, length), 1, u64)), 0, "SK_SecurityID");
@@ -549,7 +554,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
 
     nameDimSecurity(security);
 
-    Logger::startTask("DimSecurity Update EndDate");
+    // Logger::startTask("DimSecurity Update EndDate");
     auto s0 = security.project({ "SK_SecurityID", "Symbol", "EffectiveDate"}, "S0");
     s0.sortBy({"Symbol", "EffectiveDate"});
 
@@ -573,14 +578,14 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
     s0 = s0.zip(std::move(end_date));
 
     s0.nameColumn("EndDate", "EndDate.EffectiveDate");
-    Logger::startTask("DimSecurity EndDate ID");
+    // Logger::startTask("DimSecurity EndDate ID");
     auto out = AFDataFrame::hashCompare(security("SK_SecurityID"), s0("SK_SecurityID"));
     security("IsCurrent")(out.first) = 0;
     security("EndDate")(span, out.first) = (array) s0("EndDate")(span, out.second);
-    Logger::endLastTask();
-    Logger::endLastTask();
+    // Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return security;
 }
@@ -589,8 +594,8 @@ Column inline marketingNameplate(array const &networth, array const &income, arr
                          array const &age, array const &credit, array const &cars) {
     array val(12, 6, "+HighValue\0\0+Expenses\0\0\0+Boomer\0\0\0\0\0+MoneyAlert\0+Spender\0\0\0\0+Inherited\0\0");
     val = val.as(u8);
-    Logger::startCollection();
-    Logger::startTask("Marketing Nameplate Column");
+    // Logger::startCollection();
+    // Logger::startTask("Marketing Nameplate Column");
     auto idx = constant(0, 6, networth.dims(1), b8);
     idx(0, networth > 1000000 || income > 200000) = 1;
     idx(1, cards > 5 || children > 3) = 1;
@@ -616,9 +621,9 @@ Column inline marketingNameplate(array const &networth, array const &income, arr
     out(55, span) = '\n';
     out = out(out > 0);
     out(out == '\n') = 0;
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return Column(out, STRING);
 }
@@ -650,13 +655,13 @@ AFDataFrame loadStagingTrade(char const* directory) {
     strcpy(file, directory);
     strcat(file, "Trade.txt");
     AFDataFrame frame;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Trade Load");
+    // Logger::startTask("Trade Load");
     AFParser parser(file, '|', false);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Trade Parse");
+    // Logger::startTask("Trade Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<char*>(2));
@@ -672,9 +677,9 @@ AFDataFrame loadStagingTrade(char const* directory) {
     frame.add(parser.parse<double>(11));
     frame.add(parser.parse<double>(12));
     frame.add(parser.parse<double>(13));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return frame;
 }
@@ -684,19 +689,19 @@ AFDataFrame loadStagingTradeHistory(char const* directory) {
     strcpy(file, directory);
     strcat(file, "TradeHistory.txt");
     AFDataFrame frame;
-    Logger::startCollection();
+    // Logger::startCollection();
 
-    Logger::startTask("Trade History Load");
+    // Logger::startTask("Trade History Load");
     AFParser parser(file, '|', false);
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::startTask("Trade History Parse");
+    // Logger::startTask("Trade History Parse");
     frame.add(parser.parse<unsigned long long>(0));
     frame.add(parser.asDateTime(1, YYYYMMDD));
     frame.add(parser.parse<char*>(2));
-    Logger::endLastTask();
+    // Logger::endLastTask();
 
-    Logger::pauseCollection();
+    // Logger::pauseCollection();
     callGC();
     return frame;
 }

@@ -1,5 +1,5 @@
 #ifdef USING_OPENCL
-
+#include "Logger.h"
 #include "Kernels.h"
 #include "AFTypes.h"
 #include "Utils.h"
@@ -144,6 +144,7 @@ static std::pair<size_t, size_t> blockFinder(ull const size) {
 
 void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull const bag_size, ull const set_size) {
     char msg[128];
+    Logger::startCollection();
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)result);
     cl_command_queue queue = create_queue(context);
@@ -189,10 +190,12 @@ void launchCrossIntersect(char *result, ull const *bag, ull const *set, ull cons
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
+    Logger::pauseCollection();
 }
 
 void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull const *ht_ptr, ull const *ht_occ,
                          unsigned int const buckets, ull const bag_size) {
+    Logger::startCollection();    
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)result);
@@ -236,10 +239,12 @@ void launchHashIntersect(char *result, ull const *bag, ull const *ht_val, ull co
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
+    Logger::pauseCollection();
 }
 
 void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull const *r_cnt, ull const *outpos,
                       ull *l, ull *r, ull const equals, ull const left_max, ull const right_max, ull const out_size) {
+    Logger::startCollection();
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)l_idx);
@@ -294,11 +299,12 @@ void lauchJoinScatter(ull const *l_idx, ull const *r_idx, ull const *l_cnt, ull 
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
-
+    Logger::pauseCollection();
 }
 
 void launchStringGather(unsigned char *output, ull const *idx, unsigned char const *input, ull const output_size,
                         ull const rows, ull const loops) {
+    Logger::startCollection();
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -308,7 +314,6 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
     cl_kernel kernel = create_kernel(program, "string_gather");
 
     cl_int err = CL_SUCCESS;
-    auto work_items = rows * loops;
     int arg = 0;
     // Set input parameters for the kernel
     err = clSetKernelArg(kernel, arg++, sizeof(cl_mem), &output);
@@ -342,10 +347,12 @@ void launchStringGather(unsigned char *output, ull const *idx, unsigned char con
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
+    Logger::pauseCollection();
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, unsigned long long const *l_idx,
                       unsigned long long const *r_idx, unsigned int const *mask, unsigned long long const rows) {
+    Logger::startCollection();
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -392,10 +399,12 @@ void launchStringComp(bool *output, unsigned char const *left, unsigned char con
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
+    Logger::pauseCollection();
 }
 
 void launchStringComp(bool *output, unsigned char const *left, unsigned char const *right, ull const *l_idx,
                       ull const rows, ull const loops) {
+    Logger::startCollection();
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -439,11 +448,12 @@ void launchStringComp(bool *output, unsigned char const *left, unsigned char con
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
-
+    Logger::pauseCollection();
 }
 
 template<typename T>
 void launchNumericParse(T *output, ull const * idx, unsigned char const *input, ull const rows) {
+    Logger::startCollection();
     char msg[128];
     // Get OpenCL context from memory buffer and create a Queue
     cl_context context = get_context((cl_mem)output);
@@ -487,6 +497,7 @@ void launchNumericParse(T *output, ull const * idx, unsigned char const *input, 
         sprintf(msg, "OpenCL Error(%d): Kernel failed to finish\n", err);
         throw std::runtime_error(msg);
     }
+    Logger::pauseCollection();
 }
 
 #define PARSER(TYPE) \

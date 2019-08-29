@@ -21,7 +21,7 @@ __kernel void hash_intersect(__global char *result, __global ulong const *bag, _
 
         char out = 0;
         for (uint i = 0; i < len; ++i) {
-            out |= (ht_val[ptr + i] == val);
+            out = out || (ht_val[ptr + i] == val);
         }
         result[id] = out;
     }
@@ -72,7 +72,7 @@ __kernel void str_cmp(__global bool *output, __global uchar const *left, __globa
 
         bool out = 1;
         for (int j = 0; j < l_len; ++j) {
-            out &= left[l_start + j] == right[r_start + j];
+            out = out && left[l_start + j] == right[r_start + j];
         }
         output[i] = out;
     }

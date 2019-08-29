@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 if (USING_CUDA)
     project(ArrayFire-TPCDI LANGUAGES CXX CUDA)
-    set(CMAKE_CUDA_FLAGS -arch=sm_61)
+    set(CMAKE_CUDA_FLAGS "-Xptxas -dlcm=ca -arch=sm_61")
     add_definitions( -DUSING_CUDA )
     message(${CMAKE_CUDA_COMPILER})
 else()

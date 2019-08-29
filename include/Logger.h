@@ -14,11 +14,9 @@
 namespace Logger {
     static std::unordered_map<std::string, std::vector<double>> _times;
     static std::unordered_map<std::string, af::timer> _timers;
-
-
-    inline std::string& directory(std::string const &dir = nullptr) {
+    inline std::string& directory(std::string const &dir = "") {
         static std::string directory;
-        directory = dir;
+        if (!dir.empty()) directory = dir;
         return directory;
     }
 
@@ -26,7 +24,7 @@ namespace Logger {
 
     void logTime(std::string const &name = "main", bool show = true);
 
-    void sendToCSV(int scale);
+    void sendToCSV(int const scale);
 
     #ifdef ENABLE_ITT
     static __itt_domain* _domain = __itt_domain_create("AF_tpcdi");
@@ -60,6 +58,7 @@ namespace Logger {
         __itt_task_end(_domain);
         #endif
     }
+    
 };
 
 #endif //ARRAYFIRE_TPCDI_LOGGER_H

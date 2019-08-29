@@ -25,7 +25,7 @@ void Logger::sendToCSV(int const scale) {
     std::stringstream ss;
     auto info = std::string(af::infoString());
     std::replace(info.begin(), info.end(), ',', ' ');
-    ss << info;
+    ss << "Device Info" << ',' << info;
     char g[256];
     do { ss.getline(g,256); } while(g[0] != '[');
     ss.str(std::string());
@@ -49,6 +49,7 @@ void Logger::sendToCSV(int const scale) {
             }
         }
     }
+
     std::ofstream file(directory() + "result.csv", std::ios_base::app);
     file << ss.str();
     file.close();
