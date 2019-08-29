@@ -63,12 +63,9 @@ int main(int argc, char *argv[]) {
     
         af::deviceGC();
         Logger::startTimer();
-        //    fullBenchmark();
-        //        AFParser p("/home/jw5514/str_gather.csv",',', false);
-        //p.parse<char*>(0);
-        //        p.parse<char*>(1);
-        //        FinWire();
+        fullBenchmark();
         Logger::logTime();
+        Logger::sendToCSV(scale);
         //    }
     
     return 0;
