@@ -30,7 +30,6 @@ void AFHashTable::_generate() {
     using namespace Utils;
     _values.eval();
     _buckets = _getPrime(_values.elements());
-
     _occ = constant(0, af::dim4(1, _buckets), _occ.type());
     auto keys = (_values % _buckets).as(u64);
     af::sort(keys, _values, keys, _values, 1);

@@ -63,9 +63,9 @@ int main(int argc, char *argv[]) {
     
     af::deviceGC();
     Logger::startTimer();
-    fullBenchmark();
+    FinWire();
     Logger::logTime();
-    Logger::sendToCSV(scale);
+//    Logger::sendToCSV(scale);
         //    }
     
     return 0;
@@ -123,7 +123,7 @@ void fullBenchmark() {
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(std::move(finwire.company), industry, statusType);
     industry.flushToHost();
     
     print("Financial");
@@ -159,7 +159,7 @@ void DimCompany() {
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(std::move(finwire.company), industry, statusType);
     industry.flushToHost();
     statusType.flushToHost();
     dimDate.flushToHost();
@@ -180,7 +180,7 @@ void DimSecurity() {
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(std::move(finwire.company), industry, statusType);
     industry.flushToHost();
     dimDate.flushToHost();
     finwire.financial.clear();
@@ -204,7 +204,7 @@ void Financial() {
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(std::move(finwire.company), industry, statusType);
     industry.flushToHost();
     statusType.flushToHost();
     dimDate.flushToHost();
@@ -223,10 +223,6 @@ void DimBroker() {
 }
 
 void FinWire() {
-    auto batchDate = loadBatchDate(DIR::DIRECTORY.c_str());
-    print("DimDate");
-    auto dimDate = loadDimDate(DIR::DIRECTORY.c_str());
-
     print("Industry");
     auto industry = loadIndustry(DIR::DIRECTORY.c_str());
 
@@ -237,18 +233,21 @@ void FinWire() {
     auto finwire = loadStagingFinwire(DIR::DIRECTORY.c_str());
 
     print("DimCompany");
-    auto dimCompany = loadDimCompany(finwire.company, industry, statusType, dimDate);
+    auto dimCompany = loadDimCompany(std::move(finwire.company), industry, statusType);
+    print(dimCompany.rows());
     industry.flushToHost();
     finwire.company.clear();
 
     print("DimSecurity");
     auto dimSecurity = loadDimSecurity(std::move(finwire.security), dimCompany, statusType);
+    print(dimSecurity.rows());
     dimSecurity.flushToHost();
     statusType.flushToHost();
     finwire.security.clear();
 
     print("Financial");
     auto financial = loadFinancial(std::move(finwire.financial), dimCompany);
+    print(financial.rows());
     financial.flushToHost();
     finwire.clear();
 

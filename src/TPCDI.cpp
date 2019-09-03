@@ -426,7 +426,7 @@ AFDataFrame loadStagingWatches(char const* directory) {
     return frame;
 }
 
-AFDataFrame loadDimCompany(AFDataFrame& s_Company, AFDataFrame& industry, AFDataFrame& statusType, AFDataFrame& dimDate) {
+AFDataFrame loadDimCompany(AFDataFrame &&s_Company, AFDataFrame &industry, AFDataFrame &statusType) {
     // Logger::startCollection();
     Logger::startTimer("DimCompany");
     // Logger::startTask("DimCompany Industry Join");
@@ -507,6 +507,7 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
             "CO_NAME_OR_CIK", "CompanyID");
     // Logger::endLastTask();
     financial.remove("CO_NAME_OR_CIK");
+    financial.remove("DC.CompanyID");
 
     // Logger::startTask("Financial Name Select");
     fin1 = s_Financial.select(!cik);
@@ -517,6 +518,7 @@ AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompa
             dimCompany.project({"SK_CompanyID", "Name", "EffectiveDate", "EndDate"}, "DC"), "CO_NAME_OR_CIK", "Name");
     // Logger::endLastTask();
     fin1.remove("CO_NAME_OR_CIK");
+    fin1.remove("DC.Name");
 
     if (!fin1.isEmpty()) financial = financial.unionize(std::move(fin1));
     af::sync();
@@ -562,6 +564,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
                 part1("DC.EffectiveDate") <= part1("EffectiveDate") &&
                 part1("DC.EndDate") > part1("EffectiveDate"));
         part1.remove("CO_NAME_OR_CIK");
+        part1.remove("DC.CompanyID");
         // Logger::endLastTask();
         // Logger::startTask("DimSecurity Name Join");
         auto part2 = s_Security.select(!cik);
@@ -570,6 +573,7 @@ AFDataFrame loadDimSecurity(AFDataFrame &&s_Security, AFDataFrame &dimCompany, A
                 "CO_NAME_OR_CIK",
                 "Name");
         part2.remove("CO_NAME_OR_CIK");
+        part2.remove("DC.Name");
 
         part2("PTS").toDate();
         part2.nameColumn("EffectiveDate", "PTS");

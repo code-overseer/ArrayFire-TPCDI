@@ -78,7 +78,7 @@ AFDataFrame loadDimCustomer(Customer &s_Customer, AFDataFrame &taxRate, AFDataFr
 
 AFDataFrame loadDimAccount(Customer &stagingCustomer);
 
-AFDataFrame loadDimCompany(AFDataFrame &s_Company, AFDataFrame &industry, AFDataFrame &statusType, AFDataFrame &dimDate);
+AFDataFrame loadDimCompany(AFDataFrame &&s_Company, AFDataFrame &industry, AFDataFrame &statusType);
 
 AFDataFrame loadFinancial(AFDataFrame &&s_Financial, AFDataFrame const &dimCompany);
 
