@@ -294,18 +294,7 @@ AFDataFrame AFDataFrame::equiJoin(AFDataFrame const &rhs, int lhs_column, int rh
         idx.second = idx.second(keep);
     }
 
-    AFDataFrame result;
-    for (size_t i = 0; i < columns(); i++) {
-        result.add(_columns[i].select(idx.first), _colToName.at(i));
-    }
-
-    for (size_t i = 0; i < rhs.columns(); i++) {
-        if (i == rhs_column) continue;
-        result.add(rhs._columns[i].select(idx.second),
-                   (rhs.name() + "." + rhs._colToName.at(i)));
-    }
-
-    return result;
+    return select(idx.first).zip(rhs.select(idx.second));
 }
 
 std::pair<af::array, af::array> AFDataFrame::hashCompare(Column const &lhs, Column const &rhs) {
