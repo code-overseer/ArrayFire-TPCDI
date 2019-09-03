@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <utility>
 #include "Enums.h"
+#include "AFTypes.h"
 
 /* Wrapper for array to simplify access for different types (especially strings) */
 class Column {
@@ -13,6 +14,8 @@ class Column {
     af::array _idx = af::array(0, u64);
     void *_host = nullptr;
     unsigned long long *_host_idx = nullptr;
+    af::dim4 _dimension = af::dim4(0);
+    af::dim4 _idxDimension = af::dim4(0);
     DataType _type = STRING;
 
     af::array _fnv1a() const;
@@ -34,6 +37,7 @@ class Column {
     void _generateStringIndex();
 
     static std::unordered_map<af::dtype, DataType> _typeMap;
+
 public:
     Column(af::array const &data, DataType type);
 

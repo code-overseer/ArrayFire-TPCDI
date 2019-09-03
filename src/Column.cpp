@@ -210,11 +210,14 @@ Column Column::concatenate(Column const &bottom) const {
 
 void Column::toHost() {
     if (_device.bytes()) {
+        _dimension = _device.dims();
+        _afType = _device.type();
         auto tmp = malloc(_device.bytes());
         _device.host(tmp);
         _host = tmp;
     }
     if (_idx.bytes()) {
+        _idxDimension = _idx.dims();
         auto tmp = (decltype(_host_idx)) malloc(_idx.bytes());
         _idx.host(tmp);
         _host_idx = tmp;

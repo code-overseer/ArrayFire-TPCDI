@@ -399,7 +399,3 @@ void AFDataFrame::clear() {
     _colToName.clear();
     _nameToCol.clear();
 }
-
-
-
-

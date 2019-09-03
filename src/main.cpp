@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     int scale = 3;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i],"-f")) {           
-            DIR::DIRECTORY = (std::string("/home/jw5514/data/") + argv[++i] + std::string("/Batch1/"));
+            DIR::DIRECTORY = argv[++i];
             scale = (int)strtol(argv[i], nullptr, 10);
         } else if (!strcmp(argv[i],"-d")) {
             setDevice(std::stoi(argv[++i]));
@@ -61,11 +61,11 @@ int main(int argc, char *argv[]) {
     }
     //    for (int i = 0; i < 5; ++i) {
     
-        af::deviceGC();
-        Logger::startTimer();
-        fullBenchmark();
-        Logger::logTime();
-        Logger::sendToCSV(scale);
+    af::deviceGC();
+    Logger::startTimer();
+    fullBenchmark();
+    Logger::logTime();
+    Logger::sendToCSV(scale);
         //    }
     
     return 0;
