@@ -72,6 +72,7 @@ std::string Utils::collect(std::vector<std::string> const &files, bool const has
 }
 
 af::array Utils::where64(af::array const &input) {
+    if (input.bytes() < UINT32_MAX) return where(input).as(u64);
     auto b = flat(input > 0);
     auto output = b * range(b.dims(), 0, u64);
     return output(b);
@@ -209,5 +210,5 @@ void Utils::MemInfo() {
     size_t locked;
 
     deviceMemInfo(&alloc, nullptr, &locked, nullptr);
-    printf("Allocated: %zu \t Locked: %zu\n", alloc, locked);
+    printf("Allocated [MB]: %zu \t Locked [MB]: %zu\n", alloc>>20, locked>>20);
 }
